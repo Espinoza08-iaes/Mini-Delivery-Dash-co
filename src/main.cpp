@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Model.h"
+#include "engine/Model.h"
 
 const unsigned int width = 800;
 const unsigned int height = 800;
@@ -60,7 +60,7 @@ int main()
     glViewport(0, 0, width, height);
 
     // Generates Shader object using shaders default.vert and default.frag
-    Shader shaderProgram("default.vert", "default.frag");
+    Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
 
     // Take care of all the light related things
     glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);

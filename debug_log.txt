@@ -254,3 +254,82 @@ Material: 'tire_side', Vertices: 11520, TexturePath: 'res/Modelos3d/textures/tir
 Material: 'windo_F', Vertices: 234, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES
 Material: 'windo_R', Vertices: 228, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES
 Material: 'windo_S', Vertices: 378, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res\Modelos3d\source\McLaren F1 1993 By Alex.Ka\McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Starting OBJ parse...
+Total material groups: 59
+Material: 'F1_front_plastic', Vertices: 1782, TexturePath: '', Exists: NO
+Material: 'F1_nip_logo', Vertices: 1848, TexturePath: '', Exists: NO
+Material: 'F1_red_F', Vertices: 84, TexturePath: '', Exists: NO
+Material: 'F1_red_R', Vertices: 75, TexturePath: '', Exists: NO
+Material: 'F1_side', Vertices: 126, TexturePath: 'res/Modelos3d/textures/McLaren F1 side.png', Exists: YES
+Material: 'McLAREN_RED_LINE', Vertices: 144, TexturePath: '', Exists: NO
+Material: 'McLAREN_sidelogo', Vertices: 16029, TexturePath: 'res/Modelos3d/textures/McLaren F1 side.png', Exists: YES
+Material: 'McLAREN_sidelogo_FBUMPER', Vertices: 2382, TexturePath: 'res/Modelos3d/textures/McLaren F1 side.png', Exists: YES
+Material: 'McLaren_F1_1993_By_Alex_Ka_', Vertices: 15552, TexturePath: 'res/Modelos3d/textures/McLAREN_F1.png', Exists: YES
+Material: 'McLaren_logo', Vertices: 42, TexturePath: '', Exists: NO
+Material: 'McLaren_supportlogo', Vertices: 120, TexturePath: 'res/Modelos3d/textures/McLaren support logo.png', Exists: YES
+Material: '_', Vertices: 24, TexturePath: '', Exists: NO
+Material: 'black_aluminium', Vertices: 3360, TexturePath: '', Exists: NO
+Material: 'black_chrome', Vertices: 12066, TexturePath: '', Exists: NO
+Material: 'black_chrome2', Vertices: 312, TexturePath: '', Exists: NO
+Material: 'black_matte', Vertices: 8511, TexturePath: '', Exists: NO
+Material: 'black_plastic', Vertices: 28659, TexturePath: '', Exists: NO
+Material: 'bottom', Vertices: 270, TexturePath: 'res/Modelos3d/textures/bottom.jpeg', Exists: YES
+Material: 'brakedisk', Vertices: 10752, TexturePath: '', Exists: NO
+Material: 'brakelight', Vertices: 2640, TexturePath: '', Exists: NO
+Material: 'bronze', Vertices: 342, TexturePath: '', Exists: NO
+Material: 'chrome', Vertices: 3720, TexturePath: '', Exists: NO
+Material: 'chrome2', Vertices: 5733, TexturePath: '', Exists: NO
+Material: 'door_stitch', Vertices: 120, TexturePath: 'res/Modelos3d/textures/stitch.png', Exists: YES
+Material: 'engine', Vertices: 693, TexturePath: 'res/Modelos3d/textures/engine.jpeg', Exists: YES
+Material: 'exhaust', Vertices: 5184, TexturePath: '', Exists: NO
+Material: 'exhaust_gold', Vertices: 864, TexturePath: '', Exists: NO
+Material: 'exhaust_hole', Vertices: 432, TexturePath: '', Exists: NO
+Material: 'exhaust_metal_circles', Vertices: 864, TexturePath: '', Exists: NO
+Material: 'floor', Vertices: 6, TexturePath: 'res/Modelos3d/textures/Floor Circle.png', Exists: YES
+Material: 'front_turn_signal', Vertices: 288, TexturePath: '', Exists: NO
+Material: 'fuel_clap', Vertices: 1080, TexturePath: '', Exists: NO
+Material: 'grill1', Vertices: 534, TexturePath: '', Exists: NO
+Material: 'grill2', Vertices: 105, TexturePath: '', Exists: NO
+Material: 'grill_3', Vertices: 114, TexturePath: '', Exists: NO
+Material: 'grill_f', Vertices: 60, TexturePath: '', Exists: NO
+Material: 'grill_side', Vertices: 48, TexturePath: '', Exists: NO
+Material: 'headlight_1', Vertices: 2160, TexturePath: '', Exists: NO
+Material: 'headlight_2', Vertices: 2160, TexturePath: '', Exists: NO
+Material: 'headlightglass', Vertices: 150, TexturePath: 'res/Modelos3d/textures/glass.png', Exists: YES
+Material: 'interior', Vertices: 3303, TexturePath: 'res/Modelos3d/textures/interior.jpeg', Exists: YES
+Material: 'mirrors', Vertices: 1320, TexturePath: '', Exists: NO
+Material: 'mt', Vertices: 72, TexturePath: '', Exists: NO
+Material: 'pl', Vertices: 6741, TexturePath: '', Exists: NO
+Material: 'plate_F', Vertices: 252, TexturePath: 'res/Modelos3d/textures/plate F.jpeg', Exists: YES
+Material: 'plate_R', Vertices: 144, TexturePath: 'res/Modelos3d/textures/plate R.jpeg', Exists: YES
+Material: 'rear_lamp', Vertices: 36, TexturePath: '', Exists: NO
+Material: 'rear_turn_signal', Vertices: 2640, TexturePath: '', Exists: NO
+Material: 'rim', Vertices: 36144, TexturePath: '', Exists: NO
+Material: 'rimbolt', Vertices: 3888, TexturePath: '', Exists: NO
+Material: 'rimlogo', Vertices: 432, TexturePath: '', Exists: NO
+Material: 'side_turn_signal', Vertices: 1008, TexturePath: '', Exists: NO
+Material: 'suport', Vertices: 23064, TexturePath: 'res/Modelos3d/textures/McLaren support logo.png', Exists: YES
+Material: 'tire', Vertices: 14400, TexturePath: 'res/Modelos3d/textures/tire.jpeg', Exists: YES
+Material: 'tire_side', Vertices: 11520, TexturePath: 'res/Modelos3d/textures/tire side.jpeg', Exists: YES
+Material: 'windo_F', Vertices: 234, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES
+Material: 'windo_R', Vertices: 228, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES
+Material: 'windo_S', Vertices: 378, TexturePath: 'res/Modelos3d/textures/windo.png', Exists: YES

@@ -24,11 +24,11 @@ set step=1
 REM =====  STEP 1: Verify source files =====
 echo [%step%/5] Verifying source files...
 set /A step+=1
-if not exist "main.cpp" (
+if not exist "src\main.cpp" (
     echo  ERROR: main.cpp not found!
     pause & exit /b 1
 )
-if not exist "glad_loader.c" (
+if not exist "src\glad_loader.c" (
     echo  ERROR: glad_loader.c not found!
     pause & exit /b 1
 )
@@ -77,11 +77,12 @@ set /A step+=1
 echo.
 
 g++.exe -std=c++11 -fdiagnostics-color=always -g ^
+  "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\src\engine" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include\SOIL2" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include\glm" ^
-  "main.cpp" "Mesh.cpp" "Model.cpp" "Texture.cpp" "glad_loader.c" ^
+  "src\main.cpp" "src\engine\Mesh.cpp" "src\engine\Model.cpp" "src\engine\Texture.cpp" "src\glad_loader.c" ^
   -o "main.exe" ^
   "-Lc:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\lib" ^
   -lsoil2 -lglfw3 -lglew32s -lopengl32 -lgdi32 -luser32

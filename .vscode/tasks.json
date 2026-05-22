@@ -9,14 +9,15 @@
                 "-fdiagnostics-color=always",
                 "-g",
                 "-I${workspaceFolder}",
+                "-I${workspaceFolder}/src/engine",
                 "-I${workspaceFolder}/Dependencies/include",
                 "-I${workspaceFolder}/Dependencies/include/SOIL2",
                 "-I${workspaceFolder}/Dependencies/include/glm",
-                "${workspaceFolder}/main.cpp",
-                "${workspaceFolder}/Mesh.cpp",
-                "${workspaceFolder}/Model.cpp",
-                "${workspaceFolder}/Texture.cpp",
-                "${workspaceFolder}/glad_loader.c",
+                "${workspaceFolder}/src/main.cpp",
+                "${workspaceFolder}/src/engine/Mesh.cpp",
+                "${workspaceFolder}/src/engine/Model.cpp",
+                "${workspaceFolder}/src/engine/Texture.cpp",
+                "${workspaceFolder}/src/glad_loader.c",
                 "-o",
                 "${workspaceFolder}\\main.exe",
                 "-L${workspaceFolder}/Dependencies/lib",
@@ -28,7 +29,7 @@
                 "-luser32"
             ],
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [],
             "group": {

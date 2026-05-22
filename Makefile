@@ -1,11 +1,11 @@
 CXX = g++
 CC = gcc
 TARGET = main.exe
-SRC = main.cpp Mesh.cpp Model.cpp Texture.cpp
-LOADER = glad_loader.c
-LOADER_OBJ = glad_loader.o
+SRC = src/main.cpp src/engine/Mesh.cpp src/engine/Model.cpp src/engine/Texture.cpp
+LOADER = src/glad_loader.c
+LOADER_OBJ = src/glad_loader.o
 
-INCLUDES = -IDependencies/include -IDependencies/include/SOIL2 -IDependencies/include/glm
+INCLUDES = -Isrc/engine -IDependencies/include -IDependencies/include/SOIL2 -IDependencies/include/glm
 LIBDIRS = -LDependencies/lib
 LIBS = -lsoil2 -lglfw3 -lglew32s -lopengl32 -lgdi32 -luser32
 CXXFLAGS = -std=c++11 -O2 -Wall $(INCLUDES)
@@ -20,8 +20,8 @@ copy_libs:
 $(LOADER_OBJ): $(LOADER)
 	$(CC) $(CFLAGS) -c $(LOADER) -o $(LOADER_OBJ)
 
-$(TARGET): $(SRC) Camera.h Shader.h Mesh.h Model.h Texture.h VAO.h VBO.h EBO.h Vertex.h $(LOADER_OBJ)
+$(TARGET): $(SRC) $(LOADER_OBJ)
 	$(CXX) $(CXXFLAGS) $(SRC) $(LOADER_OBJ) -o $(TARGET) $(LIBDIRS) $(LIBS)
 
 clean:
-	del /Q $(TARGET) $(LOADER_OBJ) 2>NUL || exit 0
+	del /Q $(TARGET) src\glad_loader.o 2>NUL || exit 0
