@@ -37,6 +37,7 @@ private:
 
     // Loads a single mesh by its index
     void loadMesh(unsigned int indMesh);
+    void loadAssimp(const std::string& filePath);
     void loadObj(const std::string& filePath);
 
     // Traverses a node recursively, so it essentially traverses all connected nodes

@@ -76,16 +76,18 @@ echo [%step%/5] Compiling Lab8...
 set /A step+=1
 echo.
 
-g++.exe -std=c++11 -fdiagnostics-color=always -g ^
+g++.exe -std=c++11 -O3 -fdiagnostics-color=always -g ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\src\engine" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include\SOIL2" ^
   "-Ic:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\include\glm" ^
-  "src\main.cpp" "src\engine\Mesh.cpp" "src\engine\Model.cpp" "src\engine\Texture.cpp" "src\glad_loader.c" ^
+    "src\main.cpp" "src\game\Game.cpp" "src\engine\Mesh.cpp" "src\engine\Model.cpp" "src\engine\Texture.cpp" "src\glad_loader.c" ^
   -o "main.exe" ^
   "-Lc:\Universidad\QuintoSemestre\Programacion Grafica\Lab8\Dependencies\lib" ^
-  -lsoil2 -lglfw3 -lglew32s -lopengl32 -lgdi32 -luser32
+    -lassimp -lsoil2 -lglfw3 -lglew32s -lopengl32 -lgdi32 -luser32
+
+if exist "C:\msys64\ucrt64\bin\libassimp-6.dll" copy "C:\msys64\ucrt64\bin\libassimp-6.dll" "libassimp-6.dll" >nul 2>&1
 
 if %errorlevel% neq 0 (
     echo.

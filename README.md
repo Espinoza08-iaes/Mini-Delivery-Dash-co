@@ -1,104 +1,78 @@
-# Lab7 - SOIL2 Graphics Project
+# Mini Delivery Dash Co.
 
-## Quick Start
+## Overview
 
-Simply run this file to compile and run the project:
+This repository contains a C++11/OpenGL 3.3 game prototype built as a modular 3D rendering project. The codebase is organized as a lightweight engine layer plus a gameplay layer, with separate folders for assets, models, shaders, and runtime dependencies.
+
+The current architecture focuses on:
+- real-time rendering with GLFW, GLEW, and GLM
+- model importing through Assimp
+- texture loading through SOIL2-based helpers
+- a minimal application bootstrap in `src/main.cpp`
+- gameplay scaffolding in `src/game`, `src/core`, `src/entities`, and `src/scene`
+
+## Build
+
+Recommended build script:
+
+```bat
+MASTER_BUILD.bat
 ```
-BUILD.bat
+
+Alternative build path:
+
+```bash
+make
 ```
 
-This script will:
-1. Set up all necessary directories
-2. Copy SOIL2 headers and library
-3. Compile main.cpp with all dependencies
-4. Run the compiled executable
+Both paths use the local dependency layout under `Dependencies/` and generate `main.exe` in the project root.
 
-## Project Structure
+## Runtime Dependencies
 
-- **main.cpp** - Main graphics program
-- **Shader.h** - Shader management class
-- **Camera.h** - Camera control class
-- **Dependencies/** - All external libraries and headers
-  - **lib/** - Compiled libraries (libsoil2.a, libglfw3.a, etc.)
-  - **include/** - Header files
-    - **SOIL2/** - SOIL2 image loading library
-    - **glm/** - Mathematics library
-    - **glfw/** - Window and input library
-    - **glad/** - OpenGL loader
+- `Dependencies/include` for headers
+- `Dependencies/lib` for static/import libraries
+- `libassimp-6.dll` next to the executable for runtime loading
 
-- **SOIL2-master/** - SOIL2 source code
-  - **src/SOIL2/** - SOIL2 implementation files
-  - **build/libsoil2.a** - Compiled SOIL2 library
+Key third-party libraries:
+- OpenGL 3.3 core profile
+- GLFW3 for windowing and input
+- GLEW for OpenGL function loading
+- GLM for linear algebra
+- Assimp for mesh import
+- SOIL2 for image assets
 
-- **Textures/** - Texture files used by the program
-  - image.png
-  - image copy.png
-  - image copy 2.png
-  - etc.
+## Current Structure
 
-## Textures
+- `src/main.cpp` — application bootstrap
+- `src/game/Game.cpp` — game loop, window initialization, and scene startup
+- `src/engine/` — rendering and asset-loading layer
+  - `Model.cpp` / `Model.h` — mesh import and material handling
+  - `Mesh.cpp` / `Mesh.h` — mesh abstraction
+  - `Texture.cpp` / `Texture.h` — texture upload and lifecycle
+  - `Shader.h`, `Camera.h`, `VAO.h`, `VBO.h`, `EBO.h`, `Vertex.h`
+- `src/core/` — core data types such as transforms
+- `src/entities/` — entity-level gameplay primitives
+- `src/scene/` — scene composition and entity grouping
+- `res/models/` — imported 3D assets
+- `res/shaders/` — GLSL shader programs
+- `res/levels/`, `res/audio/`, `res/ui/`, `res/skyboxes/` — reserved content folders
 
-The program loads textures from the **Textures/** folder:
-- diffuseMap1: Textures/image.png
-- specularMap1: Textures/image copy.png
-- diffuseMap2: Textures/image copy 2.png
-- specularMap2: Textures/image copy 3.png
-- diffuseMap3: Textures/image copy 4.png
-- specularMap3: Textures/image copy 5.png
+## Asset Notes
 
-## Build Scripts
+The main vehicle asset is organized under `res/models/mclaren/` with separate `source/` and `textures/` subfolders. Shader assets are loaded from `res/shaders/`.
 
-### BUILD.bat (Recommended)
-Complete build script that handles everything:
-- Creates directories
-- Copies headers and libraries
-- Compiles the project
-- Runs the executable
+## Development Notes
 
-### build_soil2.bat
-Builds SOIL2 library from source if needed (requires CMake and MinGW Make)
-
-## Compilation Details
-
-The project uses:
-- **Compiler:** g++ (MinGW)
-- **C++ Standard:** C++11
-- **Libraries:**
-  - SOIL2 (image loading)
-  - GLFW3 (windowing)
-  - GLEW (OpenGL extensions)
-  - OpenGL 3.3 (graphics)
-  - GLM (mathematics)
+- The project is compiled with `-O3` for release-oriented builds.
+- Asset paths are expected to be relative to the executable working directory.
+- The codebase is being expanded from a rendering demo into a game-oriented architecture.
 
 ## Troubleshooting
 
-### "SOIL2 library not found"
-- Make sure SOIL2-master/build/libsoil2.a exists
-- If not, run build_soil2.bat first
-- Or manually compile SOIL2 using CMake
+- If the executable fails to start, verify that `libassimp-6.dll` is present beside `main.exe`.
+- If a model appears untextured, confirm the texture paths under `res/models/mclaren/textures/`.
+- If the build fails, confirm that the MSYS2 UCRT64 toolchain is installed and available in `PATH`.
 
-### "Cannot load texture"
-- Check that Textures/ folder exists with PNG files
-- Ensure texture filenames match those in main.cpp
-- Check Textures folder is in the same directory as main.exe
+## Status
 
-### Compilation errors
-- Ensure all dependencies are in Dependencies/include and Dependencies/lib
-- Check that g++ and gcc are installed and in PATH
-- Verify file paths use backslashes (\) on Windows
-
-## Customization
-
-To add more textures:
-1. Place image files in the Textures/ folder
-2. Modify main.cpp's loadTexture calls with new paths
-3. Rebuild with BUILD.bat
-
-## Features
-
-- Modern OpenGL 3.3 with core profile
-- SOIL2 image loading from PNG files
-- Multiple textures with diffuse and specular maps
-- Camera control system
-- Point and directional lighting
-- Texture-based material system
+This is an active game prototype, not a finished product. The current goal is to evolve the rendering base into a functional delivery-style game with structured gameplay systems.

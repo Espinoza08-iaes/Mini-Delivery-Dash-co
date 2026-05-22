@@ -6,6 +6,7 @@
             "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
             "args": [
                 "-std=c++11",
+                "-O3",
                 "-fdiagnostics-color=always",
                 "-g",
                 "-I${workspaceFolder}",
@@ -14,6 +15,7 @@
                 "-I${workspaceFolder}/Dependencies/include/SOIL2",
                 "-I${workspaceFolder}/Dependencies/include/glm",
                 "${workspaceFolder}/src/main.cpp",
+                "${workspaceFolder}/src/game/Game.cpp",
                 "${workspaceFolder}/src/engine/Mesh.cpp",
                 "${workspaceFolder}/src/engine/Model.cpp",
                 "${workspaceFolder}/src/engine/Texture.cpp",
@@ -21,6 +23,7 @@
                 "-o",
                 "${workspaceFolder}\\main.exe",
                 "-L${workspaceFolder}/Dependencies/lib",
+                "-lassimp",
                 "-lsoil2",
                 "-lglfw3",
                 "-lglew32s",

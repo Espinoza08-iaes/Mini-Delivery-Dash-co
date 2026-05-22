@@ -8,6 +8,11 @@
 #include <stdexcept>
 #include <map>
 
+#include <assimp/Importer.hpp>
+#include <assimp/material.h>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -139,6 +144,75 @@ glm::vec3 getMaterialColor(const std::string& matName)
     // Default to white for anything else
     return glm::vec3(1.0f, 1.0f, 1.0f);
 }
+
+bool materialUsesAlpha(const std::string& matName)
+{
+    return matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S" ||
+           matName == "headlightglass" ||
+           matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER" ||
+           matName == "suport" || matName == "McLaren_supportlogo" ||
+           matName == "door_stitch";
+}
+
+std::vector<Texture> buildTexturesForMaterial(const std::string& matName)
+{
+    std::string diffuseTex = "";
+    std::string specularTex = "";
+
+    if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/models/mclaren/textures/McLAREN_F1.png";
+    else if (matName == "tire") diffuseTex = "res/models/mclaren/textures/tire.jpeg";
+    else if (matName == "tire_side") diffuseTex = "res/models/mclaren/textures/tire side.jpeg";
+    else if (matName == "interior") diffuseTex = "res/models/mclaren/textures/interior.jpeg";
+    else if (matName == "plate_F") diffuseTex = "res/models/mclaren/textures/plate F.jpeg";
+    else if (matName == "plate_R") diffuseTex = "res/models/mclaren/textures/plate R.jpeg";
+    else if (matName == "engine") diffuseTex = "res/models/mclaren/textures/engine.jpeg";
+    else if (matName == "bottom") diffuseTex = "res/models/mclaren/textures/bottom.jpeg";
+    else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/models/mclaren/textures/McLaren F1 side.png";
+    else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/models/mclaren/textures/McLaren support logo.png";
+    else if (matName == "door_stitch") diffuseTex = "res/models/mclaren/textures/stitch.png";
+    else if (matName == "headlightglass") diffuseTex = "res/models/mclaren/textures/glass.png";
+    else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/models/mclaren/textures/windo.png";
+    else if (matName == "floor") diffuseTex = "res/models/mclaren/textures/Floor Circle.png";
+
+    if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/models/mclaren/textures/carshadow.png";
+
+    std::vector<Texture> textures;
+    bool hasDiffuse = false;
+    if (!diffuseTex.empty())
+    {
+        std::ifstream f(diffuseTex);
+        if (f.good())
+        {
+            textures.emplace_back(diffuseTex.c_str(), "diffuse", 0);
+            hasDiffuse = true;
+        }
+    }
+
+    if (!hasDiffuse)
+    {
+        unsigned char white[] = { 255, 255, 255, 255 };
+        textures.emplace_back(white, 1, 1, GL_RGBA, "diffuse", 0);
+    }
+
+    bool hasSpecular = false;
+    if (!specularTex.empty())
+    {
+        std::ifstream f(specularTex);
+        if (f.good())
+        {
+            textures.emplace_back(specularTex.c_str(), "specular", 1);
+            hasSpecular = true;
+        }
+    }
+
+    if (!hasSpecular)
+    {
+        unsigned char black[] = { 0, 0, 0, 255 };
+        textures.emplace_back(black, 1, 1, GL_RGBA, "specular", 1);
+    }
+
+    return textures;
+}
 } // namespace
 
 Model::Model(const char* file)
@@ -152,7 +226,7 @@ Model::Model(const char* file)
     Model::file = file;
     if (hasExtension(fileStr, ".obj"))
     {
-        loadObj(fileStr);
+        loadAssimp(fileStr);
         return;
     }
 
@@ -201,6 +275,114 @@ void Model::loadMesh(unsigned int indMesh)
     // Combine the vertices, indices, and textures into a mesh
     meshes.push_back(Mesh(vertices, indices, textures));
     meshesUseAlpha.push_back(false);
+}
+
+void Model::loadAssimp(const std::string& filePath)
+{
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(
+        filePath,
+        aiProcess_Triangulate |
+        aiProcess_GenSmoothNormals |
+        aiProcess_FlipUVs |
+        aiProcess_JoinIdenticalVertices |
+        aiProcess_ImproveCacheLocality
+    );
+
+    if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 || scene->mRootNode == nullptr)
+    {
+        throw std::runtime_error(std::string("Assimp failed to load model: ") + importer.GetErrorString());
+    }
+
+    std::string fileDirectory = getDirectory(filePath);
+
+    for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex)
+    {
+        aiMesh* mesh = scene->mMeshes[meshIndex];
+        std::vector<Vertex> vertices;
+        std::vector<GLuint> indices;
+
+        vertices.reserve(mesh->mNumVertices);
+        for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex)
+        {
+            Vertex vertex{};
+            vertex.position = glm::vec3(
+                mesh->mVertices[vertexIndex].x,
+                mesh->mVertices[vertexIndex].y,
+                mesh->mVertices[vertexIndex].z
+            );
+
+            if (mesh->HasNormals())
+            {
+                vertex.normal = glm::vec3(
+                    mesh->mNormals[vertexIndex].x,
+                    mesh->mNormals[vertexIndex].y,
+                    mesh->mNormals[vertexIndex].z
+                );
+            }
+            else
+            {
+                vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+            }
+
+            if (mesh->HasTextureCoords(0))
+            {
+                vertex.texUV = glm::vec2(
+                    mesh->mTextureCoords[0][vertexIndex].x,
+                    mesh->mTextureCoords[0][vertexIndex].y
+                );
+            }
+            else
+            {
+                vertex.texUV = glm::vec2(0.0f, 0.0f);
+            }
+
+            std::string materialName = "default";
+            if (scene->mMaterials != nullptr && mesh->mMaterialIndex < scene->mNumMaterials)
+            {
+                aiString matName;
+                if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
+                {
+                    materialName = matName.C_Str();
+                }
+            }
+
+            vertex.color = getMaterialColor(materialName);
+            vertices.push_back(vertex);
+        }
+
+        for (unsigned int faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex)
+        {
+            const aiFace& face = mesh->mFaces[faceIndex];
+            for (unsigned int i = 0; i < face.mNumIndices; ++i)
+            {
+                indices.push_back(face.mIndices[i]);
+            }
+        }
+
+        std::string materialName = "default";
+        if (scene->mMaterials != nullptr && mesh->mMaterialIndex < scene->mNumMaterials)
+        {
+            aiString matName;
+            if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
+            {
+                materialName = matName.C_Str();
+            }
+        }
+
+        std::vector<Texture> textures = buildTexturesForMaterial(materialName);
+
+        meshes.push_back(Mesh(vertices, indices, textures));
+        translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+        rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+        scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
+        matricesMeshes.push_back(glm::mat4(1.0f));
+        meshesUseAlpha.push_back(materialUsesAlpha(materialName));
+    }
+
+    std::ofstream logFile("debug_log.txt", std::ios::app);
+    logFile << "Assimp loaded meshes: " << scene->mNumMeshes << " from file: " << filePath << std::endl;
+    logFile.close();
 }
 
 void Model::loadObj(const std::string& filePath)
@@ -350,22 +532,22 @@ void Model::loadObj(const std::string& filePath)
         std::string diffuseTex = "";
         std::string specularTex = "";
 
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/Mclaren/textures/McLAREN_F1.png";
-        else if (matName == "tire") diffuseTex = "res/Modelos3d/Mclaren/textures/tire.jpeg";
-        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/Mclaren/textures/tire side.jpeg";
-        else if (matName == "interior") diffuseTex = "res/Modelos3d/Mclaren/textures/interior.jpeg";
-        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/Mclaren/textures/plate F.jpeg";
-        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/Mclaren/textures/plate R.jpeg";
-        else if (matName == "engine") diffuseTex = "res/Modelos3d/Mclaren/textures/engine.jpeg";
-        else if (matName == "bottom") diffuseTex = "res/Modelos3d/Mclaren/textures/bottom.jpeg";
-        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren F1 side.png";
-        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren support logo.png";
-        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/Mclaren/textures/stitch.png";
-        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/Mclaren/textures/glass.png";
-        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/Mclaren/textures/windo.png";
-        else if (matName == "floor") diffuseTex = "res/Modelos3d/Mclaren/textures/Floor Circle.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/models/mclaren/textures/McLAREN_F1.png";
+        else if (matName == "tire") diffuseTex = "res/models/mclaren/textures/tire.jpeg";
+        else if (matName == "tire_side") diffuseTex = "res/models/mclaren/textures/tire side.jpeg";
+        else if (matName == "interior") diffuseTex = "res/models/mclaren/textures/interior.jpeg";
+        else if (matName == "plate_F") diffuseTex = "res/models/mclaren/textures/plate F.jpeg";
+        else if (matName == "plate_R") diffuseTex = "res/models/mclaren/textures/plate R.jpeg";
+        else if (matName == "engine") diffuseTex = "res/models/mclaren/textures/engine.jpeg";
+        else if (matName == "bottom") diffuseTex = "res/models/mclaren/textures/bottom.jpeg";
+        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/models/mclaren/textures/McLaren F1 side.png";
+        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/models/mclaren/textures/McLaren support logo.png";
+        else if (matName == "door_stitch") diffuseTex = "res/models/mclaren/textures/stitch.png";
+        else if (matName == "headlightglass") diffuseTex = "res/models/mclaren/textures/glass.png";
+        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/models/mclaren/textures/windo.png";
+        else if (matName == "floor") diffuseTex = "res/models/mclaren/textures/Floor Circle.png";
 
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/Modelos3d/Mclaren/textures/carshadow.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/models/mclaren/textures/carshadow.png";
 
         std::vector<Texture> textures;
         bool hasDiffuse = false;
@@ -436,20 +618,20 @@ void Model::loadObj(const std::string& filePath)
         }
 
         std::string diffuseTex = "";
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/Mclaren/textures/McLAREN_F1.png";
-        else if (matName == "tire") diffuseTex = "res/Modelos3d/Mclaren/textures/tire.jpeg";
-        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/Mclaren/textures/tire side.jpeg";
-        else if (matName == "interior") diffuseTex = "res/Modelos3d/Mclaren/textures/interior.jpeg";
-        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/Mclaren/textures/plate F.jpeg";
-        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/Mclaren/textures/plate R.jpeg";
-        else if (matName == "engine") diffuseTex = "res/Modelos3d/Mclaren/textures/engine.jpeg";
-        else if (matName == "bottom") diffuseTex = "res/Modelos3d/Mclaren/textures/bottom.jpeg";
-        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren F1 side.png";
-        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren support logo.png";
-        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/Mclaren/textures/stitch.png";
-        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/Mclaren/textures/glass.png";
-        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/Mclaren/textures/windo.png";
-        else if (matName == "floor") diffuseTex = "res/Modelos3d/Mclaren/textures/Floor Circle.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/models/mclaren/textures/McLAREN_F1.png";
+        else if (matName == "tire") diffuseTex = "res/models/mclaren/textures/tire.jpeg";
+        else if (matName == "tire_side") diffuseTex = "res/models/mclaren/textures/tire side.jpeg";
+        else if (matName == "interior") diffuseTex = "res/models/mclaren/textures/interior.jpeg";
+        else if (matName == "plate_F") diffuseTex = "res/models/mclaren/textures/plate F.jpeg";
+        else if (matName == "plate_R") diffuseTex = "res/models/mclaren/textures/plate R.jpeg";
+        else if (matName == "engine") diffuseTex = "res/models/mclaren/textures/engine.jpeg";
+        else if (matName == "bottom") diffuseTex = "res/models/mclaren/textures/bottom.jpeg";
+        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/models/mclaren/textures/McLaren F1 side.png";
+        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/models/mclaren/textures/McLaren support logo.png";
+        else if (matName == "door_stitch") diffuseTex = "res/models/mclaren/textures/stitch.png";
+        else if (matName == "headlightglass") diffuseTex = "res/models/mclaren/textures/glass.png";
+        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/models/mclaren/textures/windo.png";
+        else if (matName == "floor") diffuseTex = "res/models/mclaren/textures/Floor Circle.png";
 
         bool hasDiffuse = false;
         if (!diffuseTex.empty())
@@ -750,3 +932,4 @@ std::vector<glm::vec4> Model::groupFloatsVec4(std::vector<float> floatVec)
     }
     return vectors;
 }
+
