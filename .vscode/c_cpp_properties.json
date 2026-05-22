@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
+            "intelliSenseMode": "windows-gcc-x64",
+            "cppStandard": "c++11",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/Dependencies/include",
+                "${workspaceFolder}/Dependencies/include/GL",
+                "${workspaceFolder}/Dependencies/include/GLFW",
+                "${workspaceFolder}/Dependencies/include/glad",
+                "${workspaceFolder}/Dependencies/include/SOIL2",
+                "${workspaceFolder}/Dependencies/include/glm"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/Dependencies/include"
+                ]
+            }
+        }
+    ],
+    "version": 4
+}

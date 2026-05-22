@@ -1,0 +1,42 @@
+{
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "C/C++: g++.exe compilar archivo activo",
+            "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
+            "args": [
+                "-std=c++11",
+                "-fdiagnostics-color=always",
+                "-g",
+                "-I${workspaceFolder}",
+                "-I${workspaceFolder}/Dependencies/include",
+                "-I${workspaceFolder}/Dependencies/include/SOIL2",
+                "-I${workspaceFolder}/Dependencies/include/glm",
+                "${workspaceFolder}/main.cpp",
+                "${workspaceFolder}/Mesh.cpp",
+                "${workspaceFolder}/Model.cpp",
+                "${workspaceFolder}/Texture.cpp",
+                "${workspaceFolder}/glad_loader.c",
+                "-o",
+                "${workspaceFolder}\\main.exe",
+                "-L${workspaceFolder}/Dependencies/lib",
+                "-lsoil2",
+                "-lglfw3",
+                "-lglew32s",
+                "-lopengl32",
+                "-lgdi32",
+                "-luser32"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Tarea generada por el depurador."
+        }
+    ],
+    "version": "2.0.0"
+}
