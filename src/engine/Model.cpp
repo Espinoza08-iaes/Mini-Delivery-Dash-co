@@ -350,22 +350,22 @@ void Model::loadObj(const std::string& filePath)
         std::string diffuseTex = "";
         std::string specularTex = "";
 
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/textures/McLAREN_F1.png";
-        else if (matName == "tire") diffuseTex = "res/Modelos3d/textures/tire.jpeg";
-        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/textures/tire side.jpeg";
-        else if (matName == "interior") diffuseTex = "res/Modelos3d/textures/interior.jpeg";
-        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/textures/plate F.jpeg";
-        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/textures/plate R.jpeg";
-        else if (matName == "engine") diffuseTex = "res/Modelos3d/textures/engine.jpeg";
-        else if (matName == "bottom") diffuseTex = "res/Modelos3d/textures/bottom.jpeg";
-        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/textures/McLaren F1 side.png";
-        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/textures/McLaren support logo.png";
-        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/textures/stitch.png";
-        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/textures/glass.png";
-        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/textures/windo.png";
-        else if (matName == "floor") diffuseTex = "res/Modelos3d/textures/Floor Circle.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/Mclaren/textures/McLAREN_F1.png";
+        else if (matName == "tire") diffuseTex = "res/Modelos3d/Mclaren/textures/tire.jpeg";
+        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/Mclaren/textures/tire side.jpeg";
+        else if (matName == "interior") diffuseTex = "res/Modelos3d/Mclaren/textures/interior.jpeg";
+        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/Mclaren/textures/plate F.jpeg";
+        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/Mclaren/textures/plate R.jpeg";
+        else if (matName == "engine") diffuseTex = "res/Modelos3d/Mclaren/textures/engine.jpeg";
+        else if (matName == "bottom") diffuseTex = "res/Modelos3d/Mclaren/textures/bottom.jpeg";
+        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren F1 side.png";
+        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren support logo.png";
+        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/Mclaren/textures/stitch.png";
+        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/Mclaren/textures/glass.png";
+        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/Mclaren/textures/windo.png";
+        else if (matName == "floor") diffuseTex = "res/Modelos3d/Mclaren/textures/Floor Circle.png";
 
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/Modelos3d/textures/carshadow.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/Modelos3d/Mclaren/textures/carshadow.png";
 
         std::vector<Texture> textures;
         bool hasDiffuse = false;
@@ -436,20 +436,20 @@ void Model::loadObj(const std::string& filePath)
         }
 
         std::string diffuseTex = "";
-        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/textures/McLAREN_F1.png";
-        else if (matName == "tire") diffuseTex = "res/Modelos3d/textures/tire.jpeg";
-        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/textures/tire side.jpeg";
-        else if (matName == "interior") diffuseTex = "res/Modelos3d/textures/interior.jpeg";
-        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/textures/plate F.jpeg";
-        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/textures/plate R.jpeg";
-        else if (matName == "engine") diffuseTex = "res/Modelos3d/textures/engine.jpeg";
-        else if (matName == "bottom") diffuseTex = "res/Modelos3d/textures/bottom.jpeg";
-        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/textures/McLaren F1 side.png";
-        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/textures/McLaren support logo.png";
-        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/textures/stitch.png";
-        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/textures/glass.png";
-        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/textures/windo.png";
-        else if (matName == "floor") diffuseTex = "res/Modelos3d/textures/Floor Circle.png";
+        if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/Modelos3d/Mclaren/textures/McLAREN_F1.png";
+        else if (matName == "tire") diffuseTex = "res/Modelos3d/Mclaren/textures/tire.jpeg";
+        else if (matName == "tire_side") diffuseTex = "res/Modelos3d/Mclaren/textures/tire side.jpeg";
+        else if (matName == "interior") diffuseTex = "res/Modelos3d/Mclaren/textures/interior.jpeg";
+        else if (matName == "plate_F") diffuseTex = "res/Modelos3d/Mclaren/textures/plate F.jpeg";
+        else if (matName == "plate_R") diffuseTex = "res/Modelos3d/Mclaren/textures/plate R.jpeg";
+        else if (matName == "engine") diffuseTex = "res/Modelos3d/Mclaren/textures/engine.jpeg";
+        else if (matName == "bottom") diffuseTex = "res/Modelos3d/Mclaren/textures/bottom.jpeg";
+        else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren F1 side.png";
+        else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/Modelos3d/Mclaren/textures/McLaren support logo.png";
+        else if (matName == "door_stitch") diffuseTex = "res/Modelos3d/Mclaren/textures/stitch.png";
+        else if (matName == "headlightglass") diffuseTex = "res/Modelos3d/Mclaren/textures/glass.png";
+        else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/Modelos3d/Mclaren/textures/windo.png";
+        else if (matName == "floor") diffuseTex = "res/Modelos3d/Mclaren/textures/Floor Circle.png";
 
         bool hasDiffuse = false;
         if (!diffuseTex.empty())
