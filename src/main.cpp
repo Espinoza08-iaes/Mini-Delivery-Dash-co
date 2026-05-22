@@ -83,7 +83,7 @@ int main()
     Camera camera(width, height, glm::vec3(0.0f, 0.5f, 2.0f));
 
     // Load in a model from res\Modelos3d
-    std::string modelPath = "res\\Modelos3d\\source\\McLaren F1 1993 By Alex.Ka\\McLaren F1 1993 by Alex.Ka..obj";
+    std::string modelPath = "res/Modelos3d/Mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj";
     Model model(modelPath.c_str());
 
     // Main while loop

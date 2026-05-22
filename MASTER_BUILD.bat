@@ -13,8 +13,8 @@ cls
 color 0A
 echo.
 echo ╔═══════════════════════════════════════════════════════════╗
-echo ║      Lab8 - Master Build Script                          ║
-echo ║      Carga de modelo glTF                               ║
+echo ║      Lab8 - Master Build Script                           ║
+echo ║      Carga de modelo glTF                                 ║
 echo ╚═══════════════════════════════════════════════════════════╝
 echo.
 
