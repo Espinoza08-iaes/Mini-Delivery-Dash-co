@@ -24,37 +24,13 @@ uniform vec3 camPos;
 // Controls whether to use texture alpha channel for transparency blending
 uniform bool uUseAlpha;
 
-vec4 pointLight()
-{
-    // used in two variables so I calculate it here to not have to do it twice
-    vec3 lightVec = lightPos - crntPos;
+// Emissive lighting for glowing parts
+uniform bool uIsEmissive;
+uniform vec3 uEmissiveColor;
 
-    // intensity of light with respect to distance
-    float dist = length(lightVec);
-    float a = 3.0;
-    float b = 0.7;
-    float inten = 1.0f / (a * dist * dist + b * dist + 1.0f);
-
-    // ambient lighting
-    float ambient = 0.20f;
-
-    // diffuse lighting
-    vec3 normal = normalize(Normal);
-    vec3 lightDirection = normalize(lightVec);
-    float diffuse = max(dot(normal, lightDirection), 0.0f);
-
-    // specular lighting
-    float specularLight = 0.50f;
-    vec3 viewDirection = normalize(camPos - crntPos);
-    vec3 reflectionDirection = reflect(-lightDirection, normal);
-    float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
-    float specular = specAmount * specularLight;
-
-    vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
-    float spec = texture(specular0, texCoord).r * specular * inten;
-    float outAlpha = uUseAlpha ? texColor.a : 1.0f;
-    return vec4((texColor.rgb * (diffuse * inten + ambient) + vec3(spec)) * lightColor.rgb, outAlpha);
-}
+// Color override for custom body paint
+uniform bool uUseColorOverride;
+uniform vec3 uColorOverride;
 
 vec4 direcLight()
 {
@@ -73,45 +49,35 @@ vec4 direcLight()
     float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
     float specular = specAmount * specularLight;
 
-    vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+    vec3 finalColor = color;
+    if (uUseColorOverride)
+    {
+        finalColor = uColorOverride;
+    }
+
+    vec4 texColor = texture(diffuse0, texCoord) * vec4(finalColor, 1.0f);
     float spec = texture(specular0, texCoord).r * specular;
     float outAlpha = uUseAlpha ? texColor.a : 1.0f;
     return vec4((texColor.rgb * (diffuse + ambient) + vec3(spec)) * lightColor.rgb, outAlpha);
 }
 
-vec4 spotLight()
-{
-    // controls how big the area that is lit up is
-    float outerCone = 0.90f;
-    float innerCone = 0.95f;
-
-    // ambient lighting
-    float ambient = 0.20f;
-
-    // diffuse lighting
-    vec3 normal = normalize(Normal);
-    vec3 lightDirection = normalize(lightPos - crntPos);
-    float diffuse = max(dot(normal, lightDirection), 0.0f);
-
-    // specular lighting
-    float specularLight = 0.50f;
-    vec3 viewDirection = normalize(camPos - crntPos);
-    vec3 reflectionDirection = reflect(-lightDirection, normal);
-    float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
-    float specular = specAmount * specularLight;
-
-    // calculates the intensity of the crntPos based on its angle to the center of the light cone
-    float angle = dot(vec3(0.0f, -1.0f, 0.0f), -lightDirection);
-    float clampAngle = clamp((angle - outerCone) / (innerCone - outerCone), 0.0f, 1.0f);
-
-    vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
-    float spec = texture(specular0, texCoord).r * specular * clampAngle;
-    float outAlpha = uUseAlpha ? texColor.a : 1.0f;
-    return vec4((texColor.rgb * (diffuse * clampAngle + ambient) + vec3(spec)) * lightColor.rgb, outAlpha);
-}
-
 void main()
 {
-    // outputs final color
-    FragColor = direcLight();
+    if (uIsEmissive)
+    {
+        vec3 baseColor = color;
+        if (uUseColorOverride)
+        {
+            baseColor = uColorOverride;
+        }
+        vec4 texColor = texture(diffuse0, texCoord) * vec4(baseColor, 1.0f);
+        // Make emissive surfaces glow with uEmissiveColor
+        vec3 finalEmissive = texColor.rgb * 1.5 + uEmissiveColor;
+        float outAlpha = uUseAlpha ? texColor.a : 1.0f;
+        FragColor = vec4(finalEmissive, outAlpha);
+    }
+    else
+    {
+        FragColor = direcLight();
+    }
 }

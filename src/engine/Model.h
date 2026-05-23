@@ -15,7 +15,17 @@ public:
     // Loads in a model from a file and stores tha information in 'data', 'JSON', and 'file'
     Model(const char* file);
 
-    void Draw(Shader& shader, Camera& camera);
+    void Draw(
+        Shader& shader,
+        Camera& camera,
+        glm::mat4 worldMatrix = glm::mat4(1.0f),
+        float wheelSpin = 0.0f,
+        float steeringAngle = 0.0f,
+        bool headlightsOn = false,
+        bool braking = false,
+        bool useColorOverride = false,
+        glm::vec3 colorOverride = glm::vec3(1.0f)
+    );
 
 private:
     // Variables for easy access
@@ -30,6 +40,8 @@ private:
     std::vector<glm::vec3> scalesMeshes;
     std::vector<glm::mat4> matricesMeshes;
     std::vector<bool> meshesUseAlpha;
+    std::vector<std::string> meshMaterialNames;
+    std::vector<glm::vec3> meshCenters;
 
     // Prevents textures from being loaded twice
     std::vector<std::string> loadedTexName;

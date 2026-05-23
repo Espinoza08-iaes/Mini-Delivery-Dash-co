@@ -787,3 +787,482 @@ layout (location = 3) in vec2 aTex;
 Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
   hasExtension(.obj): YES
 Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+=== Mesh Analysis ===
+Mesh 0 | Material: black_matte | Center: (0.0343874, 0.680838, -0.356486) | Vertices: 3206
+Mesh 1 | Material: McLaren_F1_1993_By_Alex_Ka_ | Center: (0.00997945, 0.726743, -0.344967) | Vertices: 3409
+Mesh 2 | Material: black_plastic | Center: (0.0392994, 0.651411, 0.11493) | Vertices: 8315
+Mesh 3 | Material: black_aluminium | Center: (0.00534417, 0.227825, -0.805215) | Vertices: 842
+Mesh 4 | Material: black_chrome | Center: (0.00190161, 0.348905, -0.167614) | Vertices: 3965
+Mesh 5 | Material: chrome | Center: (0.0061268, 0.421663, -0.495604) | Vertices: 1316
+Mesh 6 | Material: rear_turn_signal | Center: (0.00777295, 0.774745, -2.30245) | Vertices: 482
+Mesh 7 | Material: rear_lamp | Center: (0.00627522, 0.610959, -2.32508) | Vertices: 24
+Mesh 8 | Material: brakelight | Center: (0.00777313, 0.776233, -2.3098) | Vertices: 482
+Mesh 9 | Material: F1_side | Center: (0.00389633, 0.907448, -0.513121) | Vertices: 34
+Mesh 10 | Material: grill1 | Center: (0.00518547, 0.8377, -0.910802) | Vertices: 224
+Mesh 11 | Material: side_turn_signal | Center: (0.00226895, 0.571103, 0.860845) | Vertices: 194
+Mesh 12 | Material: front_turn_signal | Center: (0.000381691, 0.385008, 2.13253) | Vertices: 68
+Mesh 13 | Material: headlight_1 | Center: (0.000912711, 0.564445, 1.76809) | Vertices: 402
+Mesh 14 | Material: headlight_2 | Center: (0.000914724, 0.550603, 1.77536) | Vertices: 402
+Mesh 15 | Material: black_chrome2 | Center: (0.0038973, 0.688987, -2.33186) | Vertices: 72
+Mesh 16 | Material: grill_side | Center: (0.00384646, 0.183595, -0.114498) | Vertices: 20
+Mesh 17 | Material: grill2 | Center: (0.00695785, 0.834689, -2.15652) | Vertices: 39
+Mesh 18 | Material: grill_f | Center: (0.000277734, 0.220719, 2.19814) | Vertices: 24
+Mesh 19 | Material: bottom | Center: (0.00723362, 0.106465, 0.507871) | Vertices: 95
+Mesh 20 | Material: suport | Center: (0.00612635, 0.434459, -0.943175) | Vertices: 5674
+Mesh 21 | Material: brakedisk | Center: (0.00613047, 0.362799, -0.2137) | Vertices: 3600
+Mesh 22 | Material: tire | Center: (0.00612827, 0.363111, -0.21938) | Vertices: 2684
+Mesh 23 | Material: tire_side | Center: (0.00612552, 0.36311, -0.213543) | Vertices: 2400
+Mesh 24 | Material: rim | Center: (0.00612368, 0.361116, -0.213588) | Vertices: 9960
+Mesh 25 | Material: F1_nip_logo | Center: (0.00612663, 0.166593, -0.217747) | Vertices: 340
+Mesh 26 | Material: rimbolt | Center: (0.00612729, 0.3632, -0.213509) | Vertices: 1248
+Mesh 27 | Material: rimlogo | Center: (0.00612509, 0.36323, -0.21359) | Vertices: 148
+Mesh 28 | Material: door_stitch | Center: (0.00265286, 0.941296, 0.702244) | Vertices: 56
+Mesh 29 | Material: engine | Center: (0.0103449, 0.84624, -1.16173) | Vertices: 360
+Mesh 30 | Material: interior | Center: (-0.00352732, 0.720044, 0.317721) | Vertices: 1147
+Mesh 31 | Material: mirrors | Center: (0.00465891, 1.01318, 0.374829) | Vertices: 308
+Mesh 32 | Material: _ | Center: (0.0420627, -1.49012e-08, 0.0869102) | Vertices: 9
+Mesh 33 | Material: exhaust | Center: (0.00731683, 0.348491, -2.28633) | Vertices: 1008
+Mesh 34 | Material: exhaust_metal_circles | Center: (0.00731687, 0.349003, -2.28692) | Vertices: 288
+Mesh 35 | Material: fuel_clap | Center: (0.665708, 0.973118, -1.15288) | Vertices: 201
+Mesh 36 | Material: chrome2 | Center: (-0.0478936, 0.69471, -1.10734) | Vertices: 1493
+Mesh 37 | Material: exhaust_hole | Center: (0.00731691, 0.348955, -2.28608) | Vertices: 148
+Mesh 38 | Material: exhaust_gold | Center: (0.00731688, 0.349282, -2.30674) | Vertices: 288
+Mesh 39 | Material: plate_F | Center: (-1.55586e-08, 0.241548, 2.34192) | Vertices: 68
+Mesh 40 | Material: plate_R | Center: (0.00371073, 0.777523, -2.30244) | Vertices: 44
+Mesh 41 | Material: pl | Center: (0.0301964, 0.503038, 0.928816) | Vertices: 1678
+Mesh 42 | Material: mt | Center: (0.00525198, 0.150894, -1.81608) | Vertices: 32
+Mesh 43 | Material: F1_red_F | Center: (0.00397093, 0.390835, 2.22507) | Vertices: 28
+Mesh 44 | Material: McLaren_logo | Center: (-0.155823, 0.535005, 0.214724) | Vertices: 18
+Mesh 45 | Material: F1_red_R | Center: (-0.371672, 0.730418, -2.29733) | Vertices: 31
+Mesh 46 | Material: bronze | Center: (-0.00717423, 0.777132, -2.27477) | Vertices: 120
+Mesh 47 | Material: F1_front_plastic | Center: (0.00140269, 0.275076, 2.34387) | Vertices: 360
+Mesh 48 | Material: grill_3 | Center: (0.00734835, 0.360371, -2.284) | Vertices: 34
+Mesh 49 | Material: headlightglass | Center: (0.000641608, 0.550869, 1.90173) | Vertices: 42
+Mesh 50 | Material: windo_F | Center: (0.00257669, 0.952337, 0.750164) | Vertices: 58
+Mesh 51 | Material: windo_S | Center: (0.00397345, 0.983045, -0.195584) | Vertices: 120
+Mesh 52 | Material: windo_R | Center: (0.00554244, 1.05401, -1.11674) | Vertices: 60
+Mesh 53 | Material: McLaren_supportlogo | Center: (0.00612643, 0.392583, -0.208798) | Vertices: 44
+Mesh 54 | Material: McLAREN_sidelogo | Center: (0.00474572, 0.738139, -0.309315) | Vertices: 3284
+Mesh 55 | Material: McLAREN_sidelogo_FBUMPER | Center: (0.000312558, 0.202184, 2.17624) | Vertices: 459
+Mesh 56 | Material: McLAREN_RED_LINE | Center: (0.0044724, 0.496118, -0.890881) | Vertices: 36
+Mesh 57 | Material: floor | Center: (0.00153017, -0.00140817, 0.00238991) | Vertices: 4
+=====================
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES

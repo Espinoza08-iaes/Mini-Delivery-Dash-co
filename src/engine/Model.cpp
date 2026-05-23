@@ -19,6 +19,84 @@
 
 namespace
 {
+void SplitWheelMesh(const Mesh& originalMesh, const std::string& materialName, 
+                    std::vector<Mesh>& outMeshes, 
+                    std::vector<std::string>& outMaterials, 
+                    std::vector<glm::vec3>& outCenters, 
+                    std::vector<bool>& outAlpha)
+{
+    std::vector<Vertex> sectorVertices[4];
+    std::vector<GLuint> sectorIndices[4];
+    
+    std::vector<int> oldToNewIndex[4];
+    for (int s = 0; s < 4; ++s)
+    {
+        oldToNewIndex[s].assign(originalMesh.vertices.size(), -1);
+    }
+    
+    for (size_t i = 0; i < originalMesh.indices.size(); i += 3)
+    {
+        GLuint idx0 = originalMesh.indices[i];
+        GLuint idx1 = originalMesh.indices[i+1];
+        GLuint idx2 = originalMesh.indices[i+2];
+        
+        const Vertex& v0 = originalMesh.vertices[idx0];
+        const Vertex& v1 = originalMesh.vertices[idx1];
+        const Vertex& v2 = originalMesh.vertices[idx2];
+        
+        float triX = (v0.position.x + v1.position.x + v2.position.x) / 3.0f;
+        float triZ = (v0.position.z + v1.position.z + v2.position.z) / 3.0f;
+        
+        int sector = 0;
+        if (triX >= 0.0f)
+        {
+            sector = (triZ >= 0.0f) ? 0 : 2; // FL (0) or RL (2)
+        }
+        else
+        {
+            sector = (triZ >= 0.0f) ? 1 : 3; // FR (1) or RR (3)
+        }
+        
+        auto addVertex = [&](int s, GLuint oldIdx) -> GLuint {
+            if (oldToNewIndex[s][oldIdx] != -1)
+                return oldToNewIndex[s][oldIdx];
+            
+            GLuint newIdx = sectorVertices[s].size();
+            sectorVertices[s].push_back(originalMesh.vertices[oldIdx]);
+            oldToNewIndex[s][oldIdx] = newIdx;
+            return newIdx;
+        };
+        
+        GLuint newIdx0 = addVertex(sector, idx0);
+        GLuint newIdx1 = addVertex(sector, idx1);
+        GLuint newIdx2 = addVertex(sector, idx2);
+        
+        sectorIndices[sector].push_back(newIdx0);
+        sectorIndices[sector].push_back(newIdx1);
+        sectorIndices[sector].push_back(newIdx2);
+    }
+    
+    std::string prefix[4] = { "FL_", "FR_", "RL_", "RR_" };
+    for (int s = 0; s < 4; ++s)
+    {
+        if (sectorVertices[s].empty())
+            continue;
+            
+        glm::vec3 center(0.0f);
+        for (const auto& v : sectorVertices[s])
+        {
+            center += v.position;
+        }
+        center /= static_cast<float>(sectorVertices[s].size());
+        
+        std::vector<Texture> texturesCopy = originalMesh.textures;
+        outMeshes.push_back(Mesh(sectorVertices[s], sectorIndices[s], texturesCopy));
+        outMaterials.push_back(prefix[s] + materialName);
+        outCenters.push_back(center);
+        outAlpha.push_back(false);
+    }
+}
+
 std::string get_file_contents(const char* filename)
 {
     std::ifstream in(filename, std::ios::binary);
@@ -145,6 +223,22 @@ glm::vec3 getMaterialColor(const std::string& matName)
     return glm::vec3(1.0f, 1.0f, 1.0f);
 }
 
+glm::vec3 calculateCenter(const std::vector<Vertex>& vertices)
+{
+    if (vertices.empty())
+    {
+        return glm::vec3(0.0f);
+    }
+
+    glm::vec3 sum(0.0f);
+    for (const Vertex& vertex : vertices)
+    {
+        sum += vertex.position;
+    }
+
+    return sum / static_cast<float>(vertices.size());
+}
+
 bool materialUsesAlpha(const std::string& matName)
 {
     return matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S" ||
@@ -241,13 +335,89 @@ Model::Model(const char* file)
     traverseNode(0);
 }
 
-void Model::Draw(Shader& shader, Camera& camera)
+void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking, bool useColorOverride, glm::vec3 colorOverride)
 {
-    // Go over all meshes and draw each one
     for (unsigned int i = 0; i < meshes.size(); i++)
     {
+        std::string mat = meshMaterialNames[i];
+        
+        // Hide showcase stand / base / support meshes
+        if (mat == "floor" || mat == "bottom" || mat == "suport" || mat == "support")
+        {
+            continue;
+        }
+
         glUniform1i(glGetUniformLocation(shader.ID, "uUseAlpha"), meshesUseAlpha[i] ? 1 : 0);
-        meshes[i].Mesh::Draw(shader, camera, matricesMeshes[i]);
+
+        // Body color paint override
+        bool isBody = (mat == "McLaren_F1_1993_By_Alex_Ka_");
+        glUniform1i(glGetUniformLocation(shader.ID, "uUseColorOverride"), (isBody && useColorOverride) ? 1 : 0);
+        if (isBody && useColorOverride)
+        {
+            glUniform3f(glGetUniformLocation(shader.ID, "uColorOverride"), colorOverride.x, colorOverride.y, colorOverride.z);
+        }
+
+        // Emissive lights (headlights / brakelights)
+        bool isEmissive = false;
+        glm::vec3 emissiveColor(0.0f);
+
+        if (headlightsOn && (mat == "headlight_1" || mat == "headlight_2" || mat == "headlightglass"))
+        {
+            isEmissive = true;
+            emissiveColor = glm::vec3(1.5f, 1.5f, 1.2f); // Bright yellow-white headlights
+        }
+        else if (headlightsOn && (mat == "front_turn_signal" || mat == "side_turn_signal" || mat == "rear_turn_signal"))
+        {
+            isEmissive = true;
+            emissiveColor = glm::vec3(1.5f, 0.7f, 0.0f); // Bright amber signals
+        }
+        else if (braking && mat == "brakelight")
+        {
+            isEmissive = true;
+            emissiveColor = glm::vec3(2.0f, 0.0f, 0.0f); // Intense red braking light
+        }
+        else if (headlightsOn && mat == "rear_lamp")
+        {
+            isEmissive = true;
+            emissiveColor = glm::vec3(0.9f, 0.1f, 0.1f); // Standard red tail lamp
+        }
+
+        glUniform1i(glGetUniformLocation(shader.ID, "uIsEmissive"), isEmissive ? 1 : 0);
+        if (isEmissive)
+        {
+            glUniform3f(glGetUniformLocation(shader.ID, "uEmissiveColor"), emissiveColor.x, emissiveColor.y, emissiveColor.z);
+        }
+
+        glm::mat4 meshMatrix = matricesMeshes[i];
+
+        // Animate wheels if this is a split wheel mesh
+        bool isWheel = (mat.rfind("FL_", 0) == 0 || mat.rfind("FR_", 0) == 0 || 
+                        mat.rfind("RL_", 0) == 0 || mat.rfind("RR_", 0) == 0);
+        
+        if (isWheel)
+        {
+            glm::vec3 C = meshCenters[i];
+            glm::mat4 wheelTransform = glm::mat4(1.0f);
+            
+            // Translate to wheel local center
+            wheelTransform = glm::translate(wheelTransform, C);
+            
+            // Apply steering rotation for front wheels (FL and FR)
+            if (mat.rfind("FL_", 0) == 0 || mat.rfind("FR_", 0) == 0)
+            {
+                wheelTransform = glm::rotate(wheelTransform, steeringAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+            }
+            
+            // Apply wheel spin rotation (all wheels around their local axles)
+            wheelTransform = glm::rotate(wheelTransform, wheelSpin, glm::vec3(1.0f, 0.0f, 0.0f));
+            
+            // Translate back
+            wheelTransform = glm::translate(wheelTransform, -C);
+            
+            meshMatrix = wheelTransform * meshMatrix;
+        }
+
+        meshes[i].Mesh::Draw(shader, camera, worldMatrix * meshMatrix);
     }
 }
 
@@ -271,6 +441,8 @@ void Model::loadMesh(unsigned int indMesh)
     std::vector<Vertex> vertices = assembleVertices(positions, normals, texUVs);
     std::vector<GLuint> indices = getIndices(JSON["accessors"][indAccInd]);
     std::vector<Texture> textures = getTextures();
+    meshMaterialNames.push_back(JSON["meshes"][indMesh].value("name", std::string("gltf")));
+    meshCenters.push_back(calculateCenter(vertices));
 
     // Combine the vertices, indices, and textures into a mesh
     meshes.push_back(Mesh(vertices, indices, textures));
@@ -372,12 +544,45 @@ void Model::loadAssimp(const std::string& filePath)
 
         std::vector<Texture> textures = buildTexturesForMaterial(materialName);
 
-        meshes.push_back(Mesh(vertices, indices, textures));
-        translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
-        rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
-        scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
-        matricesMeshes.push_back(glm::mat4(1.0f));
-        meshesUseAlpha.push_back(materialUsesAlpha(materialName));
+        // Check if this is a wheel mesh and needs to be split
+        bool isWheel = (materialName == "tire" || materialName == "tire_side" || 
+                        materialName == "rim" || materialName == "rimbolt" || 
+                        materialName == "rimlogo" || materialName == "brakedisk" || 
+                        materialName == "F1_nip_logo");
+
+        if (isWheel)
+        {
+            Mesh tempMesh(vertices, indices, textures);
+            std::vector<Mesh> splitM;
+            std::vector<std::string> splitMat;
+            std::vector<glm::vec3> splitCent;
+            std::vector<bool> splitAlpha;
+            
+            SplitWheelMesh(tempMesh, materialName, splitM, splitMat, splitCent, splitAlpha);
+            
+            for (size_t k = 0; k < splitM.size(); ++k)
+            {
+                meshMaterialNames.push_back(splitMat[k]);
+                meshCenters.push_back(splitCent[k]);
+                meshes.push_back(splitM[k]);
+                translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+                rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+                scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
+                matricesMeshes.push_back(glm::mat4(1.0f));
+                meshesUseAlpha.push_back(splitAlpha[k]);
+            }
+        }
+        else
+        {
+            meshMaterialNames.push_back(materialName);
+            meshCenters.push_back(calculateCenter(vertices));
+            meshes.push_back(Mesh(vertices, indices, textures));
+            translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+            rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+            scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
+            matricesMeshes.push_back(glm::mat4(1.0f));
+            meshesUseAlpha.push_back(materialUsesAlpha(materialName));
+        }
     }
 
     std::ofstream logFile("debug_log.txt", std::ios::app);
@@ -616,6 +821,9 @@ void Model::loadObj(const std::string& filePath)
         {
             continue;
         }
+
+        meshMaterialNames.push_back(matName);
+        meshCenters.push_back(calculateCenter(meshData.vertices));
 
         std::string diffuseTex = "";
         if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/models/mclaren/textures/McLAREN_F1.png";
