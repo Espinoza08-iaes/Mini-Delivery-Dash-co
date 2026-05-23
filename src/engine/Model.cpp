@@ -335,7 +335,7 @@ Model::Model(const char* file)
     traverseNode(0);
 }
 
-void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking, bool useColorOverride, glm::vec3 colorOverride)
+void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking)
 {
     for (unsigned int i = 0; i < meshes.size(); i++)
     {
@@ -348,14 +348,6 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
         }
 
         glUniform1i(glGetUniformLocation(shader.ID, "uUseAlpha"), meshesUseAlpha[i] ? 1 : 0);
-
-        // Body color paint override
-        bool isBody = (mat == "McLaren_F1_1993_By_Alex_Ka_");
-        glUniform1i(glGetUniformLocation(shader.ID, "uUseColorOverride"), (isBody && useColorOverride) ? 1 : 0);
-        if (isBody && useColorOverride)
-        {
-            glUniform3f(glGetUniformLocation(shader.ID, "uColorOverride"), colorOverride.x, colorOverride.y, colorOverride.z);
-        }
 
         // Emissive lights (headlights / brakelights)
         bool isEmissive = false;

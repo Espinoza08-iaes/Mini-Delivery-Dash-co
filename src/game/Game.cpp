@@ -340,8 +340,6 @@ int Game::Run()
 
     bool headlightsOn = false;
     bool lightsKeyPressed = false;
-    bool useColorOverride = false;
-    glm::vec3 paintColor = glm::vec3(0.92f, 0.92f, 0.92f);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -365,32 +363,6 @@ int Game::Run()
         else
         {
             lightsKeyPressed = false;
-        }
-
-        // Handle Body Paint Customization Keys (1, 2, 3, 4, 5)
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-        {
-            useColorOverride = false;
-        }
-        else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
-        {
-            useColorOverride = true;
-            paintColor = glm::vec3(0.95f, 0.35f, 0.05f); // Papaya Racing Orange (McLaren classic!)
-        }
-        else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
-        {
-            useColorOverride = true;
-            paintColor = glm::vec3(0.9f, 0.05f, 0.05f); // Modena Racing Red
-        }
-        else if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
-        {
-            useColorOverride = true;
-            paintColor = glm::vec3(0.05f, 0.45f, 0.85f); // Yas Marina Blue
-        }
-        else if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
-        {
-            useColorOverride = true;
-            paintColor = glm::vec3(0.12f, 0.12f, 0.12f); // Stealth Carbon Black
         }
 
         // Handle Braking Light Trigger
@@ -442,23 +414,40 @@ int Game::Run()
         UpdateFollowCamera(camera, car, deltaTime);
         camera.updateMatrix(45.0f, 0.1f, 1000.0f);
 
+        // Update headlights spotlight projection uniforms on the shader
+        shaderProgram.Activate();
+        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uHeadlightsLightOn"), headlightsOn ? 1 : 0);
+        if (headlightsOn)
+        {
+            glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+            glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
+            
+            // World positions of both headlights (1.8m forward, 0.7m left/right, 0.55m height)
+            glm::vec3 leftPos = car.position + glm::vec3(0.0f, 0.55f, 0.0f) + forward * 1.8f + right * 0.7f;
+            glm::vec3 rightPos = car.position + glm::vec3(0.0f, 0.55f, 0.0f) + forward * 1.8f - right * 0.7f;
+            
+            // The beam slopes slightly downward towards the road for realism
+            glm::vec3 lightDir = glm::normalize(forward - glm::vec3(0.0f, 0.12f, 0.0f));
+            
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), leftPos.x, leftPos.y, leftPos.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rightPos.x, rightPos.y, rightPos.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lightDir.x, lightDir.y, lightDir.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f); // Bright warm headlights
+        }
+
         glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ground.Draw(shaderProgram, camera, glm::mat4(1.0f));
         originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
         
-        // Draw the car model with its wheel spins, steering angle, lights, and color overrides!
-        model.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking, useColorOverride, paintColor);
+        // Draw the car model with its wheel spins, steering angle, and lights!
+        model.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
         char title[256];
-        std::snprintf(title, sizeof(title), "Mini Delivery Dash | Speed: %.1f km/h | Lights [L]: %s | Paint [1-5]: %s", 
+        std::snprintf(title, sizeof(title), "Mini Delivery Dash | Speed: %.1f km/h | Headlights [L]: %s", 
                       std::abs(car.speed) * 3.6f, 
-                      headlightsOn ? "ON" : "OFF", 
-                      !useColorOverride ? "Classic Silver" : 
-                      (paintColor == glm::vec3(0.95f, 0.35f, 0.05f) ? "Papaya Orange" :
-                       (paintColor == glm::vec3(0.9f, 0.05f, 0.05f) ? "Racing Red" :
-                        (paintColor == glm::vec3(0.05f, 0.45f, 0.85f) ? "Yas Marina Blue" : "Carbon Black"))));
+                      headlightsOn ? "ON (Linternas Activas)" : "OFF");
         glfwSetWindowTitle(window, title);
 
         glfwSwapBuffers(window);

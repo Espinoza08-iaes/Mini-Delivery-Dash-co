@@ -28,9 +28,42 @@ uniform bool uUseAlpha;
 uniform bool uIsEmissive;
 uniform vec3 uEmissiveColor;
 
-// Color override for custom body paint
-uniform bool uUseColorOverride;
-uniform vec3 uColorOverride;
+// Headlights spotlights uniforms
+uniform bool uHeadlightsLightOn;
+uniform vec3 uHeadlightLeftPos;
+uniform vec3 uHeadlightRightPos;
+uniform vec3 uHeadlightDir;
+uniform vec3 uHeadlightColor;
+
+vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 viewDir, vec3 baseColor, float specTex)
+{
+    vec3 lightVec = spotLightPos - crntPos;
+    float dist = length(lightVec);
+    
+    // Attenuation of the light over distance
+    float a = 0.015;
+    float b = 0.05;
+    float inten = 1.0f / (a * dist * dist + b * dist + 1.0f);
+
+    // Diffuse lighting
+    vec3 lightDirection = normalize(lightVec);
+    float diffuse = max(dot(normal, lightDirection), 0.0f);
+
+    // Specular lighting
+    vec3 reflectionDirection = reflect(-lightDirection, normal);
+    float specAmount = pow(max(dot(viewDir, reflectionDirection), 0.0f), 16);
+    float specular = specAmount * 0.50f * specTex;
+
+    // Angle between the light ray to fragment and the headlight center direction
+    float angle = dot(-lightDirection, spotLightDir);
+    
+    // Spotlight cone angles (outerCone ~30 deg, innerCone ~20 deg spread)
+    float outerCone = 0.88f;
+    float innerCone = 0.94f;
+    float intensity = clamp((angle - outerCone) / (innerCone - outerCone), 0.0, 1.0);
+
+    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity;
+}
 
 vec4 direcLight()
 {
@@ -49,13 +82,7 @@ vec4 direcLight()
     float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
     float specular = specAmount * specularLight;
 
-    vec3 finalColor = color;
-    if (uUseColorOverride)
-    {
-        finalColor = uColorOverride;
-    }
-
-    vec4 texColor = texture(diffuse0, texCoord) * vec4(finalColor, 1.0f);
+    vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
     float spec = texture(specular0, texCoord).r * specular;
     float outAlpha = uUseAlpha ? texColor.a : 1.0f;
     return vec4((texColor.rgb * (diffuse + ambient) + vec3(spec)) * lightColor.rgb, outAlpha);
@@ -65,19 +92,28 @@ void main()
 {
     if (uIsEmissive)
     {
-        vec3 baseColor = color;
-        if (uUseColorOverride)
-        {
-            baseColor = uColorOverride;
-        }
-        vec4 texColor = texture(diffuse0, texCoord) * vec4(baseColor, 1.0f);
-        // Make emissive surfaces glow with uEmissiveColor
+        vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
         vec3 finalEmissive = texColor.rgb * 1.5 + uEmissiveColor;
         float outAlpha = uUseAlpha ? texColor.a : 1.0f;
         FragColor = vec4(finalEmissive, outAlpha);
     }
     else
     {
-        FragColor = direcLight();
+        vec4 baseLight = direcLight();
+        
+        if (uHeadlightsLightOn)
+        {
+            vec3 normal = normalize(Normal);
+            vec3 viewDir = normalize(camPos - crntPos);
+            vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            float specTex = texture(specular0, texCoord).r;
+            
+            vec3 leftSpot = calculateSpotLight(uHeadlightLeftPos, uHeadlightDir, normal, viewDir, texColor.rgb, specTex);
+            vec3 rightSpot = calculateSpotLight(uHeadlightRightPos, uHeadlightDir, normal, viewDir, texColor.rgb, specTex);
+            
+            baseLight.rgb += leftSpot + rightSpot;
+        }
+        
+        FragColor = baseLight;
     }
 }

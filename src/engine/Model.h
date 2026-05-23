@@ -22,9 +22,7 @@ public:
         float wheelSpin = 0.0f,
         float steeringAngle = 0.0f,
         bool headlightsOn = false,
-        bool braking = false,
-        bool useColorOverride = false,
-        glm::vec3 colorOverride = glm::vec3(1.0f)
+        bool braking = false
     );
 
 private:
