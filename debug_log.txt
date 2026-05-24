@@ -1305,3 +1305,23 @@ layout (location = 3) in vec2 aTex;
 // Outputs the current position f
 Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
   hasExtension(.obj): YES
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded meshes: 58 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj

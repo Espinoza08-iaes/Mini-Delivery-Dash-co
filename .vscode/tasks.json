@@ -9,6 +9,7 @@
                 "-O3",
                 "-fdiagnostics-color=always",
                 "-g",
+                "-DGLEW_STATIC",
                 "-I${workspaceFolder}",
                 "-I${workspaceFolder}/src/engine",
                 "-I${workspaceFolder}/Dependencies/include",
