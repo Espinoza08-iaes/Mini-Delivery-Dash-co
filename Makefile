@@ -1,7 +1,7 @@
 CXX = g++
 CC = gcc
 TARGET = main.exe
-SRC = src/main.cpp src/game/Game.cpp src/engine/Mesh.cpp src/engine/Model.cpp src/engine/Texture.cpp
+SRC = src/main.cpp src/game/Game.cpp src/game/City.cpp src/engine/Mesh.cpp src/engine/Model.cpp src/engine/Texture.cpp
 LOADER = src/glad_loader.c
 LOADER_OBJ = src/glad_loader.o
 
