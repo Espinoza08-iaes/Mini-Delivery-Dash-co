@@ -1,5 +1,4 @@
-#ifndef SHADER_H
-#define SHADER_H
+#pragma once
 
 #include <string>
 #include <fstream>
@@ -59,7 +58,7 @@ public:
             log << "Vertex shader code prefix:\n" << vertexCode.substr(0, 300) << std::endl;
             log.close();
         }
-        catch ( std::ifstream::failure e )
+        catch ( const std::ifstream::failure& )
         {
             std::ofstream log("debug_log.txt", std::ios::app);
             log << "Shader load threw standard exception!" << std::endl;
@@ -136,6 +135,5 @@ public:
     {
         glDeleteProgram( this->ID );
     }
+    
 };
-
-#endif

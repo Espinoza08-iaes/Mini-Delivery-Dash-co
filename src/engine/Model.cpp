@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <map>
@@ -248,65 +249,99 @@ bool materialUsesAlpha(const std::string& matName)
            matName == "door_stitch";
 }
 
-std::vector<Texture> buildTexturesForMaterial(const std::string& matName)
+std::string getKnownDiffuseTexture(const std::string& matName)
 {
-    std::string diffuseTex = "";
-    std::string specularTex = "";
-
-    if (matName == "McLaren_F1_1993_By_Alex_Ka_") diffuseTex = "res/models/mclaren/textures/McLAREN_F1.png";
-    else if (matName == "tire") diffuseTex = "res/models/mclaren/textures/tire.jpeg";
-    else if (matName == "tire_side") diffuseTex = "res/models/mclaren/textures/tire side.jpeg";
-    else if (matName == "interior") diffuseTex = "res/models/mclaren/textures/interior.jpeg";
-    else if (matName == "plate_F") diffuseTex = "res/models/mclaren/textures/plate F.jpeg";
-    else if (matName == "plate_R") diffuseTex = "res/models/mclaren/textures/plate R.jpeg";
-    else if (matName == "engine") diffuseTex = "res/models/mclaren/textures/engine.jpeg";
-    else if (matName == "bottom") diffuseTex = "res/models/mclaren/textures/bottom.jpeg";
-    else if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") diffuseTex = "res/models/mclaren/textures/McLaren F1 side.png";
-    else if (matName == "suport" || matName == "McLaren_supportlogo") diffuseTex = "res/models/mclaren/textures/McLaren support logo.png";
-    else if (matName == "door_stitch") diffuseTex = "res/models/mclaren/textures/stitch.png";
-    else if (matName == "headlightglass") diffuseTex = "res/models/mclaren/textures/glass.png";
-    else if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") diffuseTex = "res/models/mclaren/textures/windo.png";
-    else if (matName == "floor") diffuseTex = "res/models/mclaren/textures/Floor Circle.png";
-
-    if (matName == "McLaren_F1_1993_By_Alex_Ka_") specularTex = "res/models/mclaren/textures/carshadow.png";
-
-    std::vector<Texture> textures;
-    bool hasDiffuse = false;
-    if (!diffuseTex.empty())
-    {
-        std::ifstream f(diffuseTex);
-        if (f.good())
-        {
-            textures.emplace_back(diffuseTex.c_str(), "diffuse", 0);
-            hasDiffuse = true;
-        }
-    }
-
-    if (!hasDiffuse)
-    {
-        unsigned char white[] = { 255, 255, 255, 255 };
-        textures.emplace_back(white, 1, 1, GL_RGBA, "diffuse", 0);
-    }
-
-    bool hasSpecular = false;
-    if (!specularTex.empty())
-    {
-        std::ifstream f(specularTex);
-        if (f.good())
-        {
-            textures.emplace_back(specularTex.c_str(), "specular", 1);
-            hasSpecular = true;
-        }
-    }
-
-    if (!hasSpecular)
-    {
-        unsigned char black[] = { 0, 0, 0, 255 };
-        textures.emplace_back(black, 1, 1, GL_RGBA, "specular", 1);
-    }
-
-    return textures;
+    if (matName == "McLaren_F1_1993_By_Alex_Ka_") return "res/models/mclaren/textures/McLAREN_F1.png";
+    if (matName == "tire") return "res/models/mclaren/textures/tire.jpeg";
+    if (matName == "tire_side") return "res/models/mclaren/textures/tire side.jpeg";
+    if (matName == "interior") return "res/models/mclaren/textures/interior.jpeg";
+    if (matName == "plate_F") return "res/models/mclaren/textures/plate F.jpeg";
+    if (matName == "plate_R") return "res/models/mclaren/textures/plate R.jpeg";
+    if (matName == "engine") return "res/models/mclaren/textures/engine.jpeg";
+    if (matName == "bottom") return "res/models/mclaren/textures/bottom.jpeg";
+    if (matName == "F1_side" || matName == "McLAREN_sidelogo" || matName == "McLAREN_sidelogo_FBUMPER") return "res/models/mclaren/textures/McLaren F1 side.png";
+    if (matName == "suport" || matName == "McLaren_supportlogo") return "res/models/mclaren/textures/McLaren support logo.png";
+    if (matName == "door_stitch") return "res/models/mclaren/textures/stitch.png";
+    if (matName == "headlightglass") return "res/models/mclaren/textures/glass.png";
+    if (matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S") return "res/models/mclaren/textures/windo.png";
+    if (matName == "floor") return "res/models/mclaren/textures/Floor Circle.png";
+    return "";
 }
+
+std::string getKnownSpecularTexture(const std::string& matName)
+{
+    if (matName == "McLaren_F1_1993_By_Alex_Ka_") return "res/models/mclaren/textures/carshadow.png";
+    return "";
+}
+
+bool fileExists(const std::string& path)
+{
+    std::ifstream f(path.c_str(), std::ios::binary);
+    return f.good();
+}
+
+bool isAbsolutePath(const std::string& path)
+{
+    return (path.length() > 2 && path[1] == ':') || (!path.empty() && (path[0] == '/' || path[0] == '\\'));
+}
+
+std::string joinAssetPath(const std::string& directory, const std::string& assetPath)
+{
+    if (assetPath.empty() || assetPath[0] == '*')
+    {
+        return "";
+    }
+
+    if (isAbsolutePath(assetPath))
+    {
+        return assetPath;
+    }
+
+    return directory + assetPath;
+}
+
+bool getMaterialTexturePath(aiMaterial* material, aiTextureType textureType, const std::string& fileDirectory, std::string& outPath)
+{
+    if (material == nullptr || material->GetTextureCount(textureType) == 0)
+    {
+        return false;
+    }
+
+    aiString texturePath;
+    if (material->GetTexture(textureType, 0, &texturePath) != AI_SUCCESS)
+    {
+        return false;
+    }
+
+    outPath = joinAssetPath(fileDirectory, texturePath.C_Str());
+    return !outPath.empty() && fileExists(outPath);
+}
+
+glm::mat4 toGlmMatrix(const aiMatrix4x4& matrix)
+{
+    return glm::mat4(
+        matrix.a1, matrix.b1, matrix.c1, matrix.d1,
+        matrix.a2, matrix.b2, matrix.c2, matrix.d2,
+        matrix.a3, matrix.b3, matrix.c3, matrix.d3,
+        matrix.a4, matrix.b4, matrix.c4, matrix.d4
+    );
+}
+
+glm::vec3 getAssimpMaterialColor(aiMaterial* material, const std::string& matName)
+{
+    glm::vec3 color = getMaterialColor(matName);
+    aiColor4D assimpColor;
+    if (material != nullptr && aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &assimpColor) == AI_SUCCESS)
+    {
+        color = glm::vec3(assimpColor.r, assimpColor.g, assimpColor.b);
+    }
+    else if (material != nullptr && aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &assimpColor) == AI_SUCCESS)
+    {
+        color = glm::vec3(assimpColor.r, assimpColor.g, assimpColor.b);
+    }
+    return color;
+}
+
 } // namespace
 
 Model::Model(const char* file)
@@ -318,7 +353,7 @@ Model::Model(const char* file)
     log.close();
 
     Model::file = file;
-    if (hasExtension(fileStr, ".obj"))
+    if (hasExtension(fileStr, ".obj") || hasExtension(fileStr, ".gltf") || hasExtension(fileStr, ".glb"))
     {
         loadAssimp(fileStr);
         return;
@@ -413,6 +448,55 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
     }
 }
 
+
+//Funcion tipo caja de colisiones, se le pasa la matriz del mundo para transformar las posiciones de los vertices a coordenadas globales, y se le pasan los tamaños minimos para filtrar las cajas de colision que sean demasiado pequeñas para ser relevantes (como las de los arboles o farolas)
+
+/*
+std::vector<CollisionBox> Model::BuildCollisionBoxes(
+    const glm::mat4& worldMatrix,
+    float minimumHeight,
+    float minimumHorizontalSize
+) const
+{
+    std::vector<CollisionBox> boxes;
+
+    for (size_t meshIndex = 0; meshIndex < meshes.size(); ++meshIndex)
+    {
+        const Mesh& mesh = meshes[meshIndex];
+        if (mesh.vertices.empty())
+        {
+            continue;
+        }
+
+        glm::mat4 meshMatrix = worldMatrix * matricesMeshes[meshIndex];
+        glm::vec3 minBounds(std::numeric_limits<float>::max());
+        glm::vec3 maxBounds(-std::numeric_limits<float>::max());
+
+        for (const Vertex& vertex : mesh.vertices)
+        {
+            glm::vec3 worldPos = glm::vec3(meshMatrix * glm::vec4(vertex.position, 1.0f));
+            minBounds = glm::min(minBounds, worldPos);
+            maxBounds = glm::max(maxBounds, worldPos);
+        }
+
+        glm::vec3 size = maxBounds - minBounds;
+        if (size.y < minimumHeight)
+        {
+            continue;
+        }
+        if (size.x < minimumHorizontalSize && size.z < minimumHorizontalSize)
+        {
+            continue;
+        }
+
+        boxes.push_back({ minBounds, maxBounds });
+    }
+
+    return boxes;
+}
+ */
+
+
 void Model::loadMesh(unsigned int indMesh)
 {
     // Get all accessor indices
@@ -460,126 +544,240 @@ void Model::loadAssimp(const std::string& filePath)
 
     std::string fileDirectory = getDirectory(filePath);
 
-    for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex)
+    size_t meshCountBefore = meshes.size();
+    processAssimpNode(scene->mRootNode, scene, glm::mat4(1.0f), fileDirectory);
+
+    std::ofstream logFile("debug_log.txt", std::ios::app);
+    logFile << "Assimp loaded scene meshes: " << scene->mNumMeshes
+            << ", drawable meshes: " << (meshes.size() - meshCountBefore)
+            << " from file: " << filePath << std::endl;
+    logFile.close();
+}
+
+void Model::processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory)
+{
+    if (node == nullptr)
     {
-        aiMesh* mesh = scene->mMeshes[meshIndex];
-        std::vector<Vertex> vertices;
-        std::vector<GLuint> indices;
+        return;
+    }
 
-        vertices.reserve(mesh->mNumVertices);
-        for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex)
+    glm::mat4 nodeMatrix = parentMatrix * toGlmMatrix(node->mTransformation);
+
+    for (unsigned int meshIndex = 0; meshIndex < node->mNumMeshes; ++meshIndex)
+    {
+        unsigned int sceneMeshIndex = node->mMeshes[meshIndex];
+        if (sceneMeshIndex < scene->mNumMeshes)
         {
-            Vertex vertex{};
-            vertex.position = glm::vec3(
-                mesh->mVertices[vertexIndex].x,
-                mesh->mVertices[vertexIndex].y,
-                mesh->mVertices[vertexIndex].z
-            );
-
-            if (mesh->HasNormals())
-            {
-                vertex.normal = glm::vec3(
-                    mesh->mNormals[vertexIndex].x,
-                    mesh->mNormals[vertexIndex].y,
-                    mesh->mNormals[vertexIndex].z
-                );
-            }
-            else
-            {
-                vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
-            }
-
-            if (mesh->HasTextureCoords(0))
-            {
-                vertex.texUV = glm::vec2(
-                    mesh->mTextureCoords[0][vertexIndex].x,
-                    mesh->mTextureCoords[0][vertexIndex].y
-                );
-            }
-            else
-            {
-                vertex.texUV = glm::vec2(0.0f, 0.0f);
-            }
-
-            std::string materialName = "default";
-            if (scene->mMaterials != nullptr && mesh->mMaterialIndex < scene->mNumMaterials)
-            {
-                aiString matName;
-                if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
-                {
-                    materialName = matName.C_Str();
-                }
-            }
-
-            vertex.color = getMaterialColor(materialName);
-            vertices.push_back(vertex);
-        }
-
-        for (unsigned int faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex)
-        {
-            const aiFace& face = mesh->mFaces[faceIndex];
-            for (unsigned int i = 0; i < face.mNumIndices; ++i)
-            {
-                indices.push_back(face.mIndices[i]);
-            }
-        }
-
-        std::string materialName = "default";
-        if (scene->mMaterials != nullptr && mesh->mMaterialIndex < scene->mNumMaterials)
-        {
-            aiString matName;
-            if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
-            {
-                materialName = matName.C_Str();
-            }
-        }
-
-        std::vector<Texture> textures = buildTexturesForMaterial(materialName);
-
-        // Check if this is a wheel mesh and needs to be split
-        bool isWheel = (materialName == "tire" || materialName == "tire_side" || 
-                        materialName == "rim" || materialName == "rimbolt" || 
-                        materialName == "rimlogo" || materialName == "brakedisk" || 
-                        materialName == "F1_nip_logo");
-
-        if (isWheel)
-        {
-            Mesh tempMesh(vertices, indices, textures);
-            std::vector<Mesh> splitM;
-            std::vector<std::string> splitMat;
-            std::vector<glm::vec3> splitCent;
-            std::vector<bool> splitAlpha;
-            
-            SplitWheelMesh(tempMesh, materialName, splitM, splitMat, splitCent, splitAlpha);
-            
-            for (size_t k = 0; k < splitM.size(); ++k)
-            {
-                meshMaterialNames.push_back(splitMat[k]);
-                meshCenters.push_back(splitCent[k]);
-                meshes.push_back(splitM[k]);
-                translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
-                rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
-                scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
-                matricesMeshes.push_back(glm::mat4(1.0f));
-                meshesUseAlpha.push_back(splitAlpha[k]);
-            }
-        }
-        else
-        {
-            meshMaterialNames.push_back(materialName);
-            meshCenters.push_back(calculateCenter(vertices));
-            meshes.push_back(Mesh(vertices, indices, textures));
-            translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
-            rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
-            scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
-            matricesMeshes.push_back(glm::mat4(1.0f));
-            meshesUseAlpha.push_back(materialUsesAlpha(materialName));
+            processAssimpMesh(scene->mMeshes[sceneMeshIndex], scene, nodeMatrix, fileDirectory);
         }
     }
 
-    std::ofstream logFile("debug_log.txt", std::ios::app);
-    logFile << "Assimp loaded meshes: " << scene->mNumMeshes << " from file: " << filePath << std::endl;
-    logFile.close();
+    for (unsigned int childIndex = 0; childIndex < node->mNumChildren; ++childIndex)
+    {
+        processAssimpNode(node->mChildren[childIndex], scene, nodeMatrix, fileDirectory);
+    }
+}
+
+void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory)
+{
+    if (mesh == nullptr)
+    {
+        return;
+    }
+
+    std::string materialName = "default";
+    aiMaterial* material = nullptr;
+    if (scene->mMaterials != nullptr && mesh->mMaterialIndex < scene->mNumMaterials)
+    {
+        material = scene->mMaterials[mesh->mMaterialIndex];
+        aiString matName;
+        if (material->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
+        {
+            materialName = matName.C_Str();
+        }
+    }
+
+    glm::vec3 materialColor = getAssimpMaterialColor(material, materialName);
+
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+
+    vertices.reserve(mesh->mNumVertices);
+    for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex)
+    {
+        Vertex vertex{};
+        vertex.position = glm::vec3(
+            mesh->mVertices[vertexIndex].x,
+            mesh->mVertices[vertexIndex].y,
+            mesh->mVertices[vertexIndex].z
+        );
+
+        if (mesh->HasNormals())
+        {
+            vertex.normal = glm::vec3(
+                mesh->mNormals[vertexIndex].x,
+                mesh->mNormals[vertexIndex].y,
+                mesh->mNormals[vertexIndex].z
+            );
+        }
+        else
+        {
+            vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+
+        if (mesh->HasTextureCoords(0))
+        {
+            vertex.texUV = glm::vec2(
+                mesh->mTextureCoords[0][vertexIndex].x,
+                mesh->mTextureCoords[0][vertexIndex].y
+            );
+        }
+        else
+        {
+            vertex.texUV = glm::vec2(0.0f, 0.0f);
+        }
+
+        vertex.color = materialColor;
+        vertices.push_back(vertex);
+    }
+
+    for (unsigned int faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex)
+    {
+        const aiFace& face = mesh->mFaces[faceIndex];
+        for (unsigned int i = 0; i < face.mNumIndices; ++i)
+        {
+            indices.push_back(face.mIndices[i]);
+        }
+    }
+
+    if (vertices.empty() || indices.empty())
+    {
+        return;
+    }
+
+    std::vector<Texture> textures = buildAssimpTextures(material, materialName, fileDirectory);
+
+    // Check if this is a wheel mesh and needs to be split
+    bool isWheel = (materialName == "tire" || materialName == "tire_side" ||
+                    materialName == "rim" || materialName == "rimbolt" ||
+                    materialName == "rimlogo" || materialName == "brakedisk" ||
+                    materialName == "F1_nip_logo");
+
+    if (isWheel)
+    {
+        Mesh tempMesh(vertices, indices, textures);
+        std::vector<Mesh> splitM;
+        std::vector<std::string> splitMat;
+        std::vector<glm::vec3> splitCent;
+        std::vector<bool> splitAlpha;
+
+        SplitWheelMesh(tempMesh, materialName, splitM, splitMat, splitCent, splitAlpha);
+
+        for (size_t k = 0; k < splitM.size(); ++k)
+        {
+            meshMaterialNames.push_back(splitMat[k]);
+            meshCenters.push_back(splitCent[k]);
+            meshes.push_back(splitM[k]);
+            translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+            rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+            scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
+            matricesMeshes.push_back(meshMatrix);
+            meshesUseAlpha.push_back(splitAlpha[k]);
+        }
+    }
+    else
+    {
+        meshMaterialNames.push_back(materialName);
+        meshCenters.push_back(calculateCenter(vertices));
+        meshes.push_back(Mesh(vertices, indices, textures));
+        translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+        rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+        scalesMeshes.push_back(glm::vec3(1.0f, 1.0f, 1.0f));
+        matricesMeshes.push_back(meshMatrix);
+        meshesUseAlpha.push_back(materialUsesAlpha(materialName));
+    }
+}
+
+std::vector<Texture> Model::buildAssimpTextures(aiMaterial* material, const std::string& materialName, const std::string& fileDirectory)
+{
+    std::vector<Texture> textures;
+    static const unsigned char whitePixel[] = { 255, 255, 255, 255 };
+    static const unsigned char blackPixel[] = { 0, 0, 0, 255 };
+
+    bool hasDiffuse = false;
+    std::string diffuseTex = getKnownDiffuseTexture(materialName);
+    if (!diffuseTex.empty() && fileExists(diffuseTex))
+    {
+        textures.push_back(loadTextureCached(diffuseTex, "diffuse", 0));
+        hasDiffuse = true;
+    }
+    else if (getMaterialTexturePath(material, aiTextureType_BASE_COLOR, fileDirectory, diffuseTex) ||
+             getMaterialTexturePath(material, aiTextureType_DIFFUSE, fileDirectory, diffuseTex))
+    {
+        textures.push_back(loadTextureCached(diffuseTex, "diffuse", 0));
+        hasDiffuse = true;
+    }
+
+    if (!hasDiffuse)
+    {
+        textures.push_back(loadSolidTextureCached("white-diffuse", whitePixel, "diffuse", 0));
+    }
+
+    bool hasSpecular = false;
+    std::string specularTex = getKnownSpecularTexture(materialName);
+    if (!specularTex.empty() && fileExists(specularTex))
+    {
+        textures.push_back(loadTextureCached(specularTex, "specular", 1));
+        hasSpecular = true;
+    }
+    else if (getMaterialTexturePath(material, aiTextureType_SPECULAR, fileDirectory, specularTex) ||
+             getMaterialTexturePath(material, aiTextureType_METALNESS, fileDirectory, specularTex) ||
+             getMaterialTexturePath(material, aiTextureType_DIFFUSE_ROUGHNESS, fileDirectory, specularTex))
+    {
+        textures.push_back(loadTextureCached(specularTex, "specular", 1));
+        hasSpecular = true;
+    }
+
+    if (!hasSpecular)
+    {
+        textures.push_back(loadSolidTextureCached("black-specular", blackPixel, "specular", 1));
+    }
+
+    return textures;
+}
+
+Texture Model::loadTextureCached(const std::string& texturePath, const char* type, GLuint slot)
+{
+    std::string cacheKey = std::string("file:") + type + ":" + texturePath;
+    for (size_t i = 0; i < loadedTexName.size(); ++i)
+    {
+        if (loadedTexName[i] == cacheKey)
+        {
+            return loadedTex[i];
+        }
+    }
+
+    Texture texture(texturePath.c_str(), type, slot);
+    loadedTex.push_back(texture);
+    loadedTexName.push_back(cacheKey);
+    return texture;
+}
+
+Texture Model::loadSolidTextureCached(const std::string& cacheKey, const unsigned char* pixel, const char* type, GLuint slot)
+{
+    std::string fullKey = std::string("solid:") + cacheKey;
+    for (size_t i = 0; i < loadedTexName.size(); ++i)
+    {
+        if (loadedTexName[i] == fullKey)
+        {
+            return loadedTex[i];
+        }
+    }
+
+    Texture texture(pixel, 1, 1, GL_RGBA, type, slot);
+    loadedTex.push_back(texture);
+    loadedTexName.push_back(fullKey);
+    return texture;
 }
 
 void Model::loadObj(const std::string& filePath)
@@ -968,7 +1166,7 @@ std::vector<float> Model::getFloats(json accessor)
     // Go over all the bytes in the data at the correct place using the properties from above
     unsigned int beginningOfData = byteOffset + accByteOffset;
     unsigned int lengthOfData = count * 4 * numPerVert;
-    for (unsigned int i = beginningOfData; i < beginningOfData + lengthOfData; i)
+    for (unsigned int i = beginningOfData; i < beginningOfData + lengthOfData;)
     {
         unsigned char bytes[] = { data[i++], data[i++], data[i++], data[i++] };
         float value;
@@ -997,7 +1195,7 @@ std::vector<GLuint> Model::getIndices(json accessor)
     unsigned int beginningOfData = byteOffset + accByteOffset;
     if (componentType == 5125)
     {
-        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 4; i)
+        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 4;)
         {
             unsigned char bytes[] = { data[i++], data[i++], data[i++], data[i++] };
             unsigned int value;
@@ -1007,7 +1205,7 @@ std::vector<GLuint> Model::getIndices(json accessor)
     }
     else if (componentType == 5123)
     {
-        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 2; i)
+        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 2;)
         {
             unsigned char bytes[] = { data[i++], data[i++] };
             unsigned short value;
@@ -1017,7 +1215,7 @@ std::vector<GLuint> Model::getIndices(json accessor)
     }
     else if (componentType == 5122)
     {
-        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 2; i)
+        for (unsigned int i = beginningOfData; i < byteOffset + accByteOffset + count * 2;)
         {
             unsigned char bytes[] = { data[i++], data[i++] };
             short value;
