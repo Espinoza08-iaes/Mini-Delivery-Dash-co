@@ -16,6 +16,8 @@
                 "-I${workspaceFolder}/Dependencies/include/glm",
                 "${workspaceFolder}/src/main.cpp",
                 "${workspaceFolder}/src/game/Game.cpp",
+                "${workspaceFolder}/src/game/City.cpp",
+                "${workspaceFolder}/src/game/city_physics/CityPhysics.cpp",
                 "${workspaceFolder}/src/engine/Mesh.cpp",
                 "${workspaceFolder}/src/engine/Model.cpp",
                 "${workspaceFolder}/src/engine/Texture.cpp",
