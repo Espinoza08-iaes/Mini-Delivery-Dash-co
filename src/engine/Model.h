@@ -23,6 +23,9 @@ class Model
 public:
     Model(const char* file);
 
+    const std::vector<Mesh>& GetMeshes() const { return meshes; }
+    const std::vector<glm::mat4>& GetMatricesMeshes() const { return matricesMeshes; }
+
     void Draw(
         Shader& shader,
         Camera& camera,

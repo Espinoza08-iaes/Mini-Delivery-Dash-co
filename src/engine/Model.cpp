@@ -375,9 +375,14 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
     for (unsigned int i = 0; i < meshes.size(); i++)
     {
         std::string mat = meshMaterialNames[i];
+        std::string matLower = toLower(mat);
         
-        // Hide showcase stand / base / support meshes
-        if (mat == "floor" || mat == "bottom" || mat == "suport" || mat == "support")
+        // Hide showcase stand / base / support meshes and the under-car shadow plate "_"
+        if (matLower.find("floor") != std::string::npos ||
+            matLower.find("bottom") != std::string::npos ||
+            matLower.find("suport") != std::string::npos ||
+            matLower.find("support") != std::string::npos ||
+            matLower == "_")
         {
             continue;
         }

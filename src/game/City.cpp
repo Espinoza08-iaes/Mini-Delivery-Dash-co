@@ -9,6 +9,7 @@ City::City(const std::string& modelPath, float scale, float yOffset, float xOffs
     , mXOffset(xOffset)
     , mZOffset(zOffset)
 {
+    mPhysics.Initialize(mModel, GetMatrix());
 }
  
 glm::mat4 City::GetMatrix() const
@@ -22,5 +23,20 @@ glm::mat4 City::GetMatrix() const
 void City::Draw(Shader& shader, Camera& camera)
 {
     mModel.Draw(shader, camera, GetMatrix());
+}
+
+float City::GetHeightAt(float x, float z, float currentY, bool* outFound) const
+{
+    return mPhysics.GetHeightAt(mModel, GetMatrix(), x, z, currentY, outFound);
+}
+
+bool City::GetGroundSample(const glm::vec3& worldPos, float currentY, game::GroundSample& outSample) const
+{
+    return mPhysics.GetGroundSample(worldPos, currentY, outSample);
+}
+
+bool City::CheckCollision(const glm::vec3& pos, float radius) const
+{
+    return mPhysics.CheckCollision(pos, radius);
 }
  
