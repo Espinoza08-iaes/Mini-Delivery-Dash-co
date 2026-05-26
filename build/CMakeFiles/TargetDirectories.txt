@@ -1,0 +1,3 @@
+/Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/MiniDeliveryDash.dir
+/Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/edit_cache.dir
+/Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/rebuild_cache.dir
