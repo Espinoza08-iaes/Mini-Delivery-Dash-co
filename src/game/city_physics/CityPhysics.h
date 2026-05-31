@@ -16,6 +16,7 @@ namespace game
         glm::vec3 minBounds;
         glm::vec3 maxBounds;
         bool isRoad;
+        bool nonBlockingSurface;
     };
 
     struct GroundSample
@@ -32,19 +33,26 @@ namespace game
         void Initialize(const Model& model, const glm::mat4& cityMatrix);
 
         // Samples the best matching drivable surface at the given XZ coordinate.
-        bool GetGroundSample(const glm::vec3& worldPos, float currentY, GroundSample& outSample) const;
+        bool GetGroundSample(const glm::vec3& worldPos, float currentY, GroundSample& outSample, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
 
         // Samples the closest drivable road height at horizontal coordinate (x, z).
-        float GetHeightAt(const Model& model, const glm::mat4& cityMatrix, float x, float z, float currentY, bool* outFound = nullptr) const;
+        float GetHeightAt(const Model& model, const glm::mat4& cityMatrix, float x, float z, float currentY, bool* outFound = nullptr, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
 
         // Checks if the car's collision sphere intersects any obstacle triangle.
         bool CheckCollision(const glm::vec3& pos, float radius) const;
 
+        // Returns the closest road triangle center to the preferred spawn position.
+        glm::vec3 GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance = 1000.0f) const;
+
+        glm::vec3 GetWorldMinBounds() const { return mWorldMinBounds; }
+        glm::vec3 GetWorldMaxBounds() const { return mWorldMaxBounds; }
+
     private:
         std::vector<WorldTriangle> mRoadTriangles;
         std::vector<WorldTriangle> mObstacleTriangles;
+        glm::vec3 mWorldMinBounds;
+        glm::vec3 mWorldMaxBounds;
     };
 }
 
 #endif
- 

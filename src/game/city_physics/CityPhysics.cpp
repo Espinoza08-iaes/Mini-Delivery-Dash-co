@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
+#include <cctype>
+#include <string>
 
 namespace game
 {
@@ -32,6 +35,127 @@ namespace game
                 std::max(a.x, std::max(b.x, c.x)),
                 std::max(a.y, std::max(b.y, c.y)),
                 std::max(a.z, std::max(b.z, c.z)));
+        }
+
+        std::string ToLower(std::string value)
+        {
+            std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            return value;
+        }
+
+        bool ContainsAny(const std::string &value, const char *const *needles, size_t count)
+        {
+            for (size_t i = 0; i < count; ++i)
+            {
+                if (value.find(needles[i]) != std::string::npos)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool IsKnownCityStreetMaterial(const std::string &materialName)
+        {
+            std::string name = ToLower(materialName);
+
+            // The current city_3d asset labels its real street layers with these material ids.
+            return name == "my_city_0facadetexture_59" || // pavement
+                   name == "my_city_0facadetexture_60" || // street
+                   name == "my_city_0facadetexture_61";   // concrete / plazas
+        }
+
+        bool IsKnownCityNonBlockingStreetMaterial(const std::string &materialName)
+        {
+            std::string name = ToLower(materialName);
+
+            return IsKnownCityStreetMaterial(name) ||
+                   name == "my_city_0facadetexture_58"; // curbs: visual detail, not a blocking wall
+        }
+
+        bool IsGenericGroundMaterial(const std::string &materialName)
+        {
+            std::string name = ToLower(materialName);
+            static const char *const groundWords[] = {
+                "street", "road", "asphalt", "pavement", "sidewalk", "concrete", "parking", "ground"
+            };
+            static const char *const blockedWords[] = {
+                "roof", "facade", "wall", "window", "tree", "bark"
+            };
+
+            return ContainsAny(name, groundWords, sizeof(groundWords) / sizeof(groundWords[0])) &&
+                   !ContainsAny(name, blockedWords, sizeof(blockedWords) / sizeof(blockedWords[0]));
+        }
+
+        bool ProjectPointToTriangleXZ(const glm::vec3 &point, const WorldTriangle &tri, float &outY)
+        {
+            float det = (tri.b.z - tri.c.z) * (tri.a.x - tri.c.x) +
+                        (tri.c.x - tri.b.x) * (tri.a.z - tri.c.z);
+            if (std::abs(det) < 1e-5f)
+            {
+                return false;
+            }
+
+            float l1 = ((tri.b.z - tri.c.z) * (point.x - tri.c.x) +
+                        (tri.c.x - tri.b.x) * (point.z - tri.c.z)) /
+                       det;
+            float l2 = ((tri.c.z - tri.a.z) * (point.x - tri.c.x) +
+                        (tri.a.x - tri.c.x) * (point.z - tri.c.z)) /
+                       det;
+            float l3 = 1.0f - l1 - l2;
+
+            const float eps = -1e-3f;
+            if (l1 >= eps && l2 >= eps && l3 >= eps)
+            {
+                outY = l1 * tri.a.y + l2 * tri.b.y + l3 * tri.c.y;
+                return true;
+            }
+
+            return false;
+        }
+
+        float ClosestPointOnSegmentXZ(const glm::vec3 &point, const glm::vec3 &start, const glm::vec3 &end, glm::vec3 &outClosest)
+        {
+            glm::vec2 p(point.x, point.z);
+            glm::vec2 a(start.x, start.z);
+            glm::vec2 b(end.x, end.z);
+            glm::vec2 ab = b - a;
+            float lenSq = glm::dot(ab, ab);
+            if (lenSq < 1e-8f)
+            {
+                outClosest = start;
+                return glm::dot(p - a, p - a);
+            }
+
+            float t = glm::dot(p - a, ab) / lenSq;
+            t = glm::clamp(t, 0.0f, 1.0f);
+            outClosest = start + (end - start) * t;
+            glm::vec2 closest(outClosest.x, outClosest.z);
+            return glm::dot(p - closest, p - closest);
+        }
+
+        float ClosestPointOnTriangleXZ(const glm::vec3 &point, const WorldTriangle &tri, glm::vec3 &outClosest)
+        {
+            glm::vec3 ab, bc, ca;
+            float abDist = ClosestPointOnSegmentXZ(point, tri.a, tri.b, ab);
+            float bcDist = ClosestPointOnSegmentXZ(point, tri.b, tri.c, bc);
+            float caDist = ClosestPointOnSegmentXZ(point, tri.c, tri.a, ca);
+
+            if (abDist <= bcDist && abDist <= caDist)
+            {
+                outClosest = ab;
+                return abDist;
+            }
+            if (bcDist <= caDist)
+            {
+                outClosest = bc;
+                return bcDist;
+            }
+
+            outClosest = ca;
+            return caDist;
         }
 
         bool PointInsideTriangle2D(const glm::vec3 &point, const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c)
@@ -99,47 +223,19 @@ namespace game
             return edgeDistanceSq <= radius * radius;
         }
 
-        bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds)
+        bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds, bool trustedGroundMaterial)
         {
             float height = maxBounds.y - minBounds.y;
             float widthX = maxBounds.x - minBounds.x;
             float widthZ = maxBounds.z - minBounds.z;
             float horizontalSpan = std::max(widthX, widthZ);
 
-            // DESPUÉS: más estricto — solo superficies casi horizontales son carretera
-            bool mostlyHorizontal = std::abs(normal.y) >= 0.65f;
-            bool lowProfile = height <= 6.0f;
-            bool wideEnough = horizontalSpan >= 0.35f;
+            bool upward = normal.y >= 0.58f;
+            bool wideEnough = horizontalSpan >= 0.25f;
+            bool hasAreaInXZ = widthX > 0.01f && widthZ > 0.01f && (widthX * widthZ) >= 0.01f;
+            bool heightOk = trustedGroundMaterial || height <= 4.0f;
 
-            return mostlyHorizontal && lowProfile && wideEnough;
-        }
-
-        bool IsRoadPoint(const glm::vec3 &point, const WorldTriangle &tri)
-        {
-            return point.x >= tri.minBounds.x && point.x <= tri.maxBounds.x &&
-                   point.z >= tri.minBounds.z && point.z <= tri.maxBounds.z;
-        }
-
-        bool ProjectToTriangle(const glm::vec3 &point, const WorldTriangle &tri, float &outY)
-        {
-            float det = (tri.b.z - tri.c.z) * (tri.a.x - tri.c.x) + (tri.c.x - tri.b.x) * (tri.a.z - tri.c.z);
-            if (std::abs(det) < 1e-5f)
-            {
-                return false;
-            }
-
-            float l1 = ((tri.b.z - tri.c.z) * (point.x - tri.c.x) + (tri.c.x - tri.b.x) * (point.z - tri.c.z)) / det;
-            float l2 = ((tri.c.z - tri.a.z) * (point.x - tri.c.x) + (tri.a.x - tri.c.x) * (point.z - tri.c.z)) / det;
-            float l3 = 1.0f - l1 - l2;
-
-            const float eps = -1e-3f;
-            if (l1 >= eps && l2 >= eps && l3 >= eps)
-            {
-                outY = l1 * tri.a.y + l2 * tri.b.y + l3 * tri.c.y;
-                return true;
-            }
-
-            return false;
+            return upward && wideEnough && hasAreaInXZ && heightOk;
         }
 
         float TriangleArea(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c)
@@ -150,18 +246,15 @@ namespace game
         bool IsTinyObstacle(const WorldTriangle &tri)
         {
             glm::vec3 size = tri.maxBounds - tri.minBounds;
-            float minSpan = std::min(size.x, size.z);
             float height = size.y;
             float area = TriangleArea(tri.a, tri.b, tri.c);
 
-            // Ignorar detalles muy planos, delgados, de área pequeña o muy pegados al suelo
-            bool superFlat = height < 0.055f && area < 0.18f && std::abs(tri.normal.y) > 0.82f;
-            bool tinyFlat = minSpan < 0.11f && height < 0.16f;
-            bool tinyArea = area < 0.006f && height < 0.38f;
-            bool flatDetail = height < 0.16f && std::abs(tri.normal.y) > 0.91f;
-            bool nearGround = tri.minBounds.y < 0.12f && height < 0.18f && std::abs(tri.normal.y) > 0.8f;
+            bool extremelyTiny = area < 0.001f;
+            bool degenerate = height < 0.001f && area < 0.0001f;
+            bool flatSkin = std::abs(tri.normal.y) > 0.55f;
+            bool lowRoadLip = height < 0.45f && area < 12.0f;
 
-            return superFlat || tinyFlat || tinyArea || flatDetail || nearGround;
+            return extremelyTiny || degenerate || flatSkin || lowRoadLip || tri.nonBlockingSurface;
         }
     }
 
@@ -169,9 +262,22 @@ namespace game
     {
         mRoadTriangles.clear();
         mObstacleTriangles.clear();
+        mWorldMinBounds = glm::vec3(FLT_MAX);
+        mWorldMaxBounds = glm::vec3(-FLT_MAX);
 
         const auto &meshes = model.GetMeshes();
         const auto &matrices = model.GetMatricesMeshes();
+        const auto &materials = model.GetMeshMaterialNames();
+
+        bool hasMaterialGroundHints = false;
+        for (const auto &materialName : materials)
+        {
+            if (IsKnownCityStreetMaterial(materialName) || IsGenericGroundMaterial(materialName))
+            {
+                hasMaterialGroundHints = true;
+                break;
+            }
+        }
 
         for (size_t i = 0; i < meshes.size(); ++i)
         {
@@ -183,12 +289,20 @@ namespace game
             }
 
             glm::mat4 meshWorldMatrix = cityMatrix * matrices[i];
+            std::string materialName = (i < materials.size()) ? materials[i] : std::string();
+            bool materialAllowsGround = hasMaterialGroundHints
+                                            ? (IsKnownCityStreetMaterial(materialName) || IsGenericGroundMaterial(materialName))
+                                            : true;
+            bool nonBlockingSurface = hasMaterialGroundHints && IsKnownCityNonBlockingStreetMaterial(materialName);
 
             for (size_t t = 0; t < indices.size(); t += 3)
             {
                 glm::vec3 a = glm::vec3(meshWorldMatrix * glm::vec4(vertices[indices[t]].position, 1.0f));
                 glm::vec3 b = glm::vec3(meshWorldMatrix * glm::vec4(vertices[indices[t + 1]].position, 1.0f));
                 glm::vec3 c = glm::vec3(meshWorldMatrix * glm::vec4(vertices[indices[t + 2]].position, 1.0f));
+
+                mWorldMinBounds = glm::min(mWorldMinBounds, glm::min(a, glm::min(b, c)));
+                mWorldMaxBounds = glm::max(mWorldMaxBounds, glm::max(a, glm::max(b, c)));
 
                 glm::vec3 normal = ComputeTriangleNormal(a, b, c);
                 glm::vec3 minBounds = ComponentMin(a, b, c);
@@ -201,7 +315,8 @@ namespace game
                 tri.normal = normal;
                 tri.minBounds = minBounds;
                 tri.maxBounds = maxBounds;
-                tri.isRoad = IsRoadTriangle(normal, minBounds, maxBounds);
+                tri.isRoad = materialAllowsGround && IsRoadTriangle(normal, minBounds, maxBounds, hasMaterialGroundHints);
+                tri.nonBlockingSurface = nonBlockingSurface;
 
                 if (tri.isRoad)
                 {
@@ -213,34 +328,79 @@ namespace game
                 }
             }
         }
+
+        if (mWorldMinBounds.x > mWorldMaxBounds.x)
+        {
+            mWorldMinBounds = glm::vec3(0.0f);
+            mWorldMaxBounds = glm::vec3(0.0f);
+        }
     }
 
-    bool CityPhysics::GetGroundSample(const glm::vec3 &worldPos, float currentY, GroundSample &outSample) const
+    glm::vec3 TriangleCenter(const WorldTriangle &tri)
+    {
+        return (tri.a + tri.b + tri.c) / 3.0f;
+    }
+
+    glm::vec3 CityPhysics::GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance) const
+    {
+        float bestDistanceSq = maxDistance * maxDistance;
+        glm::vec3 bestPoint = preferred;
+        for (const auto &tri : mRoadTriangles)
+        {
+            glm::vec3 center = TriangleCenter(tri);
+            float distSq = glm::dot(center - preferred, center - preferred);
+            if (distSq < bestDistanceSq)
+            {
+                bestDistanceSq = distSq;
+                bestPoint = center;
+            }
+        }
+        return bestPoint;
+    }
+
+    bool CityPhysics::GetGroundSample(const glm::vec3 &worldPos, float currentY, GroundSample &outSample, float snapDownMax, float snapUpMax) const
     {
         float bestY = currentY;
         float bestScore = -1e9f;
         glm::vec3 bestNormal = glm::vec3(0.0f, 1.0f, 0.0f);
         bool found = false;
 
-        // Limitar subida máxima a 0.12 unidades para evitar que el coche "salte" a techos/puentes elevados
-        const float snapDownMax = 8.0f;
-        const float snapUpMax = 0.12f; // Solo permite subir a superficies casi a la misma altura
+        // Clamp down/up search distances. For initial spawn or large drops, snapDownMax can be raised.
+        if (snapDownMax < 0.0f)
+            snapDownMax = 8.0f;
+        if (snapUpMax < 0.0f)
+            snapUpMax = 0.12f;
+
+        const float edgeSnapMargin = 0.18f;
 
         for (size_t i = 0; i < mRoadTriangles.size(); ++i)
         {
             const WorldTriangle &tri = mRoadTriangles[i];
-            if (!IsRoadPoint(worldPos, tri))
+
+            if (worldPos.x < tri.minBounds.x - edgeSnapMargin || worldPos.x > tri.maxBounds.x + edgeSnapMargin ||
+                worldPos.z < tri.minBounds.z - edgeSnapMargin || worldPos.z > tri.maxBounds.z + edgeSnapMargin)
                 continue;
 
             float y = 0.0f;
-            if (!ProjectToTriangle(worldPos, tri, y))
-                continue;
+            float horizontalDistance = 0.0f;
+            bool projected = ProjectPointToTriangleXZ(worldPos, tri, y);
+            if (!projected)
+            {
+                glm::vec3 closest;
+                float distSq = ClosestPointOnTriangleXZ(worldPos, tri, closest);
+                horizontalDistance = std::sqrt(distSq);
+                if (horizontalDistance > edgeSnapMargin)
+                {
+                    continue;
+                }
+                y = closest.y;
+            }
 
             if (y < currentY - snapDownMax || y > currentY + snapUpMax)
                 continue;
 
-            // Entre los válidos, preferir el más alto (el suelo más cercano por abajo)
-            float score = y;
+            float verticalDistance = std::abs(y - currentY);
+            float score = (projected ? 1000.0f : 500.0f) - verticalDistance * 4.0f - horizontalDistance * 25.0f + y * 0.01f;
             if (!found || score > bestScore)
             {
                 bestScore = score;
@@ -256,10 +416,10 @@ namespace game
         return found;
     }
 
-    float CityPhysics::GetHeightAt(const Model &model, const glm::mat4 &cityMatrix, float x, float z, float currentY, bool *outFound) const
+    float CityPhysics::GetHeightAt(const Model &model, const glm::mat4 &cityMatrix, float x, float z, float currentY, bool *outFound, float snapDownMax, float snapUpMax) const
     {
         GroundSample sample;
-        bool found = GetGroundSample(glm::vec3(x, currentY, z), currentY, sample);
+        bool found = GetGroundSample(glm::vec3(x, currentY, z), currentY, sample, snapDownMax, snapUpMax);
         if (outFound)
         {
             *outFound = found;
@@ -269,14 +429,29 @@ namespace game
 
     bool CityPhysics::CheckCollision(const glm::vec3 &pos, float radius) const
     {
+        // Search radius: position + collision radius (expanded for safety)
+        float searchRadius = radius * 2.5f;
+
         for (size_t i = 0; i < mObstacleTriangles.size(); ++i)
         {
-            if (IsTinyObstacle(mObstacleTriangles[i]))
+            const WorldTriangle &tri = mObstacleTriangles[i];
+
+            // Skip only degenerate/floating artifacts (conservative)
+            if (IsTinyObstacle(tri))
             {
                 continue;
             }
 
-            if (SphereIntersectsTriangle(pos, radius, mObstacleTriangles[i]))
+            // Quick AABB check: is the triangle close enough?
+            if (pos.x < tri.minBounds.x - searchRadius || pos.x > tri.maxBounds.x + searchRadius ||
+                pos.z < tri.minBounds.z - searchRadius || pos.z > tri.maxBounds.z + searchRadius ||
+                pos.y < tri.minBounds.y - searchRadius || pos.y > tri.maxBounds.y + searchRadius)
+            {
+                continue;
+            }
+
+            // Full sphere-triangle collision check
+            if (SphereIntersectsTriangle(pos, radius, tri))
             {
                 return true;
             }

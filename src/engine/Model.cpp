@@ -709,15 +709,55 @@ std::vector<Texture> Model::buildAssimpTextures(aiMaterial* material, const std:
     static const unsigned char whitePixel[] = { 255, 255, 255, 255 };
     static const unsigned char blackPixel[] = { 0, 0, 0, 255 };
 
+    // Helper lambda to find texture with fallback paths
+    auto findTexture = [&](const std::vector<aiTextureType>& types, const std::string& knownPath) -> std::string {
+        // First try known texture path
+        if (!knownPath.empty() && fileExists(knownPath))
+        {
+            return knownPath;
+        }
+
+        // Try to get from assimp material
+        std::string assimpPath;
+        for (aiTextureType type : types)
+        {
+            if (getMaterialTexturePath(material, type, fileDirectory, assimpPath))
+            {
+                return assimpPath;
+            }
+        }
+
+        // Fallback: Try finding in Scene_City.fbm/ folder
+        // Extract material name and look for matching texture
+        std::string fbmPath = fileDirectory + "Scene_City.fbm/" + materialName + ".png";
+        if (fileExists(fbmPath))
+        {
+            return fbmPath;
+        }
+
+        // Try with spaces replaced by underscores
+        std::string materialNameModified = materialName;
+        size_t pos = 0;
+        while ((pos = materialNameModified.find(' ', pos)) != std::string::npos)
+        {
+            materialNameModified.replace(pos, 1, "_");
+            pos += 1;
+        }
+        fbmPath = fileDirectory + "Scene_City.fbm/" + materialNameModified + ".png";
+        if (fileExists(fbmPath))
+        {
+            return fbmPath;
+        }
+
+        return "";
+    };
+
+    // Load diffuse texture
     bool hasDiffuse = false;
     std::string diffuseTex = getKnownDiffuseTexture(materialName);
-    if (!diffuseTex.empty() && fileExists(diffuseTex))
-    {
-        textures.push_back(loadTextureCached(diffuseTex, "diffuse", 0));
-        hasDiffuse = true;
-    }
-    else if (getMaterialTexturePath(material, aiTextureType_BASE_COLOR, fileDirectory, diffuseTex) ||
-             getMaterialTexturePath(material, aiTextureType_DIFFUSE, fileDirectory, diffuseTex))
+    diffuseTex = findTexture({aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE}, diffuseTex);
+    
+    if (!diffuseTex.empty())
     {
         textures.push_back(loadTextureCached(diffuseTex, "diffuse", 0));
         hasDiffuse = true;
@@ -728,16 +768,12 @@ std::vector<Texture> Model::buildAssimpTextures(aiMaterial* material, const std:
         textures.push_back(loadSolidTextureCached("white-diffuse", whitePixel, "diffuse", 0));
     }
 
+    // Load specular texture
     bool hasSpecular = false;
     std::string specularTex = getKnownSpecularTexture(materialName);
-    if (!specularTex.empty() && fileExists(specularTex))
-    {
-        textures.push_back(loadTextureCached(specularTex, "specular", 1));
-        hasSpecular = true;
-    }
-    else if (getMaterialTexturePath(material, aiTextureType_SPECULAR, fileDirectory, specularTex) ||
-             getMaterialTexturePath(material, aiTextureType_METALNESS, fileDirectory, specularTex) ||
-             getMaterialTexturePath(material, aiTextureType_DIFFUSE_ROUGHNESS, fileDirectory, specularTex))
+    specularTex = findTexture({aiTextureType_SPECULAR, aiTextureType_METALNESS, aiTextureType_DIFFUSE_ROUGHNESS}, specularTex);
+    
+    if (!specularTex.empty())
     {
         textures.push_back(loadTextureCached(specularTex, "specular", 1));
         hasSpecular = true;

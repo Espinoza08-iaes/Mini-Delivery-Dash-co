@@ -25,6 +25,7 @@ public:
 
     const std::vector<Mesh>& GetMeshes() const { return meshes; }
     const std::vector<glm::mat4>& GetMatricesMeshes() const { return matricesMeshes; }
+    const std::vector<std::string>& GetMeshMaterialNames() const { return meshMaterialNames; }
 
     void Draw(
         Shader& shader,

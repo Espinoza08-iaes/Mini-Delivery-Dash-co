@@ -32,7 +32,7 @@ namespace
     // ---------------------------------------------------------------------------
     struct CarState
     {
-        glm::vec3 position = glm::vec3(7.0f, 0.0f, 0.0f);
+        glm::vec3 position = glm::vec3(20.0f, 0.0f, 0.0f);
         float yaw = 0.0f;
         float speed = 0.0f;
         float steering = 0.0f;
@@ -53,10 +53,10 @@ namespace
     // ---------------------------------------------------------------------------
     // Car constants
     // ---------------------------------------------------------------------------
-    const float kCarModelScale = 0.14f;
-    const float kCarGroundYOffset = 0.01f;
-    const float kGroundClearance = 0.02f;
-    const float kMaxDownSnap = 0.12f;
+    const float kCarModelScale = 0.28f;
+    const float kCarGroundYOffset = 0.0f;
+    const float kGroundClearance = 0.01f;
+    const float kMaxDownSnap = 0.40f;
 
     // ---------------------------------------------------------------------------
     // Helpers
@@ -251,11 +251,8 @@ namespace
         glm::vec3 fullMove = forward * car.speed * dt;
         glm::vec3 nextPosition = car.position + fullMove;
 
-        float cityScale = city.GetScale();
-        nextPosition.x = glm::clamp(nextPosition.x, -760.0f * cityScale, 660.0f * cityScale);
-        nextPosition.z = glm::clamp(nextPosition.z, -740.0f * cityScale, 2200.0f * cityScale);
-
         float carCollisionRadius = kCarModelScale * 1.8f;
+        // Removed hard bounds clamping - rely on collision detection instead
 
         if (city.CheckCollision(nextPosition, carCollisionRadius))
         {
@@ -294,7 +291,7 @@ namespace
         for (int i = 0; i < 4; ++i)
         {
             game::GroundSample s;
-            if (city.GetGroundSample(probePoints[i], car.position.y, s) && s.found)
+            if (city.GetGroundSample(probePoints[i], car.position.y, s, 2.0f, 0.12f) && s.found)
             {
                 normals[i] = s.normal;
             }
@@ -306,7 +303,7 @@ namespace
 
         // Corregir solo si la altura detectada no es una caída falsa.
         game::GroundSample centerSample;
-        if (city.GetGroundSample(car.position, car.position.y, centerSample) && centerSample.found)
+        if (city.GetGroundSample(car.position, car.position.y, centerSample, 2.0f, 0.12f) && centerSample.found)
         {
             if (centerSample.height >= car.position.y - kMaxDownSnap)
             {
@@ -335,11 +332,11 @@ namespace
         bool zPressed = glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS;
         if (zPressed && !zPressedLast && isOnGround)
         {
-            carVerticalSpeed = 4.2f; // Salto más bajo
+            carVerticalSpeed = 3.2f; // Reduce vertical impulse to avoid overshooting geometry
             isOnGround = false;
 
             glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-            car.position += forward * (jumpDistanceBoost * 0.7f); // Menor impulso horizontal
+            car.position += forward * (jumpDistanceBoost * 0.45f); // Reduced horizontal boost
         }
         zPressedLast = zPressed;
 
@@ -429,18 +426,32 @@ int Game::Run()
     Model carModel("res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj");
 
     // --- City  (cambia solo esta ruta para usar otra ciudad) ---
-    City city("res/models/hongkong_modificado/scene.gltf",
-              7.0f,   // escala
-              -0.60f, // offset Y (altura)
-              10.0f,  // offset X (izquierda/derecha)
-              25.0f   // offset Z (adelante/atrás)
+    City city("res/models/city_3d/scene.gltf",
+              1.0f,   // usar escala original del mapa
+              0.0f,   // auto-alinear altura con el suelo
+              0.0f,   // sin offset X manual
+              0.0f,   // sin offset Z manual
+              true    // auto-align map to ground
     );
 
     // --- Snap Y to the street at the default starting position ---
     bool foundDefaultRoad = false;
-    car.position.y = city.GetHeightAt(car.position.x, car.position.z, car.position.y, &foundDefaultRoad);
-    std::cout << "[SPAWN] Spawned car on main street at coordinate: ("
-              << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
+    glm::vec3 roadSpawn = city.GetBestRoadSpawn(car.position, 1200.0f);
+    car.position = roadSpawn + glm::vec3(0.0f, kGroundClearance, 0.0f);
+    game::GroundSample spawnSample;
+    if (city.GetGroundSample(car.position, car.position.y + 2.0f, spawnSample, 12.0f, 0.45f) && spawnSample.found)
+    {
+        car.position.y = spawnSample.height + kGroundClearance;
+        foundDefaultRoad = true;
+        std::cout << "[SPAWN] Spawned car on road at coordinate: ("
+                  << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
+    }
+    else
+    {
+        car.position.y = city.GetHeightAt(car.position.x, car.position.z, car.position.y, &foundDefaultRoad, 12.0f, 0.45f);
+        std::cout << "[SPAWN] Fallback street height at coordinate: ("
+                  << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
+    }
 
     float lastFrame = static_cast<float>(glfwGetTime());
     bool headlightsOn = false;
@@ -544,10 +555,19 @@ int Game::Run()
         }
         else
         {
-            // Si no hay suelo detectado, usar el último suelo válido como ancla
-            // para impedir que el coche caiga al vacío por un fallo puntual.
-            if (car.position.y < lastGroundHeight - 0.2f)
+            // If no ground detected, attempt an expanded recovery probe before forcing position.
+            game::GroundSample recoverySample;
+            if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
             {
+                float desiredY = recoverySample.height + kGroundClearance;
+                car.position.y = desiredY;
+                carVerticalSpeed = 0.0f;
+                isOnGround = true;
+                lastGroundHeight = recoverySample.height;
+            }
+            else if (car.position.y < lastGroundHeight - 0.5f)
+            {
+                // If the car dropped far below the last known ground, clamp it back to prevent falling through.
                 car.position.y = lastGroundHeight + kGroundClearance;
                 carVerticalSpeed = 0.0f;
                 isOnGround = true;
