@@ -1,8 +1,8 @@
 CMakeFiles/MiniDeliveryDash.dir/src/engine/Texture.cpp.o: \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/src/engine/Texture.cpp \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/src/engine/Texture.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/Dependencies/include/glad/glad.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/external/KHR/khrplatform.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/src/engine/Texture.cpp \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/src/engine/Texture.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/Dependencies/include/glad/glad.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/external/KHR/khrplatform.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/stdint.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config_site \
@@ -33,7 +33,7 @@ CMakeFiles/MiniDeliveryDash.dir/src/engine/Texture.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_uintptr_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_intmax_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_uintmax_t.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/Dependencies/include/stb/stb_image.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/Dependencies/include/stb/stb_image.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/stdio.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdio.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h \
@@ -241,8 +241,8 @@ CMakeFiles/MiniDeliveryDash.dir/src/engine/Texture.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/assert.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_assert.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_static_assert.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/src/engine/shaderClass.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/src/engine/Shader.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/src/engine/shaderClass.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/src/engine/Shader.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/max.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/comp.h \

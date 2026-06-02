@@ -1,5 +1,5 @@
 CMakeFiles/MiniDeliveryDash.dir/external/glad/src/glad.c.o: \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/external/glad/src/glad.c \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/external/glad/src/glad.c \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdio.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_bounds.h \
@@ -92,7 +92,7 @@ CMakeFiles/MiniDeliveryDash.dir/external/glad/src/glad.c.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_strings.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/secure/_strings.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/secure/_string.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/Dependencies/include/glad/glad.h \
-  /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/external/KHR/khrplatform.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/Dependencies/include/glad/glad.h \
+  /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/external/KHR/khrplatform.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/dlfcn.h \
   /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdbool.h

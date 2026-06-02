@@ -57,10 +57,10 @@ RM = /opt/homebrew/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co
+CMAKE_SOURCE_DIR = /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build
+CMAKE_BINARY_DIR = /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build/CMakeFiles /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/build/CMakeFiles /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kenrylirazavala/Documents/Mini-Delivery-Dash-co/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/kenrylirazavala/Desktop/Mini-Delivery-Dash-co/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -225,6 +225,30 @@ src/engine/Texture.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/engine/Texture.cpp.s
 .PHONY : src/engine/Texture.cpp.s
 
+src/game/City.o: src/game/City.cpp.o
+.PHONY : src/game/City.o
+
+# target to build an object file
+src/game/City.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/City.cpp.o
+.PHONY : src/game/City.cpp.o
+
+src/game/City.i: src/game/City.cpp.i
+.PHONY : src/game/City.i
+
+# target to preprocess a source file
+src/game/City.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/City.cpp.i
+.PHONY : src/game/City.cpp.i
+
+src/game/City.s: src/game/City.cpp.s
+.PHONY : src/game/City.s
+
+# target to generate assembly for a file
+src/game/City.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/City.cpp.s
+.PHONY : src/game/City.cpp.s
+
 src/game/Game.o: src/game/Game.cpp.o
 .PHONY : src/game/Game.o
 
@@ -248,6 +272,30 @@ src/game/Game.s: src/game/Game.cpp.s
 src/game/Game.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/Game.cpp.s
 .PHONY : src/game/Game.cpp.s
+
+src/game/city_physics/CityPhysics.o: src/game/city_physics/CityPhysics.cpp.o
+.PHONY : src/game/city_physics/CityPhysics.o
+
+# target to build an object file
+src/game/city_physics/CityPhysics.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/city_physics/CityPhysics.cpp.o
+.PHONY : src/game/city_physics/CityPhysics.cpp.o
+
+src/game/city_physics/CityPhysics.i: src/game/city_physics/CityPhysics.cpp.i
+.PHONY : src/game/city_physics/CityPhysics.i
+
+# target to preprocess a source file
+src/game/city_physics/CityPhysics.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/city_physics/CityPhysics.cpp.i
+.PHONY : src/game/city_physics/CityPhysics.cpp.i
+
+src/game/city_physics/CityPhysics.s: src/game/city_physics/CityPhysics.cpp.s
+.PHONY : src/game/city_physics/CityPhysics.s
+
+# target to generate assembly for a file
+src/game/city_physics/CityPhysics.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MiniDeliveryDash.dir/build.make CMakeFiles/MiniDeliveryDash.dir/src/game/city_physics/CityPhysics.cpp.s
+.PHONY : src/game/city_physics/CityPhysics.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -318,9 +366,15 @@ help:
 	@echo "... src/engine/Texture.o"
 	@echo "... src/engine/Texture.i"
 	@echo "... src/engine/Texture.s"
+	@echo "... src/game/City.o"
+	@echo "... src/game/City.i"
+	@echo "... src/game/City.s"
 	@echo "... src/game/Game.o"
 	@echo "... src/game/Game.i"
 	@echo "... src/game/Game.s"
+	@echo "... src/game/city_physics/CityPhysics.o"
+	@echo "... src/game/city_physics/CityPhysics.i"
+	@echo "... src/game/city_physics/CityPhysics.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
