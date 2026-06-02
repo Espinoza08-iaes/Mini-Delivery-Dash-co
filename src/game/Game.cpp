@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "City.h"
 
 #include <iostream>
 #include <algorithm>
@@ -23,266 +24,352 @@
 const unsigned int width = 800;
 const unsigned int height = 800;
 
-
 namespace
 {
-struct CarState
-{
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    float yaw = 0.0f;
-    float speed = 0.0f;
-    float steering = 0.0f;
-    float wheelSpin = 0.0f;
-};
 
-// Global variables for camera orbit
-float orbitYaw = 0.0f;
-float orbitPitch = 0.0f;
-bool isOrbiting = false;
-double lastMouseX = 0.0;
-double lastMouseY = 0.0;
-
-Mesh CreateGroundMesh()
-{
-    // Generate a tiled checkered floor to give an amazing sense of speed and driving
-    const float halfSize = 500.0f;
-    const float uvScale = 100.0f; // Repeating UV tile coords
-    std::vector<Vertex> vertices =
+    // ---------------------------------------------------------------------------
+    // Car state
+    // ---------------------------------------------------------------------------
+    struct CarState
     {
-        {{-halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-        {{ halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {uvScale, 0.0f}},
-        {{ halfSize, 0.0f,  halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {uvScale, uvScale}},
-        {{-halfSize, 0.0f,  halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, uvScale}}
+        glm::vec3 position = glm::vec3(20.0f, 0.0f, 0.0f);
+        float yaw = 0.0f;
+        float speed = 0.0f;
+        float steering = 0.0f;
+        float wheelSpin = 0.0f;
+        float pitch = 0.0f;
+        float roll = 0.0f;
     };
 
-    std::vector<GLuint> indices = { 0, 1, 2, 2, 3, 0 };
+    // ---------------------------------------------------------------------------
+    // Camera orbit globals
+    // ---------------------------------------------------------------------------
+    float orbitYaw = 0.0f;
+    float orbitPitch = 0.0f;
+    bool isOrbiting = false;
+    double lastMouseX = 0.0;
+    double lastMouseY = 0.0;
 
-    // Create checkerboard textures
-    const int texWidth = 64;
-    const int texHeight = 64;
-    std::vector<unsigned char> checkerData(texWidth * texHeight * 4);
-    for (int y = 0; y < texHeight; ++y)
+    // ---------------------------------------------------------------------------
+    // Car constants
+    // ---------------------------------------------------------------------------
+    const float kCarModelScale = 0.28f;
+    const float kCarGroundYOffset = 0.0f;
+    const float kGroundClearance = 0.01f;
+    const float kMaxDownSnap = 0.40f;
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+    void GetFramebufferSize(GLFWwindow *window, int &framebufferWidth, int &framebufferHeight)
     {
-        for (int x = 0; x < texWidth; ++x)
+        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        if (framebufferWidth <= 0)
+            framebufferWidth = static_cast<int>(width);
+        if (framebufferHeight <= 0)
+            framebufferHeight = static_cast<int>(height);
+    }
+
+    void SyncCameraToFramebuffer(GLFWwindow *window, Camera &camera)
+    {
+        int w, h;
+        GetFramebufferSize(window, w, h);
+        if (camera.width != w || camera.height != h)
         {
-            int idx = (y * texWidth + x) * 4;
-            bool isDark = ((x / 8) + (y / 8)) % 2 == 0;
-            if (isDark)
+            camera.width = w;
+            camera.height = h;
+        }
+        glViewport(0, 0, w, h);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Ground / marker meshes
+    // ---------------------------------------------------------------------------
+    Mesh CreateGroundMesh()
+    {
+        const float halfSize = 500.0f;
+        const float uvScale = 100.0f;
+        std::vector<Vertex> vertices =
             {
-                // Forest Green
-                checkerData[idx + 0] = 34;
-                checkerData[idx + 1] = 68;
-                checkerData[idx + 2] = 42;
+                {{-halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+                {{halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {uvScale, 0.0f}},
+                {{halfSize, 0.0f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {uvScale, uvScale}},
+                {{-halfSize, 0.0f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, uvScale}}};
+        std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+
+        const int texWidth = 64, texHeight = 64;
+        std::vector<unsigned char> checkerData(texWidth * texHeight * 4);
+        for (int y = 0; y < texHeight; ++y)
+        {
+            for (int x = 0; x < texWidth; ++x)
+            {
+                int idx = (y * texWidth + x) * 4;
+                bool isDark = ((x / 8) + (y / 8)) % 2 == 0;
+                checkerData[idx + 0] = isDark ? 34 : 46;
+                checkerData[idx + 1] = isDark ? 68 : 92;
+                checkerData[idx + 2] = isDark ? 42 : 56;
                 checkerData[idx + 3] = 255;
+            }
+        }
+
+        static const unsigned char blackPixel[] = {0, 0, 0, 255};
+        std::vector<Texture> textures;
+        textures.emplace_back(checkerData.data(), texWidth, texHeight, GL_RGBA, "diffuse", 0);
+        textures.emplace_back(blackPixel, 1, 1, GL_RGBA, "specular", 1);
+        return Mesh(vertices, indices, textures);
+    }
+
+    Mesh CreateOriginMarker()
+    {
+        const float halfSize = 4.0f;
+        std::vector<Vertex> vertices =
+            {
+                {{-halfSize, 0.005f, -halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {0.0f, 0.0f}},
+                {{halfSize, 0.005f, -halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {1.0f, 0.0f}},
+                {{halfSize, 0.005f, halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {1.0f, 1.0f}},
+                {{-halfSize, 0.005f, halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {0.0f, 1.0f}}};
+        std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+
+        static const unsigned char whitePixel[] = {255, 255, 255, 255};
+        static const unsigned char blackPixel[] = {0, 0, 0, 255};
+        std::vector<Texture> textures;
+        textures.emplace_back(whitePixel, 1, 1, GL_RGBA, "diffuse", 0);
+        textures.emplace_back(blackPixel, 1, 1, GL_RGBA, "specular", 1);
+        return Mesh(vertices, indices, textures);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Car matrix
+    // ---------------------------------------------------------------------------
+    glm::mat4 BuildCarMatrix(const CarState &car)
+    {
+        glm::mat4 t = glm::mat4(1.0f);
+        t = glm::translate(t, car.position + glm::vec3(0.0f, kCarGroundYOffset, 0.0f));
+        t = glm::rotate(t, car.yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+        t = glm::rotate(t, car.pitch, glm::vec3(1.0f, 0.0f, 0.0f)); // pitch around local X
+        t = glm::rotate(t, car.roll, glm::vec3(0.0f, 0.0f, 1.0f));  // roll around local Z
+        t = glm::scale(t, glm::vec3(kCarModelScale));
+        return t;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Camera follow
+    // ---------------------------------------------------------------------------
+    void UpdateFollowCamera(Camera &camera, const CarState &car, float dt)
+    {
+        float yaw = car.yaw + orbitYaw;
+        float pitch = 0.32f + orbitPitch;
+
+        glm::vec3 dir(
+            -std::sin(yaw) * std::cos(pitch),
+            std::sin(pitch),
+            -std::cos(yaw) * std::cos(pitch));
+
+        // Dynamically scale follow camera distance and heights based on the car model scale
+        float followDistance = 6.0f * (kCarModelScale / 0.42f) + 0.2f;
+        float cameraHeight = 0.25f * (kCarModelScale / 0.42f) + 0.05f;
+        float lookHeight = 0.45f * (kCarModelScale / 0.42f) + 0.02f;
+
+        glm::vec3 desiredPosition = car.position + dir * followDistance + glm::vec3(0.0f, cameraHeight, 0.0f);
+        glm::vec3 lookTarget = car.position + glm::vec3(0.0f, kCarGroundYOffset + lookHeight, 0.0f);
+
+        float t = isOrbiting ? 1.0f : glm::clamp(1.0f - std::pow(0.005f, dt), 0.0f, 1.0f);
+
+        camera.Position = glm::mix(camera.Position, desiredPosition, t);
+        camera.Orientation = glm::normalize(glm::mix(
+            camera.Orientation,
+            glm::normalize(lookTarget - camera.Position),
+            t));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Car update  (city passed in so world-clamp uses its scale)
+    // ---------------------------------------------------------------------------
+    void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
+    {
+        const float acceleration = 9.0f;
+        const float brakePower = 15.0f;
+        const float maxForwardSpeed = 11.0f;
+        const float maxReverseSpeed = 3.5f;
+        const float friction = 5.0f;
+        const float steeringResponse = 3.8f;
+        const float steeringReturn = 7.0f;
+        const float maxSteering = glm::radians(35.0f);
+        const float turnRate = glm::radians(105.0f);
+        const float wheelRadius = 0.38f * kCarModelScale;
+
+        // --- Throttle ---
+        float throttle = 0.0f;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            throttle += 1.0f;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            throttle -= 1.0f;
+
+        // --- Steering ---
+        float steerInput = 0.0f;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            steerInput += 1.0f;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            steerInput -= 1.0f;
+
+        // --- Speed ---
+        if (throttle > 0.0f)
+            car.speed += acceleration * dt;
+        else if (throttle < 0.0f)
+            car.speed -= brakePower * dt;
+        else
+        {
+            if (car.speed > 0.0f)
+                car.speed = std::max(0.0f, car.speed - friction * dt);
+            if (car.speed < 0.0f)
+                car.speed = std::min(0.0f, car.speed + friction * dt);
+        }
+        car.speed = glm::clamp(car.speed, -maxReverseSpeed, maxForwardSpeed);
+
+        // --- Steering ---
+        if (steerInput != 0.0f)
+            car.steering += steerInput * steeringResponse * dt;
+        else
+        {
+            if (car.steering > 0.0f)
+                car.steering = std::max(0.0f, car.steering - steeringReturn * dt);
+            if (car.steering < 0.0f)
+                car.steering = std::min(0.0f, car.steering + steeringReturn * dt);
+        }
+        car.steering = glm::clamp(car.steering, -maxSteering, maxSteering);
+
+        // --- Rotation & Movement ---
+        float turnFactor = (car.speed < 0.0f)
+                               ? car.speed / maxReverseSpeed
+                               : car.speed / maxForwardSpeed;
+        car.yaw += car.steering * turnFactor * turnRate * dt;
+
+        // --- Movement & Obstacle Collisions ---
+        glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+        glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
+        glm::vec3 prevPosition = car.position;
+        glm::vec3 fullMove = forward * car.speed * dt;
+        glm::vec3 nextPosition = car.position + fullMove;
+
+        float carCollisionRadius = kCarModelScale * 1.8f;
+        // Removed hard bounds clamping - rely on collision detection instead
+
+        if (city.CheckCollision(nextPosition, carCollisionRadius))
+        {
+            // Intentar deslizamiento en X
+            glm::vec3 tryX = glm::vec3(nextPosition.x, prevPosition.y, prevPosition.z);
+            // Intentar deslizamiento en Z
+            glm::vec3 tryZ = glm::vec3(prevPosition.x, prevPosition.y, nextPosition.z);
+
+            bool xOk = !city.CheckCollision(tryX, carCollisionRadius);
+            bool zOk = !city.CheckCollision(tryZ, carCollisionRadius);
+
+            if (xOk && !zOk)
+                nextPosition = tryX;
+            else if (zOk && !xOk)
+                nextPosition = tryZ;
+            else if (xOk && zOk)
+                nextPosition = tryX; // ambos libres: prioriza X
+            else
+            {
+                // Colisión total — detener
+                car.speed = 0.0f;
+                nextPosition = prevPosition;
+            }
+        }
+        car.position = nextPosition;
+
+        // --- Terrain heights and normals (for tilt and snap) ---
+        float d = 0.5f; // Distancia de las ruedas
+        glm::vec3 probePoints[4] = {
+            car.position + forward * d, // front
+            car.position - forward * d, // back
+            car.position + right * d,   // right
+            car.position - right * d    // left
+        };
+        glm::vec3 normals[4] = {};
+        for (int i = 0; i < 4; ++i)
+        {
+            game::GroundSample s;
+            if (city.GetGroundSample(probePoints[i], car.position.y, s, 2.0f, 0.12f) && s.found)
+            {
+                normals[i] = s.normal;
             }
             else
             {
-                // Grass Green
-                checkerData[idx + 0] = 46;
-                checkerData[idx + 1] = 92;
-                checkerData[idx + 2] = 56;
-                checkerData[idx + 3] = 255;
+                normals[i] = glm::vec3(0, 1, 0);
             }
         }
-    }
 
-    static const unsigned char blackPixel[] = { 0, 0, 0, 255 };
-
-    std::vector<Texture> textures;
-    textures.emplace_back(checkerData.data(), texWidth, texHeight, GL_RGBA, "diffuse", 0);
-    textures.emplace_back(blackPixel, 1, 1, GL_RGBA, "specular", 1);
-
-    return Mesh(vertices, indices, textures);
-}
-
-Mesh CreateOriginMarker()
-{
-    // Beautiful starting pad red grid at center
-    const float halfSize = 4.0f;
-    std::vector<Vertex> vertices =
-    {
-        {{-halfSize, 0.005f, -halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {0.0f, 0.0f}},
-        {{ halfSize, 0.005f, -halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {1.0f, 0.0f}},
-        {{ halfSize, 0.005f,  halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {1.0f, 1.0f}},
-        {{-halfSize, 0.005f,  halfSize}, {0.0f, 1.0f, 0.0f}, {0.95f, 0.25f, 0.25f}, {0.0f, 1.0f}}
-    };
-
-    std::vector<GLuint> indices = { 0, 1, 2, 2, 3, 0 };
-
-    static const unsigned char whitePixel[] = { 255, 255, 255, 255 };
-    static const unsigned char blackPixel[] = { 0, 0, 0, 255 };
-
-    std::vector<Texture> textures;
-    textures.emplace_back(whitePixel, 1, 1, GL_RGBA, "diffuse", 0);
-    textures.emplace_back(blackPixel, 1, 1, GL_RGBA, "specular", 1);
-
-    return Mesh(vertices, indices, textures);
-}
-
-glm::mat4 BuildCarMatrix(const CarState& car)
-{
-    glm::mat4 transform = glm::mat4(1.0f);
-    // Draw the car at its authentic scale (1.0f)
-    const float modelScale = 1.0f;
-    
-    // Add Y offset 0.38f to perfectly align the bottom wheels of the model on the ground
-    glm::vec3 renderPos = car.position + glm::vec3(0.0f, 0.38f, 0.0f);
-    transform = glm::translate(transform, renderPos);
-    transform = glm::rotate(transform, car.yaw, glm::vec3(0.0f, 1.0f, 0.0f));
-    transform = glm::scale(transform, glm::vec3(modelScale));
-    return transform;
-}
-
-void UpdateFollowCamera(Camera& camera, const CarState& car, float dt)
-{
-    // The look direction based on car yaw and orbit angles
-    float yaw = car.yaw + orbitYaw;
-    float pitch = 0.32f + orbitPitch; // Default angle is ~18 degrees up
-
-    // Calculate direction vector from target to camera
-    // We want the camera to be behind the car (-sin(yaw) and -cos(yaw)) and above it (sin(pitch))
-    glm::vec3 dir(
-        -std::sin(yaw) * std::cos(pitch),
-        std::sin(pitch),
-        -std::cos(yaw) * std::cos(pitch)
-    );
-    
-    // Position camera at a distance from the car (adding the offset vector places it above ground)
-    float distance = 7.2f;
-    glm::vec3 desiredPosition = car.position + dir * distance + glm::vec3(0.0f, 0.4f, 0.0f);
-    glm::vec3 lookTarget = car.position + glm::vec3(0.0f, 0.8f, 0.0f);
-
-    // Smoothly interpolate camera position
-    float t = 1.0f - std::pow(0.005f, dt);
-    t = glm::clamp(t, 0.0f, 1.0f);
-    
-    // Snappy camera tracking during active drag orbiting
-    if (isOrbiting)
-    {
-        t = 1.0f;
-    }
-    
-    camera.Position = glm::mix(camera.Position, desiredPosition, t);
-    
-    glm::vec3 desiredOrientation = glm::normalize(lookTarget - camera.Position);
-    camera.Orientation = glm::normalize(glm::mix(camera.Orientation, desiredOrientation, t));
-}
-
-void UpdateCar(GLFWwindow* window, CarState& car, float dt)
-{
-    const float acceleration = 25.0f;
-    const float brakePower = 35.0f;
-    const float maxForwardSpeed = 28.0f;
-    const float maxReverseSpeed = 9.0f;
-    const float friction = 8.0f;
-    const float steeringResponse = 3.2f;
-    const float steeringReturn = 6.0f;
-    const float maxSteering = glm::radians(34.0f);
-    const float turnRate = glm::radians(85.0f);
-    const float wheelRadius = 0.38f;
-
-    // Inputs: W/S for Throttle
-    float throttle = 0.0f;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    {
-        throttle += 1.0f;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        throttle -= 1.0f;
-    }
-
-    // Inputs: A/D for Steering
-    float steerInput = 0.0f;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        steerInput += 1.0f; // Turn Left (A turns left)
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        steerInput -= 1.0f; // Turn Right (D turns right)
-    }
-
-    // Speed calculation
-    if (throttle > 0.0f)
-    {
-        car.speed += acceleration * dt;
-    }
-    else if (throttle < 0.0f)
-    {
-        car.speed -= brakePower * dt;
-    }
-    else
-    {
-        // Smooth deceleration due to friction
-        if (car.speed > 0.0f)
+        // Corregir solo si la altura detectada no es una caída falsa.
+        game::GroundSample centerSample;
+        if (city.GetGroundSample(car.position, car.position.y, centerSample, 2.0f, 0.12f) && centerSample.found)
         {
-            car.speed = std::max(0.0f, car.speed - friction * dt);
+            if (centerSample.height >= car.position.y - kMaxDownSnap)
+            {
+                car.position.y = std::max(car.position.y, centerSample.height + kGroundClearance);
+            }
         }
-        else if (car.speed < 0.0f)
+
+        // Tilt: usar promedio de normales de las 4 ruedas
+        glm::vec3 avgNormal = glm::normalize(normals[0] + normals[1] + normals[2] + normals[3]);
+        float targetPitch = std::atan2(avgNormal.x, avgNormal.y);
+        float targetRoll = -std::atan2(avgNormal.z, avgNormal.y);
+        car.pitch = glm::mix(car.pitch, targetPitch, 15.0f * dt);
+        car.roll = glm::mix(car.roll, targetRoll, 15.0f * dt);
+
+        // --- Wheel spin ---
+        car.wheelSpin += (car.speed * dt) / wheelRadius;
+    }
+
+    // --- Car jump and respawn ---
+    void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost)
+    {
+        static bool zPressedLast = false;
+        static bool rPressedLast = false;
+
+        // --- Jump ---
+        bool zPressed = glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS;
+        if (zPressed && !zPressedLast && isOnGround)
         {
-            car.speed = std::min(0.0f, car.speed + friction * dt);
+            carVerticalSpeed = 3.2f; // Reduce vertical impulse to avoid overshooting geometry
+            isOnGround = false;
+
+            glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+            car.position += forward * (jumpDistanceBoost * 0.45f); // Reduced horizontal boost
         }
-    }
+        zPressedLast = zPressed;
 
-    car.speed = glm::clamp(car.speed, -maxReverseSpeed, maxForwardSpeed);
-
-    // Steering wheel calculation
-    if (steerInput != 0.0f)
-    {
-        car.steering += steerInput * steeringResponse * dt;
-    }
-    else
-    {
-        // Smooth return of the steering wheel to center
-        if (car.steering > 0.0f)
+        // --- Respawn ---
+        bool rPressed = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
+        if (rPressed && !rPressedLast)
         {
-            car.steering = std::max(0.0f, car.steering - steeringReturn * dt);
+            car.position = spawnPoint;
+            car.speed = 0.0f;
+            car.steering = 0.0f;
+            car.yaw = 0.0f;
+            car.pitch = 0.0f;
+            car.roll = 0.0f;
+            carVerticalSpeed = 0.0f;
+            isOnGround = false;
         }
-        else if (car.steering < 0.0f)
-        {
-            car.steering = std::min(0.0f, car.steering + steeringReturn * dt);
-        }
+        rPressedLast = rPressed;
     }
-    car.steering = glm::clamp(car.steering, -maxSteering, maxSteering);
-
-    // Rotate car based on velocity
-    float turnFactor = car.speed / maxForwardSpeed;
-    if (car.speed < 0.0f)
-    {
-        turnFactor = car.speed / maxReverseSpeed; // Reverse steering feels correct
-    }
-    car.yaw += car.steering * turnFactor * turnRate * dt;
-
-    // Movement: The nose of the car points in the local +Z direction
-    glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-    car.position += forward * car.speed * dt;
-
-    // World clamping (ground size 500x500, limit at 480)
-    const float worldLimit = 480.0f;
-    car.position.x = glm::clamp(car.position.x, -worldLimit, worldLimit);
-    car.position.z = glm::clamp(car.position.z, -worldLimit, worldLimit);
-
-    if (std::abs(car.position.x) >= worldLimit || std::abs(car.position.z) >= worldLimit)
-    {
-        car.speed *= 0.3f; // Penalty for hitting the barrier
-    }
-
-    car.wheelSpin += (car.speed * dt) / wheelRadius;
-}
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Game::Run
+// ---------------------------------------------------------------------------
 int Game::Run()
 {
     glfwInit();
-
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(width, height, "Mini Delivery Dash", NULL, NULL);
-    if (window == NULL)
+    GLFWwindow *window = glfwCreateWindow(width, height, "Mini Delivery Dash", NULL, NULL);
+    if (!window)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -304,150 +391,233 @@ int Game::Run()
     {
         HMODULE openGL = GetModuleHandleA("opengl32.dll");
         if (openGL)
-        {
             glad_glBlendFunc = (PFNGLBLENDFUNCPROC)GetProcAddress(openGL, "glBlendFunc");
-        }
     }
 #endif
 
-    glViewport(0, 0, width, height);
+    int fbW = static_cast<int>(width), fbH = static_cast<int>(height);
+    GetFramebufferSize(window, fbW, fbH);
+    glViewport(0, 0, fbW, fbH);
 
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
 
-    glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     glm::vec3 lightPos = glm::vec3(0.5f, 0.5f, 0.5f);
-    glm::mat4 lightModel = glm::mat4(1.0f);
-    lightModel = glm::translate(lightModel, lightPos);
-
     shaderProgram.Activate();
-    glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), lightColor.x, lightColor.y, lightColor.z, lightColor.w);
+    glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
     glUniform3f(glGetUniformLocation(shaderProgram.ID, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Setup initial camera location just behind the car
-    Camera camera(width, height, glm::vec3(0.0f, 2.4f, -7.2f));
+    Camera camera(fbW, fbH, glm::vec3(0.0f, 2.4f, -7.2f));
+
     CarState car;
+    glm::vec3 spawnPoint = car.position; // Save initial spawn point
+    float carVerticalSpeed = 0.0f;
+    bool isOnGround = true;
+    float lastGroundHeight = spawnPoint.y;
+
+    const bool drawLegacyGround = false;
     Mesh ground = CreateGroundMesh();
     Mesh originMarker = CreateOriginMarker();
 
-    std::string modelPath = "res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj";
-    Model model(modelPath.c_str());
+    // --- Car model ---
+    Model carModel("res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj");
+
+    // --- City  (cambia solo esta ruta para usar otra ciudad) ---
+    City city("res/models/city_3d/scene.gltf",
+              1.0f,   // usar escala original del mapa
+              0.0f,   // auto-alinear altura con el suelo
+              0.0f,   // sin offset X manual
+              0.0f,   // sin offset Z manual
+              true    // auto-align map to ground
+    );
+
+    // --- Snap Y to the street at the default starting position ---
+    bool foundDefaultRoad = false;
+    glm::vec3 roadSpawn = city.GetBestRoadSpawn(car.position, 1200.0f);
+    car.position = roadSpawn + glm::vec3(0.0f, kGroundClearance, 0.0f);
+    game::GroundSample spawnSample;
+    if (city.GetGroundSample(car.position, car.position.y + 2.0f, spawnSample, 12.0f, 0.45f) && spawnSample.found)
+    {
+        car.position.y = spawnSample.height + kGroundClearance;
+        foundDefaultRoad = true;
+        std::cout << "[SPAWN] Spawned car on road at coordinate: ("
+                  << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
+    }
+    else
+    {
+        car.position.y = city.GetHeightAt(car.position.x, car.position.z, car.position.y, &foundDefaultRoad, 12.0f, 0.45f);
+        std::cout << "[SPAWN] Fallback street height at coordinate: ("
+                  << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
+    }
 
     float lastFrame = static_cast<float>(glfwGetTime());
-
     bool headlightsOn = false;
-    bool lightsKeyPressed = false;
+    bool lightsPressed = false;
 
     while (!glfwWindowShouldClose(window))
     {
         float currentFrame = static_cast<float>(glfwGetTime());
-        float deltaTime = currentFrame - lastFrame;
-        
-        // Prevent huge frame-time spikes on system freezes
-        if (deltaTime > 0.1f) deltaTime = 0.1f;
-        
+        float dt = std::min(currentFrame - lastFrame, 0.1f);
         lastFrame = currentFrame;
 
-        // Handle Headlights Toggle key (L)
+        SyncCameraToFramebuffer(window, camera);
+
+        // --- Headlights toggle (L) ---
         if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
         {
-            if (!lightsKeyPressed)
+            if (!lightsPressed)
             {
                 headlightsOn = !headlightsOn;
-                lightsKeyPressed = true;
+                lightsPressed = true;
             }
         }
         else
-        {
-            lightsKeyPressed = false;
-        }
+            lightsPressed = false;
 
-        // Handle Braking Light Trigger
-        bool braking = false;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        {
-            if (car.speed > 0.1f)
-            {
-                braking = true;
-            }
-        }
+        // --- Braking light ---
+        bool braking = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && car.speed > 0.1f);
 
-        // Handle right-click mouse camera orbit controls
-        bool rightMousePressed = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
-        if (rightMousePressed)
+        // --- Camera orbit (right mouse) ---
+        bool rmb = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+        if (rmb)
         {
-            double mouseX, mouseY;
-            glfwGetCursorPos(window, &mouseX, &mouseY);
+            double mx, my;
+            glfwGetCursorPos(window, &mx, &my);
             if (!isOrbiting)
             {
                 isOrbiting = true;
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
+                lastMouseX = mx;
+                lastMouseY = my;
             }
             else
             {
-                double dx = mouseX - lastMouseX;
-                double dy = mouseY - lastMouseY;
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
-                
                 const float sensitivity = 0.007f;
-                orbitYaw -= dx * sensitivity;
-                orbitPitch += dy * sensitivity;
-                
-                // Limit pitch to prevent upside down or ground clipping
+                orbitYaw -= static_cast<float>(mx - lastMouseX) * sensitivity;
+                orbitPitch += static_cast<float>(my - lastMouseY) * sensitivity;
                 orbitPitch = glm::clamp(orbitPitch, -glm::radians(10.0f), glm::radians(75.0f));
+                lastMouseX = mx;
+                lastMouseY = my;
             }
         }
         else
         {
             isOrbiting = false;
-            // Smoothly return the orbit camera behind the car when released!
             orbitYaw = glm::mix(orbitYaw, 0.0f, 0.1f);
             orbitPitch = glm::mix(orbitPitch, 0.0f, 0.1f);
         }
 
-        UpdateCar(window, car, deltaTime);
-        UpdateFollowCamera(camera, car, deltaTime);
-        camera.updateMatrix(45.0f, 0.1f, 1000.0f);
+        bool accelerating = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS);
+        float jumpDistanceBoost = accelerating ? 1.4f : 0.0f;
 
-        // Update headlights spotlight projection uniforms on the shader
+        // --- Handle jump and respawn ---
+        HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost);
+
+        // --- Gravity and vertical movement ---
+        const float gravity = 18.0f;
+        if (!isOnGround)
+        {
+            carVerticalSpeed -= gravity * dt;
+            car.position.y += carVerticalSpeed * dt;
+        }
+
+        // --- Update car movement (horizontal) ---
+        UpdateCar(window, car, dt, city);
+
+        // --- Check if car is on ground ---
+        game::GroundSample groundSample;
+        if (city.GetGroundSample(car.position, car.position.y, groundSample) && groundSample.found)
+        {
+            float groundY = groundSample.height;
+            lastGroundHeight = groundY;
+
+            float desiredY = groundY + kGroundClearance;
+
+            if (car.position.y < desiredY - 0.02f)
+            {
+                // Evitar hundir o caer por debajo del suelo real.
+                car.position.y = desiredY;
+                carVerticalSpeed = 0.0f;
+                isOnGround = true;
+            }
+            else if (car.position.y <= desiredY + 0.12f && carVerticalSpeed <= 0.5f)
+            {
+                car.position.y = desiredY;
+                carVerticalSpeed = 0.0f;
+                isOnGround = true;
+            }
+            else
+            {
+                isOnGround = false;
+            }
+        }
+        else
+        {
+            // If no ground detected, attempt an expanded recovery probe before forcing position.
+            game::GroundSample recoverySample;
+            if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
+            {
+                float desiredY = recoverySample.height + kGroundClearance;
+                car.position.y = desiredY;
+                carVerticalSpeed = 0.0f;
+                isOnGround = true;
+                lastGroundHeight = recoverySample.height;
+            }
+            else if (car.position.y < lastGroundHeight - 0.5f)
+            {
+                // If the car dropped far below the last known ground, clamp it back to prevent falling through.
+                car.position.y = lastGroundHeight + kGroundClearance;
+                carVerticalSpeed = 0.0f;
+                isOnGround = true;
+            }
+            else
+            {
+                isOnGround = false;
+            }
+        }
+
+        UpdateFollowCamera(camera, car, dt);
+        camera.updateMatrix(45.0f, 0.1f, 20000.0f);
+
+        // --- Headlight uniforms ---
         shaderProgram.Activate();
         glUniform1i(glGetUniformLocation(shaderProgram.ID, "uHeadlightsLightOn"), headlightsOn ? 1 : 0);
         if (headlightsOn)
         {
-            glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+            glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
             glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
-            
-            // World positions of both headlights (1.8m forward, 0.7m left/right, 0.55m height)
-            glm::vec3 leftPos = car.position + glm::vec3(0.0f, 0.55f, 0.0f) + forward * 1.8f + right * 0.7f;
-            glm::vec3 rightPos = car.position + glm::vec3(0.0f, 0.55f, 0.0f) + forward * 1.8f - right * 0.7f;
-            
-            // The beam slopes slightly downward towards the road for realism
-            glm::vec3 lightDir = glm::normalize(forward - glm::vec3(0.0f, 0.12f, 0.0f));
-            
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), leftPos.x, leftPos.y, leftPos.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rightPos.x, rightPos.y, rightPos.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lightDir.x, lightDir.y, lightDir.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f); // Bright warm headlights
+            glm::vec3 base = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
+            glm::vec3 lPos = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
+            glm::vec3 rPos = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
+            glm::vec3 lDir = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
+
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), lPos.x, lPos.y, lPos.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rPos.x, rPos.y, rPos.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lDir.x, lDir.y, lDir.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
         }
 
+        // --- Draw ---
         glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        ground.Draw(shaderProgram, camera, glm::mat4(1.0f));
-        originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
-        
-        // Draw the car model with its wheel spins, steering angle, and lights!
-        model.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+        if (drawLegacyGround)
+        {
+            ground.Draw(shaderProgram, camera, glm::mat4(1.0f));
+            originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
+        }
 
+        city.Draw(shaderProgram, camera);
+        carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+
+        // --- Window title ---
         char title[256];
-        std::snprintf(title, sizeof(title), "Mini Delivery Dash | Speed: %.1f km/h | Headlights [L]: %s", 
-                      std::abs(car.speed) * 3.6f, 
-                      headlightsOn ? "ON (Linternas Activas)" : "OFF");
+        std::snprintf(title, sizeof(title),
+                      "Mini Delivery Dash | Speed: %.1f km/h | Headlights [L]: %s",
+                      std::abs(car.speed) * 3.6f,
+                      headlightsOn ? "ON" : "OFF");
         glfwSetWindowTitle(window, title);
 
         glfwSwapBuffers(window);
