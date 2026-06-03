@@ -1,3 +1,3 @@
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/MiniDeliveryDash.dir
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/ZERO_CHECK.dir
+C:/Universidad/QuintoSemestre/Programacion Grafica/Lab8/build/CMakeFiles/MiniDeliveryDash.dir
+C:/Universidad/QuintoSemestre/Programacion Grafica/Lab8/build/CMakeFiles/edit_cache.dir
+C:/Universidad/QuintoSemestre/Programacion Grafica/Lab8/build/CMakeFiles/rebuild_cache.dir

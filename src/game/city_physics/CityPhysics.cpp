@@ -290,12 +290,30 @@ namespace game
         }
     }
 
+    int CityPhysics::GetCellCol(float x) const
+    {
+        if (mGridCols <= 0) return 0;
+        int col = static_cast<int>((x - mWorldMinBounds.x) / mGridCellSize);
+        return std::max(0, std::min(mGridCols - 1, col));
+    }
+
+    int CityPhysics::GetCellRow(float z) const
+    {
+        if (mGridRows <= 0) return 0;
+        int row = static_cast<int>((z - mWorldMinBounds.z) / mGridCellSize);
+        return std::max(0, std::min(mGridRows - 1, row));
+    }
+
     void CityPhysics::Initialize(const Model &model, const glm::mat4 &cityMatrix)
     {
         mRoadTriangles.clear();
         mObstacleTriangles.clear();
+        mGrid.clear();
         mWorldMinBounds = glm::vec3(FLT_MAX);
         mWorldMaxBounds = glm::vec3(-FLT_MAX);
+        mGridCellSize = 15.0f;
+        mGridCols = 0;
+        mGridRows = 0;
 
         const auto &meshes = model.GetMeshes();
         const auto &matrices = model.GetMatricesMeshes();
@@ -370,6 +388,48 @@ namespace game
             mWorldMinBounds = glm::vec3(0.0f);
             mWorldMaxBounds = glm::vec3(0.0f);
         }
+
+        // Build spatial partition grid
+        float sizeX = mWorldMaxBounds.x - mWorldMinBounds.x;
+        float sizeZ = mWorldMaxBounds.z - mWorldMinBounds.z;
+        mGridCols = static_cast<int>(std::ceil(sizeX / mGridCellSize));
+        mGridRows = static_cast<int>(std::ceil(sizeZ / mGridCellSize));
+        if (mGridCols <= 0) mGridCols = 1;
+        if (mGridRows <= 0) mGridRows = 1;
+
+        mGrid.resize(mGridCols * mGridRows);
+
+        for (size_t i = 0; i < mRoadTriangles.size(); ++i)
+        {
+            const auto &tri = mRoadTriangles[i];
+            int minCol = GetCellCol(tri.minBounds.x);
+            int maxCol = GetCellCol(tri.maxBounds.x);
+            int minRow = GetCellRow(tri.minBounds.z);
+            int maxRow = GetCellRow(tri.maxBounds.z);
+            for (int r = minRow; r <= maxRow; ++r)
+            {
+                for (int c = minCol; c <= maxCol; ++c)
+                {
+                    mGrid[r * mGridCols + c].roadTriangleIndices.push_back(i);
+                }
+            }
+        }
+
+        for (size_t i = 0; i < mObstacleTriangles.size(); ++i)
+        {
+            const auto &tri = mObstacleTriangles[i];
+            int minCol = GetCellCol(tri.minBounds.x);
+            int maxCol = GetCellCol(tri.maxBounds.x);
+            int minRow = GetCellRow(tri.minBounds.z);
+            int maxRow = GetCellRow(tri.maxBounds.z);
+            for (int r = minRow; r <= maxRow; ++r)
+            {
+                for (int c = minCol; c <= maxCol; ++c)
+                {
+                    mGrid[r * mGridCols + c].obstacleTriangleIndices.push_back(i);
+                }
+            }
+        }
     }
 
     glm::vec3 TriangleCenter(const WorldTriangle &tri)
@@ -409,40 +469,52 @@ namespace game
 
         const float edgeSnapMargin = 0.55f;
 
-        for (size_t i = 0; i < mRoadTriangles.size(); ++i)
+        int minCol = GetCellCol(worldPos.x - edgeSnapMargin);
+        int maxCol = GetCellCol(worldPos.x + edgeSnapMargin);
+        int minRow = GetCellRow(worldPos.z - edgeSnapMargin);
+        int maxRow = GetCellRow(worldPos.z + edgeSnapMargin);
+
+        for (int r = minRow; r <= maxRow; ++r)
         {
-            const WorldTriangle &tri = mRoadTriangles[i];
-
-            if (worldPos.x < tri.minBounds.x - edgeSnapMargin || worldPos.x > tri.maxBounds.x + edgeSnapMargin ||
-                worldPos.z < tri.minBounds.z - edgeSnapMargin || worldPos.z > tri.maxBounds.z + edgeSnapMargin)
-                continue;
-
-            float y = 0.0f;
-            float horizontalDistance = 0.0f;
-            bool projected = ProjectPointToTriangleXZ(worldPos, tri, y);
-            if (!projected)
+            for (int c = minCol; c <= maxCol; ++c)
             {
-                glm::vec3 closest;
-                float distSq = ClosestPointOnTriangleXZ(worldPos, tri, closest);
-                horizontalDistance = std::sqrt(distSq);
-                if (horizontalDistance > edgeSnapMargin)
+                const auto &cell = mGrid[r * mGridCols + c];
+                for (size_t triIdx : cell.roadTriangleIndices)
                 {
-                    continue;
+                    const WorldTriangle &tri = mRoadTriangles[triIdx];
+
+                    if (worldPos.x < tri.minBounds.x - edgeSnapMargin || worldPos.x > tri.maxBounds.x + edgeSnapMargin ||
+                        worldPos.z < tri.minBounds.z - edgeSnapMargin || worldPos.z > tri.maxBounds.z + edgeSnapMargin)
+                        continue;
+
+                    float y = 0.0f;
+                    float horizontalDistance = 0.0f;
+                    bool projected = ProjectPointToTriangleXZ(worldPos, tri, y);
+                    if (!projected)
+                    {
+                        glm::vec3 closest;
+                        float distSq = ClosestPointOnTriangleXZ(worldPos, tri, closest);
+                        horizontalDistance = std::sqrt(distSq);
+                        if (horizontalDistance > edgeSnapMargin)
+                        {
+                            continue;
+                        }
+                        y = closest.y;
+                    }
+
+                    if (y < currentY - snapDownMax || y > currentY + snapUpMax)
+                        continue;
+
+                    float verticalDistance = std::abs(y - currentY);
+                    float score = (projected ? 1000.0f : 500.0f) - verticalDistance * 4.0f - horizontalDistance * 25.0f + y * 0.01f;
+                    if (!found || score > bestScore)
+                    {
+                        bestScore = score;
+                        bestY = y;
+                        bestNormal = tri.normal;
+                        found = true;
+                    }
                 }
-                y = closest.y;
-            }
-
-            if (y < currentY - snapDownMax || y > currentY + snapUpMax)
-                continue;
-
-            float verticalDistance = std::abs(y - currentY);
-            float score = (projected ? 1000.0f : 500.0f) - verticalDistance * 4.0f - horizontalDistance * 25.0f + y * 0.01f;
-            if (!found || score > bestScore)
-            {
-                bestScore = score;
-                bestY = y;
-                bestNormal = tri.normal;
-                found = true;
             }
         }
 
@@ -468,28 +540,40 @@ namespace game
         // Search radius: position + collision radius (expanded for safety)
         float searchRadius = radius * 2.5f;
 
-        for (size_t i = 0; i < mObstacleTriangles.size(); ++i)
+        int minCol = GetCellCol(pos.x - searchRadius);
+        int maxCol = GetCellCol(pos.x + searchRadius);
+        int minRow = GetCellRow(pos.z - searchRadius);
+        int maxRow = GetCellRow(pos.z + searchRadius);
+
+        for (int r = minRow; r <= maxRow; ++r)
         {
-            const WorldTriangle &tri = mObstacleTriangles[i];
-
-            // Skip only degenerate/floating artifacts (conservative)
-            if (IsTinyObstacle(tri))
+            for (int c = minCol; c <= maxCol; ++c)
             {
-                continue;
-            }
+                const auto &cell = mGrid[r * mGridCols + c];
+                for (size_t triIdx : cell.obstacleTriangleIndices)
+                {
+                    const WorldTriangle &tri = mObstacleTriangles[triIdx];
 
-            // Quick AABB check: is the triangle close enough?
-            if (pos.x < tri.minBounds.x - searchRadius || pos.x > tri.maxBounds.x + searchRadius ||
-                pos.z < tri.minBounds.z - searchRadius || pos.z > tri.maxBounds.z + searchRadius ||
-                pos.y < tri.minBounds.y - searchRadius || pos.y > tri.maxBounds.y + searchRadius)
-            {
-                continue;
-            }
+                    // Skip only degenerate/floating artifacts (conservative)
+                    if (IsTinyObstacle(tri))
+                    {
+                        continue;
+                    }
 
-            // Full sphere-triangle collision check
-            if (SphereIntersectsTriangle(pos, radius, tri))
-            {
-                return true;
+                    // Quick AABB check: is the triangle close enough?
+                    if (pos.x < tri.minBounds.x - searchRadius || pos.x > tri.maxBounds.x + searchRadius ||
+                        pos.z < tri.minBounds.z - searchRadius || pos.z > tri.maxBounds.z + searchRadius ||
+                        pos.y < tri.minBounds.y - searchRadius || pos.y > tri.maxBounds.y + searchRadius)
+                    {
+                        continue;
+                    }
+
+                    // Full sphere-triangle collision check
+                    if (SphereIntersectsTriangle(pos, radius, tri))
+                    {
+                        return true;
+                    }
+                }
             }
         }
         return false;

@@ -48,10 +48,24 @@ namespace game
         glm::vec3 GetWorldMaxBounds() const { return mWorldMaxBounds; }
 
     private:
+        struct GridCell
+        {
+            std::vector<size_t> roadTriangleIndices;
+            std::vector<size_t> obstacleTriangleIndices;
+        };
+
+        int GetCellCol(float x) const;
+        int GetCellRow(float z) const;
+
         std::vector<WorldTriangle> mRoadTriangles;
         std::vector<WorldTriangle> mObstacleTriangles;
         glm::vec3 mWorldMinBounds;
         glm::vec3 mWorldMaxBounds;
+
+        float mGridCellSize;
+        int mGridCols;
+        int mGridRows;
+        std::vector<GridCell> mGrid;
     };
 }
 

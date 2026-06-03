@@ -35,23 +35,28 @@ uniform vec3 uHeadlightRightPos;
 uniform vec3 uHeadlightDir;
 uniform vec3 uHeadlightColor;
 
+uniform vec3 uFogColor = vec3(0.07f, 0.13f, 0.17f);
+uniform float uFogStart = 40.0f;
+uniform float uFogEnd = 250.0f;
+uniform float uAmbientStrength = 0.20f;
+
 vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 viewDir, vec3 baseColor, float specTex)
 {
     vec3 lightVec = spotLightPos - crntPos;
     float dist = length(lightVec);
     
-    // Attenuation of the light over distance
-    float a = 0.015;
-    float b = 0.05;
+    // Attenuation of the light over distance (significantly reduced for longer throw headlights)
+    float a = 0.0018f;
+    float b = 0.015f;
     float inten = 1.0f / (a * dist * dist + b * dist + 1.0f);
 
     // Diffuse lighting
     vec3 lightDirection = normalize(lightVec);
     float diffuse = max(dot(normal, lightDirection), 0.0f);
 
-    // Specular lighting
-    vec3 reflectionDirection = reflect(-lightDirection, normal);
-    float specAmount = pow(max(dot(viewDir, reflectionDirection), 0.0f), 16);
+    // Specular lighting (Blinn-Phong)
+    vec3 halfwayDir = normalize(lightDirection + viewDir);
+    float specAmount = pow(max(dot(normal, halfwayDir), 0.0f), 32);
     float specular = specAmount * 0.50f * specTex;
 
     // Angle between the light ray to fragment and the headlight center direction
@@ -68,18 +73,27 @@ vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 
 vec4 direcLight()
 {
     // ambient lighting
-    float ambient = 0.20f;
+    float ambient = uAmbientStrength;
+    float diffuseFactor = 1.0f;
+
+    if (uHeadlightsLightOn)
+    {
+        ambient = min(ambient, 0.12f); // Brighter cozy night ambient so the city is still visible
+        diffuseFactor = 0.18f;          // Brighter moon lighting contribution
+    }
 
     // diffuse lighting
     vec3 normal = normalize(Normal);
     vec3 lightDirection = normalize(vec3(1.0f, 1.0f, 0.0f));
-    float diffuse = max(dot(normal, lightDirection), 0.0f);
+    float diffuse = max(dot(normal, lightDirection), 0.0f) * diffuseFactor;
 
     // specular lighting
     float specularLight = 0.50f;
     vec3 viewDirection = normalize(camPos - crntPos);
-    vec3 reflectionDirection = reflect(-lightDirection, normal);
-    float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
+    
+    // Blinn-Phong specular
+    vec3 halfwayDir = normalize(lightDirection + viewDirection);
+    float specAmount = pow(max(dot(normal, halfwayDir), 0.0f), 32);
     float specular = specAmount * specularLight;
 
     vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
@@ -90,12 +104,13 @@ vec4 direcLight()
 
 void main()
 {
+    vec4 finalColor;
     if (uIsEmissive)
     {
         vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
         vec3 finalEmissive = texColor.rgb * 1.5 + uEmissiveColor;
         float outAlpha = uUseAlpha ? texColor.a : 1.0f;
-        FragColor = vec4(finalEmissive, outAlpha);
+        finalColor = vec4(finalEmissive, outAlpha);
     }
     else
     {
@@ -114,6 +129,13 @@ void main()
             baseLight.rgb += leftSpot + rightSpot;
         }
         
-        FragColor = baseLight;
+        finalColor = baseLight;
     }
+
+    // Apply distance fog
+    float dist = length(camPos - crntPos);
+    float fogFactor = clamp((uFogEnd - dist) / (uFogEnd - uFogStart), 0.0, 1.0);
+    finalColor.rgb = mix(uFogColor, finalColor.rgb, fogFactor);
+
+    FragColor = finalColor;
 }
