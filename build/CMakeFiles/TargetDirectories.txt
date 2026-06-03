@@ -1,3 +1,0 @@
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/MiniDeliveryDash.dir
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/NITRO/Documents/Mini-Delivery-Dash-co/build/CMakeFiles/ZERO_CHECK.dir
