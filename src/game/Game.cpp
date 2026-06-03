@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdio>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -26,6 +28,7 @@ const unsigned int height = 800;
 
 namespace
 {
+
 
     // ---------------------------------------------------------------------------
     // Car state
@@ -53,7 +56,7 @@ namespace
     // ---------------------------------------------------------------------------
     // Car constants
     // ---------------------------------------------------------------------------
-    const float kCarModelScale = 0.28f;
+    const float kCarModelScale = 0.21875f;
     const float kCarGroundYOffset = 0.0f;
     const float kGroundClearance = 0.01f;
     const float kMaxDownSnap = 0.40f;
@@ -85,6 +88,21 @@ namespace
     // ---------------------------------------------------------------------------
     // Ground / marker meshes
     // ---------------------------------------------------------------------------
+    Mesh CreateOceanMesh()
+    {
+        const float halfSize = 4000.0f;
+        std::vector<Vertex> vertices = {
+            {{-halfSize, -4.5f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{halfSize, -4.5f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+            {{halfSize, -4.5f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-halfSize, -4.5f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+        };
+        std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+        std::vector<Texture> textures;
+        textures.emplace_back("res/textures/sunflowers_puresky_4k.hdr", "diffuse", 0);
+        return Mesh(vertices, indices, textures);
+    }
+
     Mesh CreateGroundMesh()
     {
         const float halfSize = 500.0f;
@@ -138,6 +156,63 @@ namespace
         return Mesh(vertices, indices, textures);
     }
 
+    Mesh CreateSkySphereMesh(const char* texturePath, int sectors = 32, int stacks = 16, float radius = 3000.0f)
+    {
+        std::vector<Vertex> vertices;
+        std::vector<GLuint> indices;
+
+        const float PI = 3.14159265f;
+
+        for (int i = 0; i <= stacks; ++i)
+        {
+            float stackAngle = PI / 2.0f - i * PI / stacks; // from pi/2 to -pi/2
+            float xy = radius * std::cos(stackAngle);
+            float y = radius * std::sin(stackAngle);
+
+            for (int j = 0; j <= sectors; ++j)
+            {
+                float sectorAngle = j * 2 * PI / sectors; // from 0 to 2pi
+
+                float x = xy * std::cos(sectorAngle);
+                float z = xy * std::sin(sectorAngle);
+
+                Vertex v;
+                v.position = glm::vec3(x, y, z);
+                v.normal = glm::normalize(glm::vec3(-x, -y, -z)); // point inwards
+                v.color = glm::vec3(1.0f);
+                v.texUV = glm::vec2((float)j / sectors, (float)i / stacks);
+                vertices.push_back(v);
+            }
+        }
+
+        for (int i = 0; i < stacks; ++i)
+        {
+            int k1 = i * (sectors + 1);
+            int k2 = k1 + sectors + 1;
+
+            for (int j = 0; j < sectors; ++j, ++k1, ++k2)
+            {
+                if (i != 0)
+                {
+                    indices.push_back(k1);
+                    indices.push_back(k2);
+                    indices.push_back(k1 + 1);
+                }
+
+                if (i != (stacks - 1))
+                {
+                    indices.push_back(k1 + 1);
+                    indices.push_back(k2);
+                    indices.push_back(k2 + 1);
+                }
+            }
+        }
+
+        std::vector<Texture> textures;
+        textures.emplace_back(texturePath, "diffuse", 0);
+        return Mesh(vertices, indices, textures);
+    }
+
     // ---------------------------------------------------------------------------
     // Car matrix
     // ---------------------------------------------------------------------------
@@ -187,15 +262,16 @@ namespace
     // ---------------------------------------------------------------------------
     void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     {
-        const float acceleration = 9.0f;
+        bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 0.0f);
+        const float acceleration = isBoosting ? 22.0f : 9.0f;
         const float brakePower = 15.0f;
-        const float maxForwardSpeed = 11.0f;
+        const float maxForwardSpeed = isBoosting ? 24.0f : 11.0f;
         const float maxReverseSpeed = 3.5f;
         const float friction = 5.0f;
-        const float steeringResponse = 3.8f;
-        const float steeringReturn = 7.0f;
+        const float steeringResponse = isBoosting ? 3.5f : 5.5f; // Stiffer steering during high-speed boost
+        const float steeringReturn = 9.0f;
         const float maxSteering = glm::radians(35.0f);
-        const float turnRate = glm::radians(105.0f);
+        const float turnRate = glm::radians(125.0f);
         const float wheelRadius = 0.38f * kCarModelScale;
 
         // --- Throttle ---
@@ -239,9 +315,22 @@ namespace
         car.steering = glm::clamp(car.steering, -maxSteering, maxSteering);
 
         // --- Rotation & Movement ---
-        float turnFactor = (car.speed < 0.0f)
-                               ? car.speed / maxReverseSpeed
-                               : car.speed / maxForwardSpeed;
+        float turnFactor = 0.0f;
+        if (std::abs(car.speed) > 0.01f)
+        {
+            float speedRatio = std::abs(car.speed) / maxForwardSpeed;
+            float rawFactor = 0.35f + 0.65f * speedRatio;
+            if (car.speed < 0.0f)
+            {
+                speedRatio = std::abs(car.speed) / maxReverseSpeed;
+                rawFactor = 0.35f + 0.65f * speedRatio;
+                turnFactor = -rawFactor;
+            }
+            else
+            {
+                turnFactor = rawFactor;
+            }
+        }
         car.yaw += car.steering * turnFactor * turnRate * dt;
 
         // --- Movement & Obstacle Collisions ---
@@ -280,7 +369,7 @@ namespace
         car.position = nextPosition;
 
         // --- Terrain heights and normals (for tilt and snap) ---
-        float d = 0.5f; // Distancia de las ruedas
+        float d = 0.5f * (kCarModelScale / 0.28f); // Distancia de las ruedas proporcional a la escala del coche
         glm::vec3 probePoints[4] = {
             car.position + forward * d, // front
             car.position - forward * d, // back
@@ -368,6 +457,7 @@ int Game::Run()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SAMPLES, 4); // Enable 4x Multisample Anti-Aliasing (MSAA)
 
     GLFWwindow *window = glfwCreateWindow(width, height, "Mini Delivery Dash", NULL, NULL);
     if (!window)
@@ -401,6 +491,34 @@ int Game::Run()
     glViewport(0, 0, fbW, fbH);
 
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
+    Shader skyShader("res/shaders/sky.vert", "res/shaders/sky.frag");
+    Shader waterShader("res/shaders/water.vert", "res/shaders/water.frag");
+
+    struct SkyKeyframe
+    {
+        float hour;
+        glm::vec3 zenithColor;
+        glm::vec3 horizonColor;
+        glm::vec3 lightColor;
+        glm::vec3 lightPos;
+        float ambientStrength;
+        glm::vec3 skyTint;
+    };
+
+    std::vector<SkyKeyframe> keyframes = {
+        {0.0f,  glm::vec3(0.015f, 0.015f, 0.05f), glm::vec3(0.02f, 0.02f, 0.08f),   glm::vec3(0.2f, 0.2f, 0.35f),  glm::vec3(0.0f, -1.0f, 0.0f), 0.12f, glm::vec3(0.06f, 0.08f, 0.22f)},
+        {5.0f,  glm::vec3(0.015f, 0.015f, 0.05f), glm::vec3(0.02f, 0.02f, 0.08f),   glm::vec3(0.2f, 0.2f, 0.35f),  glm::vec3(0.0f, -1.0f, 0.0f), 0.12f, glm::vec3(0.06f, 0.08f, 0.22f)},
+        {6.5f,  glm::vec3(0.1f, 0.15f, 0.35f),    glm::vec3(0.85f, 0.45f, 0.25f),  glm::vec3(0.8f, 0.5f, 0.35f),  glm::vec3(1.0f, 0.2f, 0.0f),  0.15f, glm::vec3(0.9f, 0.65f, 0.5f)},
+        {12.0f, glm::vec3(0.12f, 0.32f, 0.72f),   glm::vec3(0.55f, 0.72f, 0.92f),  glm::vec3(1.0f, 1.0f, 0.95f),  glm::vec3(0.2f, 1.0f, 0.2f),  0.22f, glm::vec3(1.0f, 1.0f, 1.0f)},
+        {17.5f, glm::vec3(0.12f, 0.32f, 0.72f),   glm::vec3(0.55f, 0.72f, 0.92f),  glm::vec3(1.0f, 1.0f, 0.95f),  glm::vec3(0.2f, 1.0f, 0.2f),  0.22f, glm::vec3(1.0f, 1.0f, 1.0f)},
+        {19.0f, glm::vec3(0.08f, 0.08f, 0.25f),   glm::vec3(0.88f, 0.28f, 0.12f),  glm::vec3(0.85f, 0.35f, 0.15f), glm::vec3(-1.0f, 0.15f, 0.0f), 0.15f, glm::vec3(0.95f, 0.5f, 0.3f)},
+        {20.5f, glm::vec3(0.03f, 0.03f, 0.12f),   glm::vec3(0.08f, 0.06f, 0.18f),  glm::vec3(0.3f, 0.25f, 0.4f),  glm::vec3(-1.0f, -0.2f, 0.0f), 0.14f, glm::vec3(0.2f, 0.2f, 0.4f)},
+        {24.0f, glm::vec3(0.015f, 0.015f, 0.05f), glm::vec3(0.02f, 0.02f, 0.08f),   glm::vec3(0.2f, 0.2f, 0.35f),  glm::vec3(0.0f, -1.0f, 0.0f), 0.12f, glm::vec3(0.06f, 0.08f, 0.22f)}
+    };
+
+    float dayTime = 12.0f;       // Start at noon
+    const float daySpeed = 0.05f; // hours of game time per real second (a full 24h cycle takes 480 seconds / 8 minutes)
+
     glm::vec3 lightPos = glm::vec3(0.5f, 0.5f, 0.5f);
     shaderProgram.Activate();
     glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
@@ -409,6 +527,7 @@ int Game::Run()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_MULTISAMPLE); // Enable MSAA rendering pipeline
 
     Camera camera(fbW, fbH, glm::vec3(0.0f, 2.4f, -7.2f));
 
@@ -420,7 +539,9 @@ int Game::Run()
 
     const bool drawLegacyGround = false;
     Mesh ground = CreateGroundMesh();
+    Mesh ocean = CreateOceanMesh();
     Mesh originMarker = CreateOriginMarker();
+    Mesh skySphere = CreateSkySphereMesh("res/textures/sunflowers_puresky_4k.hdr");
 
     // --- Car model ---
     Model carModel("res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj");
@@ -455,6 +576,9 @@ int Game::Run()
     spawnPoint = car.position;
     lastGroundHeight = car.position.y - kGroundClearance;
 
+    // --- Game initialization ---
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
     float lastFrame = static_cast<float>(glfwGetTime());
     bool headlightsOn = false;
     bool lightsPressed = false;
@@ -467,7 +591,35 @@ int Game::Run()
 
         SyncCameraToFramebuffer(window, camera);
 
-        // --- Headlights toggle (L) ---
+        // --- Advance Day/Night cycle ---
+        dayTime += dt * daySpeed;
+        if (dayTime >= 24.0f)
+            dayTime -= 24.0f;
+
+        // --- Interpolate Sky Keyframes ---
+        glm::vec3 currentZenith(0.0f);
+        glm::vec3 currentHorizon(0.0f);
+        glm::vec3 currentLightColor(0.0f);
+        glm::vec3 currentLightPos(0.0f);
+        float currentAmbient = 0.20f;
+        glm::vec3 currentSkyTint(1.0f);
+
+        for (size_t i = 0; i < keyframes.size() - 1; ++i)
+        {
+            if (dayTime >= keyframes[i].hour && dayTime <= keyframes[i + 1].hour)
+            {
+                float t = (dayTime - keyframes[i].hour) / (keyframes[i + 1].hour - keyframes[i].hour);
+                currentZenith = glm::mix(keyframes[i].zenithColor, keyframes[i + 1].zenithColor, t);
+                currentHorizon = glm::mix(keyframes[i].horizonColor, keyframes[i + 1].horizonColor, t);
+                currentLightColor = glm::mix(keyframes[i].lightColor, keyframes[i + 1].lightColor, t);
+                currentLightPos = glm::mix(keyframes[i].lightPos, keyframes[i + 1].lightPos, t);
+                currentAmbient = glm::mix(keyframes[i].ambientStrength, keyframes[i + 1].ambientStrength, t);
+                currentSkyTint = glm::mix(keyframes[i].skyTint, keyframes[i + 1].skyTint, t);
+                break;
+            }
+        }
+
+        // --- Headlights toggle (L) or auto-toggle ---
         if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
         {
             if (!lightsPressed)
@@ -477,7 +629,14 @@ int Game::Run()
             }
         }
         else
+        {
             lightsPressed = false;
+            // Auto toggle: ON during night hours (under 6.5 or above 19.0)
+            if (dayTime < 6.5f || dayTime > 19.0f)
+                headlightsOn = true;
+            else
+                headlightsOn = false;
+        }
 
         // --- Braking light ---
         bool braking = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && car.speed > 0.1f);
@@ -580,8 +739,38 @@ int Game::Run()
             }
         }
 
+        // --- Water Detection and Respawn ---
+        if (car.position.y < -2.0f)
+        {
+            std::cout << "[GAME] Car fell into the ocean! Respawning on the nearest road..." << std::endl;
+            glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, 1200.0f);
+            car.position = safeSpawn + glm::vec3(0.0f, kGroundClearance + 0.1f, 0.0f);
+            car.speed = 0.0f;
+            car.steering = 0.0f;
+            carVerticalSpeed = 0.0f;
+            isOnGround = true;
+            lastGroundHeight = safeSpawn.y;
+        }
+
+
+
         UpdateFollowCamera(camera, car, dt);
-        camera.updateMatrix(45.0f, 0.1f, 20000.0f);
+
+        // --- Nitrous Boost Camera Warp (FOV) and Shake ---
+        bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 1.0f);
+        static float currentFov = 45.0f;
+        float targetFov = isBoosting ? 58.0f : 45.0f;
+        currentFov = glm::mix(currentFov, targetFov, 0.08f);
+
+        if (isBoosting)
+        {
+            float shakeX = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * 0.035f;
+            float shakeY = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * 0.035f;
+            float shakeZ = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * 0.035f;
+            camera.Position += glm::vec3(shakeX, shakeY, shakeZ);
+        }
+
+        camera.updateMatrix(currentFov, 0.1f, 20000.0f);
 
         // --- Headlight uniforms ---
         shaderProgram.Activate();
@@ -601,9 +790,33 @@ int Game::Run()
             glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
         }
 
+        // --- Day/Night Cycle uniforms for main shader ---
+        glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), currentLightColor.x, currentLightColor.y, currentLightColor.z, 1.0f);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "lightPos"), currentLightPos.x, currentLightPos.y, currentLightPos.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uFogColor"), currentHorizon.x, currentHorizon.y, currentHorizon.z);
+        glUniform1f(glGetUniformLocation(shaderProgram.ID, "uAmbientStrength"), currentAmbient);
+
         // --- Draw ---
-        glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
+        glClearColor(currentHorizon.x, currentHorizon.y, currentHorizon.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // --- Draw Sky Sphere first ---
+        glDepthMask(GL_FALSE); // Disable depth buffer writing so sky sphere is always in the background
+        skyShader.Activate();
+        
+        // Pass camera matrix
+        camera.Matrix(skyShader, "camMatrix");
+        
+        // Center sky sphere around camera and slowly rotate it over time to simulate moving clouds
+        glm::mat4 skyModel = glm::translate(glm::mat4(1.0f), camera.Position);
+        skyModel = glm::rotate(skyModel, glm::radians(dayTime * 15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        
+        // Pass sky tint uniform
+        glUniform3f(glGetUniformLocation(skyShader.ID, "uSkyTint"), currentSkyTint.x, currentSkyTint.y, currentSkyTint.z);
+        
+        // Draw the sky sphere
+        skySphere.Draw(skyShader, camera, skyModel);
+        glDepthMask(GL_TRUE); // Re-enable depth writing
 
         if (drawLegacyGround)
         {
@@ -614,15 +827,28 @@ int Game::Run()
         city.Draw(shaderProgram, camera);
         carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
-        // --- Window title ---
-        char title[256];
+        // --- Draw Ocean ---
+        waterShader.Activate();
+        glUniform3f(glGetUniformLocation(waterShader.ID, "camPos"), camera.Position.x, camera.Position.y, camera.Position.z);
+        glUniform1f(glGetUniformLocation(waterShader.ID, "uTime"), currentFrame);
+        glUniform3f(glGetUniformLocation(waterShader.ID, "uSkyTint"), currentSkyTint.x, currentSkyTint.y, currentSkyTint.z);
+        glUniform3f(glGetUniformLocation(waterShader.ID, "uFogColor"), currentHorizon.x, currentHorizon.y, currentHorizon.z);
+        glUniform1f(glGetUniformLocation(waterShader.ID, "uFogStart"), 60.0f);
+        glUniform1f(glGetUniformLocation(waterShader.ID, "uFogEnd"), 350.0f);
+        camera.Matrix(waterShader, "camMatrix");
+        ocean.Draw(waterShader, camera, glm::mat4(1.0f));
+
+        // --- Reactivate main shader program ---
+        shaderProgram.Activate();
+
+        // --- Window title HUD ---
+        int hours = (int)dayTime;
+        int minutes = (int)((dayTime - hours) * 60.0f);
+        char title[192];
         std::snprintf(title, sizeof(title),
-                      "Mini Delivery Dash | X: %.2f Y: %.2f Z: %.2f | Speed: %.1f km/h | Headlights [L]: %s",
-                      car.position.x,
-                      car.position.y,
-                      car.position.z,
-                      std::abs(car.speed) * 3.6f,
-                      headlightsOn ? "ON" : "OFF");
+                      "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h",
+                      hours, minutes,
+                      std::abs(car.speed) * 3.6f);
         glfwSetWindowTitle(window, title);
 
         glfwSwapBuffers(window);
@@ -630,6 +856,8 @@ int Game::Run()
     }
 
     shaderProgram.Delete();
+    skyShader.Delete();
+    waterShader.Delete();
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
