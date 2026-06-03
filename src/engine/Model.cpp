@@ -522,7 +522,9 @@ void Model::loadMesh(unsigned int indMesh)
     std::vector<Vertex> vertices = assembleVertices(positions, normals, texUVs);
     std::vector<GLuint> indices = getIndices(JSON["accessors"][indAccInd]);
     std::vector<Texture> textures = getTextures();
-    meshMaterialNames.push_back(JSON["meshes"][indMesh].value("name", std::string("gltf")));
+    std::string meshName = JSON["meshes"][indMesh].value("name", std::string("gltf"));
+    meshMaterialNames.push_back(meshName);
+    meshCollisionNames.push_back(meshName);
     meshCenters.push_back(calculateCenter(vertices));
 
     // Combine the vertices, indices, and textures into a mesh
@@ -559,7 +561,7 @@ void Model::loadAssimp(const std::string& filePath)
     logFile.close();
 }
 
-void Model::processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory)
+void Model::processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory, const std::string& nodePath)
 {
     if (node == nullptr)
     {
@@ -567,23 +569,29 @@ void Model::processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat
     }
 
     glm::mat4 nodeMatrix = parentMatrix * toGlmMatrix(node->mTransformation);
+    std::string nodeName = node->mName.C_Str();
+    std::string currentNodePath = nodePath;
+    if (!nodeName.empty())
+    {
+        currentNodePath = currentNodePath.empty() ? nodeName : currentNodePath + " " + nodeName;
+    }
 
     for (unsigned int meshIndex = 0; meshIndex < node->mNumMeshes; ++meshIndex)
     {
         unsigned int sceneMeshIndex = node->mMeshes[meshIndex];
         if (sceneMeshIndex < scene->mNumMeshes)
         {
-            processAssimpMesh(scene->mMeshes[sceneMeshIndex], scene, nodeMatrix, fileDirectory);
+            processAssimpMesh(scene->mMeshes[sceneMeshIndex], scene, nodeMatrix, fileDirectory, currentNodePath);
         }
     }
 
     for (unsigned int childIndex = 0; childIndex < node->mNumChildren; ++childIndex)
     {
-        processAssimpNode(node->mChildren[childIndex], scene, nodeMatrix, fileDirectory);
+        processAssimpNode(node->mChildren[childIndex], scene, nodeMatrix, fileDirectory, currentNodePath);
     }
 }
 
-void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory)
+void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory, const std::string& nodePath)
 {
     if (mesh == nullptr)
     {
@@ -600,6 +608,17 @@ void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat
         {
             materialName = matName.C_Str();
         }
+    }
+
+    std::string meshName = mesh->mName.C_Str();
+    std::string collisionName = materialName;
+    if (!meshName.empty())
+    {
+        collisionName += " " + meshName;
+    }
+    if (!nodePath.empty())
+    {
+        collisionName += " " + nodePath;
     }
 
     glm::vec3 materialColor = getAssimpMaterialColor(material, materialName);
@@ -681,6 +700,7 @@ void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat
         for (size_t k = 0; k < splitM.size(); ++k)
         {
             meshMaterialNames.push_back(splitMat[k]);
+            meshCollisionNames.push_back(splitMat[k] + " " + collisionName);
             meshCenters.push_back(splitCent[k]);
             meshes.push_back(splitM[k]);
             translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -693,6 +713,7 @@ void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat
     else
     {
         meshMaterialNames.push_back(materialName);
+        meshCollisionNames.push_back(collisionName);
         meshCenters.push_back(calculateCenter(vertices));
         meshes.push_back(Mesh(vertices, indices, textures));
         translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -1054,6 +1075,7 @@ void Model::loadObj(const std::string& filePath)
         }
 
         meshMaterialNames.push_back(matName);
+        meshCollisionNames.push_back(matName);
         meshCenters.push_back(calculateCenter(meshData.vertices));
 
         std::string diffuseTex = "";

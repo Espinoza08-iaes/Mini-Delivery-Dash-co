@@ -323,7 +323,7 @@ namespace
     }
 
     // --- Car jump and respawn ---
-    void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost)
+    void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight)
     {
         static bool zPressedLast = false;
         static bool rPressedLast = false;
@@ -351,7 +351,8 @@ namespace
             car.pitch = 0.0f;
             car.roll = 0.0f;
             carVerticalSpeed = 0.0f;
-            isOnGround = false;
+            isOnGround = true;
+            lastGroundHeight = spawnPoint.y - kGroundClearance;
         }
         rPressedLast = rPressed;
     }
@@ -400,7 +401,6 @@ int Game::Run()
     glViewport(0, 0, fbW, fbH);
 
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
-
     glm::vec3 lightPos = glm::vec3(0.5f, 0.5f, 0.5f);
     shaderProgram.Activate();
     glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
@@ -452,6 +452,8 @@ int Game::Run()
         std::cout << "[SPAWN] Fallback street height at coordinate: ("
                   << car.position.x << ", " << car.position.y << ", " << car.position.z << ")" << std::endl;
     }
+    spawnPoint = car.position;
+    lastGroundHeight = car.position.y - kGroundClearance;
 
     float lastFrame = static_cast<float>(glfwGetTime());
     bool headlightsOn = false;
@@ -513,7 +515,7 @@ int Game::Run()
         float jumpDistanceBoost = accelerating ? 1.4f : 0.0f;
 
         // --- Handle jump and respawn ---
-        HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost);
+        HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight);
 
         // --- Gravity and vertical movement ---
         const float gravity = 18.0f;
@@ -615,7 +617,10 @@ int Game::Run()
         // --- Window title ---
         char title[256];
         std::snprintf(title, sizeof(title),
-                      "Mini Delivery Dash | Speed: %.1f km/h | Headlights [L]: %s",
+                      "Mini Delivery Dash | X: %.2f Y: %.2f Z: %.2f | Speed: %.1f km/h | Headlights [L]: %s",
+                      car.position.x,
+                      car.position.y,
+                      car.position.z,
                       std::abs(car.speed) * 3.6f,
                       headlightsOn ? "ON" : "OFF");
         glfwSetWindowTitle(window, title);

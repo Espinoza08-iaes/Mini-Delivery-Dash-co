@@ -57,32 +57,64 @@ namespace game
             return false;
         }
 
-        bool IsKnownCityStreetMaterial(const std::string &materialName)
+        bool ContainsExactOrTaggedMaterial(const std::string &value, const std::string &materialTag)
         {
-            std::string name = ToLower(materialName);
+            if (value == materialTag)
+            {
+                return true;
+            }
 
-            // The current city_3d asset labels its real street layers with these material ids.
-            return name == "my_city_0facadetexture_59" || // pavement
-                   name == "my_city_0facadetexture_60" || // street
-                   name == "my_city_0facadetexture_61";   // concrete / plazas
+            std::string paddedValue = " " + value + " ";
+            std::string paddedTag = " " + materialTag + " ";
+            return paddedValue.find(paddedTag) != std::string::npos;
         }
 
-        bool IsKnownCityNonBlockingStreetMaterial(const std::string &materialName)
+        bool IsKnownCityGroundMaterial(const std::string &surfaceName)
         {
-            std::string name = ToLower(materialName);
+            std::string name = ToLower(surfaceName);
+            static const char *const cityGroundWords[] = {
+                "yardground", "parkinglot", "pavement", "street", "concrete", "curbs"
+            };
+            static const char *const cityGroundMaterials[] = {
+                "my_city_0facadetexture_58", // curbs
+                "my_city_0facadetexture_59", // pavement
+                "my_city_0facadetexture_60", // street
+                "my_city_0facadetexture_61"  // concrete / plazas
+            };
 
-            return IsKnownCityStreetMaterial(name) ||
-                   name == "my_city_0facadetexture_58"; // curbs: visual detail, not a blocking wall
+            if (ContainsAny(name, cityGroundWords, sizeof(cityGroundWords) / sizeof(cityGroundWords[0])))
+            {
+                return true;
+            }
+
+            for (size_t i = 0; i < sizeof(cityGroundMaterials) / sizeof(cityGroundMaterials[0]); ++i)
+            {
+                if (ContainsExactOrTaggedMaterial(name, cityGroundMaterials[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        bool IsGenericGroundMaterial(const std::string &materialName)
+        bool IsKnownCityNonBlockingGroundDetail(const std::string &surfaceName)
         {
-            std::string name = ToLower(materialName);
+            std::string name = ToLower(surfaceName);
+
+            return name.find("curb") != std::string::npos ||
+                   ContainsExactOrTaggedMaterial(name, "my_city_0facadetexture_58");
+        }
+
+        bool IsGenericGroundMaterial(const std::string &surfaceName)
+        {
+            std::string name = ToLower(surfaceName);
             static const char *const groundWords[] = {
-                "street", "road", "asphalt", "pavement", "sidewalk", "concrete", "parking", "ground"
+                "street", "road", "asphalt", "pavement", "sidewalk", "concrete", "parking",
+                "ground", "grass", "yard", "lawn", "terrain", "land", "soil", "plaza", "curb"
             };
             static const char *const blockedWords[] = {
-                "roof", "facade", "wall", "window", "tree", "bark"
+                "roof", "facade", "wall", "window", "tree", "bark", "building"
             };
 
             return ContainsAny(name, groundWords, sizeof(groundWords) / sizeof(groundWords[0])) &&
@@ -223,7 +255,7 @@ namespace game
             return edgeDistanceSq <= radius * radius;
         }
 
-        bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds, bool trustedGroundMaterial)
+        bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds, bool trustedGroundSurface)
         {
             float height = maxBounds.y - minBounds.y;
             float widthX = maxBounds.x - minBounds.x;
@@ -233,7 +265,7 @@ namespace game
             bool upward = normal.y >= 0.58f;
             bool wideEnough = horizontalSpan >= 0.25f;
             bool hasAreaInXZ = widthX > 0.01f && widthZ > 0.01f && (widthX * widthZ) >= 0.01f;
-            bool heightOk = trustedGroundMaterial || height <= 4.0f;
+            bool heightOk = trustedGroundSurface || height <= 4.0f;
 
             return upward && wideEnough && hasAreaInXZ && heightOk;
         }
@@ -268,11 +300,14 @@ namespace game
         const auto &meshes = model.GetMeshes();
         const auto &matrices = model.GetMatricesMeshes();
         const auto &materials = model.GetMeshMaterialNames();
+        const auto &collisionNames = model.GetMeshCollisionNames();
 
         bool hasMaterialGroundHints = false;
-        for (const auto &materialName : materials)
+        for (size_t i = 0; i < meshes.size(); ++i)
         {
-            if (IsKnownCityStreetMaterial(materialName) || IsGenericGroundMaterial(materialName))
+            std::string surfaceName = (i < collisionNames.size()) ? collisionNames[i] :
+                                      ((i < materials.size()) ? materials[i] : std::string());
+            if (IsKnownCityGroundMaterial(surfaceName) || IsGenericGroundMaterial(surfaceName))
             {
                 hasMaterialGroundHints = true;
                 break;
@@ -289,11 +324,12 @@ namespace game
             }
 
             glm::mat4 meshWorldMatrix = cityMatrix * matrices[i];
-            std::string materialName = (i < materials.size()) ? materials[i] : std::string();
+            std::string surfaceName = (i < collisionNames.size()) ? collisionNames[i] :
+                                      ((i < materials.size()) ? materials[i] : std::string());
             bool materialAllowsGround = hasMaterialGroundHints
-                                            ? (IsKnownCityStreetMaterial(materialName) || IsGenericGroundMaterial(materialName))
+                                            ? (IsKnownCityGroundMaterial(surfaceName) || IsGenericGroundMaterial(surfaceName))
                                             : true;
-            bool nonBlockingSurface = hasMaterialGroundHints && IsKnownCityNonBlockingStreetMaterial(materialName);
+            bool nonBlockingSurface = hasMaterialGroundHints && IsKnownCityNonBlockingGroundDetail(surfaceName);
 
             for (size_t t = 0; t < indices.size(); t += 3)
             {
@@ -315,7 +351,7 @@ namespace game
                 tri.normal = normal;
                 tri.minBounds = minBounds;
                 tri.maxBounds = maxBounds;
-                tri.isRoad = materialAllowsGround && IsRoadTriangle(normal, minBounds, maxBounds, hasMaterialGroundHints);
+                tri.isRoad = materialAllowsGround && IsRoadTriangle(normal, minBounds, maxBounds, materialAllowsGround);
                 tri.nonBlockingSurface = nonBlockingSurface;
 
                 if (tri.isRoad)
@@ -371,7 +407,7 @@ namespace game
         if (snapUpMax < 0.0f)
             snapUpMax = 0.12f;
 
-        const float edgeSnapMargin = 0.18f;
+        const float edgeSnapMargin = 0.55f;
 
         for (size_t i = 0; i < mRoadTriangles.size(); ++i)
         {

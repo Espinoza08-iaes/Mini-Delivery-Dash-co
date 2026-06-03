@@ -26,6 +26,7 @@ public:
     const std::vector<Mesh>& GetMeshes() const { return meshes; }
     const std::vector<glm::mat4>& GetMatricesMeshes() const { return matricesMeshes; }
     const std::vector<std::string>& GetMeshMaterialNames() const { return meshMaterialNames; }
+    const std::vector<std::string>& GetMeshCollisionNames() const { return meshCollisionNames; }
 
     void Draw(
         Shader& shader,
@@ -58,6 +59,7 @@ private:
     std::vector<glm::mat4> matricesMeshes;
     std::vector<bool> meshesUseAlpha;
     std::vector<std::string> meshMaterialNames;
+    std::vector<std::string> meshCollisionNames;
     std::vector<glm::vec3> meshCenters;
 
     std::vector<std::string> loadedTexName;
@@ -66,8 +68,8 @@ private:
     void loadMesh(unsigned int indMesh);
     void loadAssimp(const std::string& filePath);
     void loadObj(const std::string& filePath);
-    void processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory);
-    void processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory);
+    void processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory, const std::string& nodePath = "");
+    void processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory, const std::string& nodePath);
 
     void traverseNode(unsigned int nextNode, glm::mat4 matrix = glm::mat4(1.0f));
 
