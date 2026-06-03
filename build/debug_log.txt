@@ -1,0 +1,24 @@
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  ERROR: Vertex shader could not be opened!
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  ERROR: Fragment shader could not be opened!
+Vertex shader code prefix:
+
+ERROR::SHADER::PROGRAM::LINKING_FAILED
+ERROR: Compiled vertex shader was corrupt.
+ERROR: Compiled fragment shader was corrupt.
+
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  ERROR: Vertex shader could not be opened!
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  ERROR: Fragment shader could not be opened!
+Vertex shader code prefix:
+
+ERROR::SHADER::PROGRAM::LINKING_FAILED
+ERROR: Compiled vertex shader was corrupt.
+ERROR: Compiled fragment shader was corrupt.
+
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
