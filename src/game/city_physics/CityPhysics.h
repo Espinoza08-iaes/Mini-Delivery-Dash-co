@@ -46,6 +46,7 @@ namespace game
 
         glm::vec3 GetWorldMinBounds() const { return mWorldMinBounds; }
         glm::vec3 GetWorldMaxBounds() const { return mWorldMaxBounds; }
+        const std::vector<WorldTriangle>& GetRoadTriangles() const { return mRoadTriangles; }
 
     private:
         struct GridCell

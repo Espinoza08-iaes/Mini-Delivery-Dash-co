@@ -1,6 +1,7 @@
 #ifndef CITY_H
 #define CITY_H
 
+#include <memory>
 #include <string>
 #include <glm/glm.hpp>
 
@@ -45,12 +46,15 @@ public:
     float GetZOffset() const { return mZOffset; }
 
 private:
+    void BuildVisualGapFillMesh();
+
     Model mModel;
     float mScale;
     float mYOffset;
     float mXOffset;
     float mZOffset;
     game::CityPhysics mPhysics;
+    std::unique_ptr<Mesh> mVisualGapFillMesh;
 };
 
 #endif

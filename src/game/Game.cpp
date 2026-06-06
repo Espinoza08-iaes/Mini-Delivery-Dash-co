@@ -844,10 +844,14 @@ int Game::Run()
         // --- Window title HUD ---
         int hours = (int)dayTime;
         int minutes = (int)((dayTime - hours) * 60.0f);
-        char title[192];
+        char title[256];
         std::snprintf(title, sizeof(title),
-                      "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h",
-                      hours, minutes,
+                      "Mini Delivery Dash | X: %.2f Y: %.2f Z: %.2f | Time: %02d:%02d | Speed: %.1f km/h",
+                      car.position.x,
+                      car.position.y,
+                      car.position.z,
+                      hours,
+                      minutes,
                       std::abs(car.speed) * 3.6f);
         glfwSetWindowTitle(window, title);
 
