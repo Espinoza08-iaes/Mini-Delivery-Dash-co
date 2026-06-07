@@ -7,20 +7,22 @@
             "cppStandard": "c++11",
             "includePath": [
                 "${workspaceFolder}",
-                "${workspaceFolder}/Dependencies/include",
-                "${workspaceFolder}/Dependencies/include/GL",
-                "${workspaceFolder}/Dependencies/include/GLFW",
-                "${workspaceFolder}/Dependencies/include/glad",
-                "${workspaceFolder}/Dependencies/include/SOIL2",
-                "${workspaceFolder}/Dependencies/include/glm",
-                "${workspaceFolder}/external",
-                "${workspaceFolder}/external/glad/include"
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
             ],
             "browse": {
                 "path": [
                     "${workspaceFolder}",
-                    "${workspaceFolder}/Dependencies/include",
-                    "${workspaceFolder}/external"
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/third_party",
+                    "${workspaceFolder}/third_party/glad/include"
                 ]
             }
         },
@@ -31,14 +33,15 @@
             "cppStandard": "c++11",
             "includePath": [
                 "${workspaceFolder}",
-                "${workspaceFolder}/Dependencies/include",
-                "${workspaceFolder}/Dependencies/include/GL",
-                "${workspaceFolder}/Dependencies/include/GLFW",
-                "${workspaceFolder}/Dependencies/include/glad",
-                "${workspaceFolder}/Dependencies/include/SOIL2",
-                "${workspaceFolder}/Dependencies/include/glm",
-                "${workspaceFolder}/external",
-                "${workspaceFolder}/external/glad/include"
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
             ]
         },
         {
@@ -48,15 +51,24 @@
             "cppStandard": "c++11",
             "includePath": [
                 "${workspaceFolder}",
-                "${workspaceFolder}/Dependencies/include",
-                "${workspaceFolder}/Dependencies/include/GL",
-                "${workspaceFolder}/Dependencies/include/GLFW",
-                "${workspaceFolder}/Dependencies/include/glad",
-                "${workspaceFolder}/Dependencies/include/SOIL2",
-                "${workspaceFolder}/Dependencies/include/glm",
-                "${workspaceFolder}/external",
-                "${workspaceFolder}/external/glad/include"
-            ]
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/third_party",
+                    "${workspaceFolder}/third_party/glad/include"
+                ]
+            }
         }
     ],
     "version": 4
