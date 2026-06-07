@@ -23,24 +23,16 @@
             "preLaunchTask": "cmake: build"
         },
         {
-            "name": "Mini Delivery Dash (Linux/macOS)",
+            "name": "Mini Delivery Dash (macOS)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/cmake-build/MiniDeliveryDash",
+            "program": "${workspaceFolder}/build/MiniDeliveryDash",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Habilitar la impresión con formato para gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
+            "MIMode": "lldb",
             "preLaunchTask": "cmake: build"
         }
     ]

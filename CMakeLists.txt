@@ -11,31 +11,46 @@ file(GLOB_RECURSE SOURCES
 
 add_executable(MiniDeliveryDash
     ${SOURCES}
-    external/glad/src/glad.c
+    third_party/glad/src/glad.c
 )
 
 target_include_directories(MiniDeliveryDash PRIVATE
-    "${CMAKE_SOURCE_DIR}/Dependencies/include"
-    "${CMAKE_SOURCE_DIR}/external"
-    "${CMAKE_SOURCE_DIR}/external/glad/include"
     "${CMAKE_SOURCE_DIR}/src"
+    "${CMAKE_SOURCE_DIR}/third_party"
+    "${CMAKE_SOURCE_DIR}/third_party/glad/include"
 )
 
 set_target_properties(MiniDeliveryDash PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
 )
 
 if(WIN32)
+
     target_compile_definitions(MiniDeliveryDash PRIVATE GLEW_STATIC)
 
-    find_library(GLFW_LIBRARY NAMES glfw3 libglfw3 PATHS "${CMAKE_SOURCE_DIR}/Dependencies/lib" NO_DEFAULT_PATH REQUIRED)
-    find_library(ASSIMP_LIBRARY NAMES assimp libassimp PATHS "${CMAKE_SOURCE_DIR}/Dependencies/lib" NO_DEFAULT_PATH REQUIRED)
-    find_library(SOIL2_LIBRARY NAMES soil2 libsoil2 PATHS "${CMAKE_SOURCE_DIR}/Dependencies/lib" NO_DEFAULT_PATH REQUIRED)
-    find_library(GLEW_LIBRARY NAMES glew32s PATHS "${CMAKE_SOURCE_DIR}/Dependencies/lib" NO_DEFAULT_PATH REQUIRED)
+    find_library(GLFW_LIBRARY
+        NAMES glfw3 libglfw3
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NO_DEFAULT_PATH REQUIRED
+    )
+
+    find_library(ASSIMP_LIBRARY
+        NAMES assimp libassimp
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NO_DEFAULT_PATH REQUIRED
+    )
+
+    find_library(SOIL2_LIBRARY
+        NAMES soil2 libsoil2
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NO_DEFAULT_PATH REQUIRED
+    )
+
+    find_library(GLEW_LIBRARY
+        NAMES glew32s
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NO_DEFAULT_PATH REQUIRED
+    )
 
     target_link_libraries(MiniDeliveryDash PRIVATE
         ${GLFW_LIBRARY}
@@ -46,7 +61,9 @@ if(WIN32)
         gdi32
         user32
     )
+
 elseif(APPLE)
+
     find_package(OpenGL REQUIRED)
     find_package(glfw3 REQUIRED)
     find_package(assimp REQUIRED)
@@ -59,7 +76,9 @@ elseif(APPLE)
         "-framework IOKit"
         "-framework CoreVideo"
     )
+
 else()
+
     find_package(OpenGL REQUIRED)
     find_package(glfw3 REQUIRED)
     find_package(assimp REQUIRED)
@@ -71,4 +90,5 @@ else()
         dl
         pthread
     )
+
 endif()

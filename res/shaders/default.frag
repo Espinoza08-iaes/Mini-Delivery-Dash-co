@@ -63,11 +63,11 @@ vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 
     float angle = dot(-lightDirection, spotLightDir);
     
     // Spotlight cone angles (outerCone ~30 deg, innerCone ~20 deg spread)
-    float outerCone = 0.88f;
-    float innerCone = 0.94f;
+    float outerCone = 0.82f;
+    float innerCone = 0.92f;
     float intensity = clamp((angle - outerCone) / (innerCone - outerCone), 0.0, 1.0);
 
-    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity;
+    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity * 0.22f;
 }
 
 vec4 direcLight()
@@ -78,8 +78,8 @@ vec4 direcLight()
 
     if (uHeadlightsLightOn)
     {
-        ambient = min(ambient, 0.12f); // Brighter cozy night ambient so the city is still visible
-        diffuseFactor = 0.18f;          // Brighter moon lighting contribution
+        ambient = ambient; // Brighter cozy night ambient so the city is still visible
+        diffuseFactor = 1.0f;          // Brighter moon lighting contribution
     }
 
     // diffuse lighting
