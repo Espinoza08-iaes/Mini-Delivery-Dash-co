@@ -14,9 +14,13 @@ uniform vec3 uFogColor;
 uniform float uFogStart;
 uniform float uFogEnd;
 
+uniform vec3 lightPos;
+uniform vec4 lightColor;
+
 void main()
 {
     vec3 I = normalize(Position - camPos);
+    vec3 viewDir = -I;
     
     // Dynamic rippling normals (combining multiple high-frequency wave octaves for detailed ripples)
     vec3 normal = normalize(Normal);
@@ -49,13 +53,24 @@ void main()
     vec3 reflection = texture(diffuse0, vec2(uv.x, 1.0 - uv.y)).rgb * uSkyTint;
     
     // Fresnel term (reflectivity increases at shallow angles)
-    float fresnel = dot(normal, -I);
+    float fresnel = dot(normal, viewDir);
     fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
     fresnel = pow(fresnel, 5.0);
     
+    // specular reflections from sun/moon
+    vec3 lightDir = normalize(lightPos);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float specAmount = pow(max(dot(normal, halfwayDir), 0.0), 128.0);
+    vec3 specular = specAmount * vec3(1.5) * lightColor.rgb;
+
+    // Subsurface scattering approximation (translucency of wave crests facing the light)
+    float scatter = max(dot(lightDir, I), 0.0) * pow(1.0 - dot(normal, viewDir), 2.0);
+    vec3 scatterColor = vec3(0.0, 0.45, 0.35) * scatter * lightColor.rgb * 0.4;
+    
     // Base ocean color matching time of day tint
-    vec3 oceanBase = vec3(0.015f, 0.07f, 0.14f) * uSkyTint;
+    vec3 oceanBase = vec3(0.008f, 0.04f, 0.09f) * uSkyTint;
     vec3 waterColor = mix(oceanBase, reflection, fresnel * 0.85 + 0.08);
+    waterColor += specular + scatterColor;
     
     // Distance fog
     float dist = length(camPos - Position);

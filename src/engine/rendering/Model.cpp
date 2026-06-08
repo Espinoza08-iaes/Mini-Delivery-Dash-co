@@ -449,6 +449,14 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
             meshMatrix = wheelTransform * meshMatrix;
         }
 
+        float reflectivity = 0.0f;
+        if (mat == "McLaren_F1_1993_By_Alex_Ka_") reflectivity = 0.35f;
+        else if (mat == "rim" || mat == "chrome" || mat == "chrome2") reflectivity = 0.5f;
+        else if (mat == "windo" || mat == "windo_F" || mat == "windo_R" || mat == "windo_S" || mat == "headlightglass") reflectivity = 0.6f;
+        else if (matLower.find("window") != std::string::npos || matLower.find("glass") != std::string::npos) reflectivity = 0.4f;
+
+        glUniform1f(glGetUniformLocation(shader.ID, "uReflectivity"), reflectivity);
+
         meshes[i].Mesh::Draw(shader, camera, worldMatrix * meshMatrix);
     }
 }

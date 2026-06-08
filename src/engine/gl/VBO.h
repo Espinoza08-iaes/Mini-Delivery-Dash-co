@@ -11,7 +11,7 @@ class VBO
 public:
     GLuint ID;
 
-    VBO(std::vector<Vertex>& vertices)
+    VBO(const std::vector<Vertex> &vertices)
     {
         glGenBuffers(1, &ID);
         glBindBuffer(GL_ARRAY_BUFFER, ID);

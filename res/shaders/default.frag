@@ -11,6 +11,8 @@ in vec3 Normal;
 in vec3 color;
 // Imports the texture coordinates from the Vertex Shader
 in vec2 texCoord;
+// Imports the position in light space
+in vec4 vLightSpacePos;
 
 // Gets the Texture Units from the main function
 uniform sampler2D diffuse0;
@@ -39,6 +41,133 @@ uniform vec3 uFogColor = vec3(0.07f, 0.13f, 0.17f);
 uniform float uFogStart = 40.0f;
 uniform float uFogEnd = 250.0f;
 uniform float uAmbientStrength = 0.20f;
+
+uniform sampler2D uSkyReflectionMap;
+uniform float uReflectivity = 0.0;
+uniform float uSkyRotationAngle = 0.0;
+uniform vec3 uSkyTint = vec3(1.0);
+
+uniform sampler2DShadow uShadowMap;
+
+// Poisson Disk offsets for soft shadow sampling
+const vec2 poissonDisk[8] = vec2[](
+    vec2(-0.94201624,  0.39906216),
+    vec2( 0.94558609, -0.76890725),
+    vec2(-0.094184101, -0.92938870),
+    vec2( 0.34495938,  0.29387760),
+    vec2(-0.91588581, -0.30217051),
+    vec2( 0.70228851,  0.56332015),
+    vec2(-0.57008775,  0.75952130),
+    vec2( 0.21341862, -0.40724183)
+);
+
+float ShadowCalculation(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
+{
+    vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    if (projCoords.z > 1.0)
+        return 0.0;
+        
+    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0005);
+    
+    // Generate pseudo-random angle per pixel to break up banding/patterns
+    float angle = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.28318530718;
+    float s = sin(angle);
+    float c = cos(angle);
+    mat2 rotationMatrix = mat2(c, -s, s, c);
+    
+    float litAmount = 0.0;
+    vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
+    
+    // Penumbra search radius
+    float penumbraRadius = 1.5;
+    
+    for(int i = 0; i < 8; ++i)
+    {
+        vec2 offset = rotationMatrix * poissonDisk[i] * penumbraRadius * texelSize;
+        litAmount += texture(uShadowMap, vec3(projCoords.xy + offset, projCoords.z - bias));
+    }
+    litAmount /= 8.0;
+    
+    return 1.0 - litAmount;
+}
+
+uniform sampler2D uCameraDepthMap;
+
+float LinearizeDepth(float depth)
+{
+    float near = 0.1;
+    float far = 20000.0;
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * near * far) / (far + near - z * (far - near));
+}
+
+float CalculateSSAO()
+{
+    vec2 texSize = textureSize(uCameraDepthMap, 0);
+    vec2 uv = gl_FragCoord.xy / texSize;
+    
+    float centerDepth = texture(uCameraDepthMap, uv).r;
+    float centerLinear = LinearizeDepth(centerDepth);
+    
+    if (centerDepth > 0.999)
+        return 1.0;
+        
+    float occlusion = 0.0;
+    
+    vec2 dirs[4] = vec2[](
+        vec2(1.0, 0.0),
+        vec2(0.0, 1.0),
+        vec2(0.707, 0.707),
+        vec2(-0.707, 0.707)
+    );
+    
+    float baseRadius = 8.0; 
+    float radius = clamp(baseRadius / (centerLinear * 0.02), 1.0, 24.0);
+    vec2 texel = radius / texSize;
+    
+    for (int i = 0; i < 4; ++i)
+    {
+        vec2 d = dirs[i] * texel;
+        float depth1 = texture(uCameraDepthMap, uv + d).r;
+        float depth2 = texture(uCameraDepthMap, uv - d).r;
+        
+        float linear1 = LinearizeDepth(depth1);
+        float linear2 = LinearizeDepth(depth2);
+        
+        float diff = (linear1 + linear2) - 2.0 * centerLinear;
+        
+        if (diff > 0.01)
+        {
+            float weight = smoothstep(5.0, 0.01, diff);
+            occlusion += diff * weight * 0.35;
+        }
+    }
+    
+    occlusion = clamp(occlusion / 4.0, 0.0, 0.75);
+    return 1.0 - occlusion;
+}
+
+vec3 RotateY(vec3 v, float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(
+        v.x * c - v.z * s,
+        v.y,
+        v.x * s + v.z * c
+    );
+}
+
+vec2 SampleEquirectangular(vec3 r)
+{
+    float phi = atan(r.z, r.x);
+    float theta = asin(r.y);
+    const float PI = 3.14159265359;
+    float u = 1.0 - (phi / (2.0 * PI) + 0.5);
+    float v = theta / PI + 0.5;
+    return vec2(u, v);
+}
 
 vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 viewDir, vec3 baseColor, float specTex)
 {
@@ -84,7 +213,7 @@ vec4 direcLight()
 
     // diffuse lighting
     vec3 normal = normalize(Normal);
-    vec3 lightDirection = normalize(vec3(1.0f, 1.0f, 0.0f));
+    vec3 lightDirection = normalize(lightPos);
     float diffuse = max(dot(normal, lightDirection), 0.0f) * diffuseFactor;
 
     // specular lighting
@@ -99,7 +228,31 @@ vec4 direcLight()
     vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
     float spec = texture(specular0, texCoord).r * specular;
     float outAlpha = uUseAlpha ? texColor.a : 1.0f;
-    return vec4((texColor.rgb * (diffuse + ambient) + vec3(spec)) * lightColor.rgb, outAlpha);
+
+    // Calculate shadow factor
+    float shadow = ShadowCalculation(vLightSpacePos, normal, lightDirection);
+
+    // Calculate ambient occlusion factor
+    float ao = CalculateSSAO();
+    float ambientWithAO = ambient * ao;
+
+    vec3 litColor = (texColor.rgb * (diffuse * (1.0 - shadow) + ambientWithAO) + vec3(spec * (1.0 - shadow))) * lightColor.rgb;
+
+    if (uReflectivity > 0.0)
+    {
+        vec3 R = reflect(-viewDirection, normal);
+        vec3 rRotated = RotateY(R, uSkyRotationAngle);
+        vec2 uv = SampleEquirectangular(rRotated);
+        vec3 reflectionColor = texture(uSkyReflectionMap, uv).rgb * uSkyTint;
+        
+        float cosTheta = clamp(dot(viewDirection, normal), 0.0, 1.0);
+        float F0 = uReflectivity;
+        float fresnel = F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+        
+        litColor = mix(litColor, reflectionColor, fresnel);
+    }
+
+    return vec4(litColor, outAlpha);
 }
 
 void main()

@@ -62,10 +62,24 @@ City::City(const std::string& modelPath, float scale, float yOffset, float xOffs
 {
     if (autoAlign)
     {
-        // Use the untransformed model bounds to align the lowest vertex with the ground.
-        mPhysics.Initialize(mModel, glm::mat4(1.0f));
-        glm::vec3 boundsMin = mPhysics.GetWorldMinBounds();
-        mYOffset = -boundsMin.y * mScale + 0.01f;
+        // Calculate minY directly from untransformed model bounds
+        float minY = 1e9f;
+        const auto& meshes = mModel.GetMeshes();
+        const auto& matrices = mModel.GetMatricesMeshes();
+        for (size_t i = 0; i < meshes.size(); ++i)
+        {
+            glm::mat4 meshMatrix = matrices[i];
+            for (const auto& vertex : meshes[i].vertices)
+            {
+                glm::vec3 worldPos = glm::vec3(meshMatrix * glm::vec4(vertex.position, 1.0f));
+                if (worldPos.y < minY)
+                {
+                    minY = worldPos.y;
+                }
+            }
+        }
+        if (minY == 1e9f) minY = 0.0f;
+        mYOffset = -minY * mScale + 0.01f;
     }
 
     mPhysics.Initialize(mModel, GetMatrix());
@@ -101,11 +115,11 @@ void City::BuildVisualGapFillMesh()
         return;
     }
 
-    const float gapCoverMargin = 0.65f;
-    const float topDrop = 0.035f;
-    const float backingDrop = 0.16f;
-    const glm::vec3 backingColor(0.62f, 0.62f, 0.58f);
-    const glm::vec3 skirtColor(0.52f, 0.52f, 0.49f);
+     const float gapCoverMargin = 4.5f;
+    const float topDrop = 0.02f;
+    const float backingDrop = 2.0f;
+    const glm::vec3 backingColor(0.46f, 0.46f, 0.46f);
+    const glm::vec3 skirtColor(0.44f, 0.44f, 0.44f);
 
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
