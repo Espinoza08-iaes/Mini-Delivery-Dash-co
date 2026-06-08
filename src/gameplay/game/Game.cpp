@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../city/City.h"
+#include "../helpers/MainMenu.h"
 
 #include <iostream>
 #include <algorithm>
@@ -148,6 +149,7 @@ void Game::DrawOcean(Shader& waterShader, Mesh& ocean, Camera& camera, float cur
     camera.Matrix(waterShader, "camMatrix");
     ocean.Draw(waterShader, camera, glm::mat4(1.0f));
 }
+
 // ---------------------------------------------------------------------------
 // Game::Run
 // ---------------------------------------------------------------------------
@@ -164,9 +166,32 @@ int Game::Run()
         return -1;
     }
 
+    // ----- PRECARGA DE SHADERS DEL JUEGO (ligero, tarda ms) -----
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
     Shader skyShader("res/shaders/sky.vert", "res/shaders/sky.frag");
     Shader waterShader("res/shaders/water.vert", "res/shaders/water.frag");
+
+    // ----- MENÚ PRINCIPAL -----
+    MainMenu menu(window, fbW, fbH);
+    MainMenu::Result res = menu.Show();
+    
+    // Si el usuario cerró la ventana o eligió Salir
+    if (res == MainMenu::Result::Quit || glfwWindowShouldClose(window))
+    {
+        shaderProgram.Delete();
+        skyShader.Delete();
+        waterShader.Delete();
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return 0;
+    }
+
+    // ----- PANTALLA DE CARGA -----
+    glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glfwSetWindowTitle(window, "Mini Delivery Dash - Cargando...");
+    glfwSwapBuffers(window);
+    glfwPollEvents();
 
     SetupOpenGL(shaderProgram); // Configure initial OpenGL state
 
@@ -179,15 +204,17 @@ int Game::Run()
     float lastGroundHeight = spawnPoint.y;
 
     const bool drawLegacyGround = false;
+    
+    // --- Carga de mallas procedurales ---
     Mesh ground = CreateGroundMesh();
     Mesh ocean = CreateOceanMesh();
     Mesh originMarker = CreateOriginMarker();
     Mesh skySphere = CreateSkySphereMesh("res/textures/sunflowers_puresky_4k.hdr");
 
-    // --- Car model ---
+    // --- Carga del modelo del coche (pesado) ---
     Model carModel("res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj");
 
-    // --- City ---
+    // --- Carga de la ciudad (lo más pesado) ---
     City city("res/models/city_3d/scene.gltf",
               1.0f,   // usar escala original del mapa
               0.0f,   // auto-alinear altura con el suelo
@@ -225,6 +252,9 @@ int Game::Run()
     float lastFrame = static_cast<float>(glfwGetTime());
     bool headlightsOn = false;
     bool lightsPressed = false;
+
+    // Restaurar título normal al empezar el bucle
+    glfwSetWindowTitle(window, "Mini Delivery Dash");
 
     while (!glfwWindowShouldClose(window))
     {
