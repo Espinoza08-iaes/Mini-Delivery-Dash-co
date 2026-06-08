@@ -1,14 +1,15 @@
 ﻿﻿# --- Directorios de Build y CMake (Sistemas cruzados) ---
-build/
-build-*/
-bin/
-out/
-dist/
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-compile_commands.json
+/build/
+/build-*/
+/bin/
+/out/
+/dist/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+/compile_commands.json
+/cmake-build/
 
 # --- Ejecutables y Librerías (Binarios) ---
 *.exe
@@ -23,8 +24,7 @@ compile_commands.json
 *.dll
 main
 
-# --- Permitir librerías precompiladas en third_party/lib (si quieres compartirlas) ---
-# Coloca estas negaciones después de las reglas globales para que surtan efecto
+# --- Permitir librerías precompiladas en third_party/lib ---
 !third_party/**/lib/*.dll
 !third_party/**/lib/*.a
 !third_party/**/lib/*.lib
@@ -33,6 +33,8 @@ main
 # --- Carpetas y archivos de IDEs (Windows & macOS) ---
 # VS Code
 .vscode/
+/.eucode/
+
 # Visual Studio
 .vs/
 *.sln
@@ -42,6 +44,7 @@ main
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
+
 # CLion / JetBrains
 .idea/
 *.iws
@@ -74,7 +77,6 @@ ehthumbs_vista.db
 *.sublime-project
 *.sublime-workspace
 
-# --- Assets (Opcional: Si no quieres subir tus texturas/modelos pesados) ---
-# Descomenta la siguiente línea si prefieres que cada quien tenga sus propios assets
+# --- Assets (Opcional) ---
 # assets/
-# Si quieres que la carpeta res/ esté en el repo (recomendado si son pequeños), no la ignores.
+# res/  # mantener si los recursos son pequeños y deben versionarse
