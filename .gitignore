@@ -23,6 +23,13 @@ compile_commands.json
 *.dll
 main
 
+# --- Permitir librerías precompiladas en third_party/lib (si quieres compartirlas) ---
+# Coloca estas negaciones después de las reglas globales para que surtan efecto
+!third_party/**/lib/*.dll
+!third_party/**/lib/*.a
+!third_party/**/lib/*.lib
+!third_party/**/lib/*.dll.a
+
 # --- Carpetas y archivos de IDEs (Windows & macOS) ---
 # VS Code
 .vscode/
@@ -70,3 +77,4 @@ ehthumbs_vista.db
 # --- Assets (Opcional: Si no quieres subir tus texturas/modelos pesados) ---
 # Descomenta la siguiente línea si prefieres que cada quien tenga sus propios assets
 # assets/
+# Si quieres que la carpeta res/ esté en el repo (recomendado si son pequeños), no la ignores.

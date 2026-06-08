@@ -26,7 +26,7 @@
 #include "../vehicle/CarController.h"
 #include "../scene/DayNightCycle.h"
 
-void Game::UpdateCameraEffects(GLFWwindow* window, Camera& camera, CarState& car)
+void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car)
 {
     // --- Nitrous Boost Camera Warp (FOV) and Shake ---
     bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 1.0f);
@@ -45,82 +45,82 @@ void Game::UpdateCameraEffects(GLFWwindow* window, Camera& camera, CarState& car
     camera.updateMatrix(currentFov, 0.1f, 20000.0f);
 }
 
-void Game::UpdateHeadlights(Shader& shaderProgram, const CarState& car, bool headlightsOn)
+void Game::UpdateHeadlights(Shader &shaderProgram, const CarState &car, bool headlightsOn)
 {
-        shaderProgram.Activate();
-        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uHeadlightsLightOn"), headlightsOn ? 1 : 0);
-        if (headlightsOn)
-        {
-            glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-            glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
-            glm::vec3 base = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
-            glm::vec3 lPos = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
-            glm::vec3 rPos = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
-            glm::vec3 lDir = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
+    shaderProgram.Activate();
+    glUniform1i(glGetUniformLocation(shaderProgram.ID, "uHeadlightsLightOn"), headlightsOn ? 1 : 0);
+    if (headlightsOn)
+    {
+        glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+        glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
+        glm::vec3 base = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
+        glm::vec3 lPos = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
+        glm::vec3 rPos = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
+        glm::vec3 lDir = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
 
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), lPos.x, lPos.y, lPos.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rPos.x, rPos.y, rPos.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lDir.x, lDir.y, lDir.z);
-            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
-        }
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), lPos.x, lPos.y, lPos.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rPos.x, rPos.y, rPos.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lDir.x, lDir.y, lDir.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
+    }
 }
 
 // Check if car is on ground
-void Game::ResolveGroundCollision(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
+void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalSpeed, bool &isOnGround, float &lastGroundHeight)
 {
-        game::GroundSample groundSample;
-        if (city.GetGroundSample(car.position, car.position.y, groundSample) && groundSample.found)
+    game::GroundSample groundSample;
+    if (city.GetGroundSample(car.position, car.position.y, groundSample) && groundSample.found)
+    {
+        float groundY = groundSample.height;
+        lastGroundHeight = groundY;
+
+        float desiredY = groundY + kGroundClearance;
+
+        if (car.position.y < desiredY - 0.02f)
         {
-            float groundY = groundSample.height;
-            lastGroundHeight = groundY;
-
-            float desiredY = groundY + kGroundClearance;
-
-            if (car.position.y < desiredY - 0.02f)
-            {
-                // Evitar hundir o caer por debajo del suelo real.
-                car.position.y = desiredY;
-                carVerticalSpeed = 0.0f;
-                isOnGround = true;
-            }
-            else if (car.position.y <= desiredY + 0.12f && carVerticalSpeed <= 0.5f)
-            {
-                car.position.y = desiredY;
-                carVerticalSpeed = 0.0f;
-                isOnGround = true;
-            }
-            else
-            {
-                isOnGround = false;
-            }
+            // Evitar hundir o caer por debajo del suelo real.
+            car.position.y = desiredY;
+            carVerticalSpeed = 0.0f;
+            isOnGround = true;
+        }
+        else if (car.position.y <= desiredY + 0.12f && carVerticalSpeed <= 0.5f)
+        {
+            car.position.y = desiredY;
+            carVerticalSpeed = 0.0f;
+            isOnGround = true;
         }
         else
         {
-            // If no ground detected, attempt an expanded recovery probe before forcing position.
-            game::GroundSample recoverySample;
-            if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
-            {
-                float desiredY = recoverySample.height + kGroundClearance;
-                car.position.y = desiredY;
-                carVerticalSpeed = 0.0f;
-                isOnGround = true;
-                lastGroundHeight = recoverySample.height;
-            }
-            else if (car.position.y < lastGroundHeight - 0.5f)
-            {
-                // If the car dropped far below the last known ground, clamp it back to prevent falling through.
-                car.position.y = lastGroundHeight + kGroundClearance;
-                carVerticalSpeed = 0.0f;
-                isOnGround = true;
-            }
-            else
-            {
-                isOnGround = false;
-            }
+            isOnGround = false;
         }
+    }
+    else
+    {
+        // If no ground detected, attempt an expanded recovery probe before forcing position.
+        game::GroundSample recoverySample;
+        if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
+        {
+            float desiredY = recoverySample.height + kGroundClearance;
+            car.position.y = desiredY;
+            carVerticalSpeed = 0.0f;
+            isOnGround = true;
+            lastGroundHeight = recoverySample.height;
+        }
+        else if (car.position.y < lastGroundHeight - 0.5f)
+        {
+            // If the car dropped far below the last known ground, clamp it back to prevent falling through.
+            car.position.y = lastGroundHeight + kGroundClearance;
+            carVerticalSpeed = 0.0f;
+            isOnGround = true;
+        }
+        else
+        {
+            isOnGround = false;
+        }
+    }
 }
 
-void Game::ApplyDayNightLighting(Shader& shaderProgram, DayNightCycle& dayNight)
+void Game::ApplyDayNightLighting(Shader &shaderProgram, DayNightCycle &dayNight)
 {
     glm::vec3 lightColor = dayNight.GetLightColor();
     glm::vec3 lightPos = dayNight.GetLightPosition();
@@ -133,7 +133,7 @@ void Game::ApplyDayNightLighting(Shader& shaderProgram, DayNightCycle& dayNight)
     glUniform1f(glGetUniformLocation(shaderProgram.ID, "uAmbientStrength"), dayNight.GetAmbientStrength());
 }
 
-void Game::DrawOcean(Shader& waterShader, Mesh& ocean, Camera& camera, float currentFrame, const glm::vec3& skyTint, DayNightCycle& dayNight)
+void Game::DrawOcean(Shader &waterShader, Mesh &ocean, Camera &camera, float currentFrame, const glm::vec3 &skyTint, DayNightCycle &dayNight)
 {
 
     glm::vec3 fogColor = dayNight.GetHorizonColor();
@@ -153,8 +153,8 @@ void Game::DrawOcean(Shader& waterShader, Mesh& ocean, Camera& camera, float cur
 // ---------------------------------------------------------------------------
 int Game::Run()
 {
-    
-    GLFWwindow* window = nullptr;
+
+    GLFWwindow *window = nullptr;
 
     int fbW = 0;
     int fbH = 0;
@@ -189,11 +189,11 @@ int Game::Run()
 
     // --- City ---
     City city("res/models/city_3d/scene.gltf",
-              1.0f,   // usar escala original del mapa
-              0.0f,   // auto-alinear altura con el suelo
-              0.0f,   // sin offset X manual
-              0.0f,   // sin offset Z manual
-              true    // auto-align map to ground
+              1.0f, // usar escala original del mapa
+              0.0f, // auto-alinear altura con el suelo
+              0.0f, // sin offset X manual
+              0.0f, // sin offset Z manual
+              true  // auto-align map to ground
     );
 
     DayNightCycle dayNight;
@@ -274,18 +274,18 @@ int Game::Run()
         // --- Draw Sky Sphere first ---
         glDepthMask(GL_FALSE); // Disable depth buffer writing so sky sphere is always in the background
         skyShader.Activate();
-        
+
         // Pass camera matrix
         camera.Matrix(skyShader, "camMatrix");
-        
+
         // Center sky sphere around camera and slowly rotate it over time to simulate moving clouds
         glm::mat4 skyModel = glm::translate(glm::mat4(1.0f), camera.Position);
         skyModel = glm::rotate(skyModel, glm::radians(dayNight.GetTime() * 15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        
+
         // Pass sky tint uniform
         glm::vec3 skyTint = dayNight.GetSkyTint();
         glUniform3f(glGetUniformLocation(skyShader.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
-        
+
         // Draw the sky sphere
         skySphere.Draw(skyShader, camera, skyModel);
         glDepthMask(GL_TRUE); // Re-enable depth writing
@@ -305,14 +305,14 @@ int Game::Run()
         shaderProgram.Activate();
 
         float timeOfDay = dayNight.GetTime();
-        // --- Window title HUD ---
         int hours = static_cast<int>(timeOfDay);
         int minutes = static_cast<int>((timeOfDay - hours) * 60.0f);
-        char title[192];
+        char title[256];
         std::snprintf(title, sizeof(title),
-                      "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h",
+                      "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h | Pos: (%.2f, %.2f, %.2f)",
                       hours, minutes,
-                      std::abs(car.speed) * 3.6f);
+                      std::abs(car.speed) * 3.6f,
+                      car.position.x, car.position.y, car.position.z);
         glfwSetWindowTitle(window, title);
 
         glfwSwapBuffers(window);
