@@ -9,7 +9,7 @@ class EBO
 public:
     GLuint ID;
 
-    EBO(std::vector<GLuint>& indices)
+    EBO(const std::vector<GLuint> &indices)
     {
         glGenBuffers(1, &ID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID);

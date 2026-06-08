@@ -20,7 +20,9 @@ public:
     VAO VAO;
 
     // Initializes the mesh
-    Mesh(std::vector<Vertex>& vertices, std::vector<GLuint>& indices, std::vector<Texture>& textures);
+    Mesh(const std::vector<Vertex>& vertices,
+     const std::vector<GLuint>& indices,
+     const std::vector<Texture>& textures);
 
     // Draws the mesh
     void Draw
