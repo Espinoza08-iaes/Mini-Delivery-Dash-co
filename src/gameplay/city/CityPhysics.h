@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 
 namespace game
 {
@@ -17,6 +17,7 @@ namespace game
         glm::vec3 maxBounds;
         bool isRoad;
         bool nonBlockingSurface;
+        bool isWater;
     };
 
     struct GroundSample
@@ -41,6 +42,8 @@ namespace game
         // Checks if the car's collision sphere intersects any obstacle triangle.
         bool CheckCollision(const glm::vec3& pos, float radius) const;
 
+        bool IsInWater(const glm::vec3& position) const;
+
         // Returns the closest road triangle center to the preferred spawn position.
         glm::vec3 GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance = 1000.0f) const;
 
@@ -60,6 +63,7 @@ namespace game
 
         std::vector<WorldTriangle> mRoadTriangles;
         std::vector<WorldTriangle> mObstacleTriangles;
+        std::vector<WorldTriangle> mWaterTriangles;
         glm::vec3 mWorldMinBounds;
         glm::vec3 mWorldMaxBounds;
 

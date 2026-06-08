@@ -4,11 +4,11 @@
 #include <string>
 #include <vector>
 
-#include "VAO.h"
-#include "EBO.h"
-#include "../rendering/Camera.h"
-#include "../rendering/Texture.h"
-#include "../graphics/Vertex.h"
+#include "../gl/VAO.h"
+#include "../gl/EBO.h"
+#include "Camera.h"
+#include "Texture.h"
+#include "../../core/Vertex.h"
 
 class Mesh
 {

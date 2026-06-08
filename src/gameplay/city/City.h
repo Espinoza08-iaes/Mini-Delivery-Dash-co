@@ -5,7 +5,7 @@
 #include <string>
 #include <glm/glm.hpp>
 
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 #include "CityPhysics.h"
 
 class City
@@ -44,6 +44,9 @@ public:
     float GetYOffset() const { return mYOffset; }
     float GetXOffset() const { return mXOffset; }
     float GetZOffset() const { return mZOffset; }
+
+    game::CityPhysics& GetPhysics() { return mPhysics; }
+    const game::CityPhysics& GetPhysics() const { return mPhysics; }
 
 private:
     void BuildVisualGapFillMesh();

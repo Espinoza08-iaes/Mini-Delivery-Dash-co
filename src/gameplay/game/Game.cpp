@@ -21,7 +21,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 #include "../meshes/ProceduralMeshes.h"
 #include "../vehicle/CarController.h"
 #include "../scene/DayNightCycle.h"
@@ -118,6 +118,64 @@ void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalS
             isOnGround = false;
         }
     }
+}
+
+// --- Water Detection and Respawn ---
+void Game::CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
+{
+    // Variables estáticas para detectar rebotes repetidos
+    static int bounceCount = 0;
+    static float lastBounceTime = 0.0f;
+    static bool wasBouncing = false;
+    
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    // Detectar si el auto está rebotando (velocidad vertical alta y no está en el suelo)
+    bool isBouncing = (std::abs(carVerticalSpeed) > 2.0f && !isOnGround);
+    
+    // Detectar zona de agua por coordenadas (ajusta estos números según tu mapa)
+    bool inWaterZone = (car.position.x > -100.0f && car.position.x < 100.0f &&
+                        car.position.z > -100.0f && car.position.z < 100.0f);
+    
+    // Contar rebotes
+    if (isBouncing && !wasBouncing)
+    {
+        bounceCount++;
+        lastBounceTime = currentTime;
+    }
+    
+    // Si hay muchos rebotes en poco tiempo o sigue rebotando por mucho tiempo
+    if ((bounceCount >= 3 && (currentTime - lastBounceTime) < 1.0f) || 
+        (isBouncing && inWaterZone && bounceCount >= 2))
+    {
+        std::cout << "[GAME] Car stuck in water! Bounce count: " << bounceCount << std::endl;
+        
+        // Posición segura
+        glm::vec3 safeSpawn = glm::vec3(20.5588f, 7.22175f, -1.32232f);
+        
+        car.position = safeSpawn + glm::vec3(0.0f, 0.5f, 0.0f);
+        car.speed = 0.0f;
+        car.steering = 0.0f;
+        car.yaw = 0.0f;
+        car.pitch = 0.0f;
+        car.roll = 0.0f;
+        carVerticalSpeed = 0.0f;
+        isOnGround = true;
+        lastGroundHeight = safeSpawn.y;
+        
+        // Resetear contador
+        bounceCount = 0;
+        
+        std::cout << "[GAME] Respawned at: " << car.position.x << ", " << car.position.y << ", " << car.position.z << std::endl;
+    }
+    
+    // Resetear contador si pasa mucho tiempo sin rebotar
+    if (!isBouncing && (currentTime - lastBounceTime) > 2.0f)
+    {
+        bounceCount = 0;
+    }
+    
+    wasBouncing = isBouncing;
 }
 
 void Game::ApplyDayNightLighting(Shader &shaderProgram, DayNightCycle &dayNight)

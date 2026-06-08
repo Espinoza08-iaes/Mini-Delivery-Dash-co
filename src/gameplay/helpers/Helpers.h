@@ -30,8 +30,6 @@ void SetupOpenGL (Shader& shaderProgram);
 
 void ApplyGravity (CarState& car, float& verticalSpeed, bool isOnGround, float dt);
 
-void CheckWaterRespawn (CarState& car, City& city, float& verticalSpeed, bool& isOnGround, float& lastGroundHeight);
-
 // --------------------------------------------------
 // Camera
 // --------------------------------------------------

@@ -4,7 +4,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-#include "Vertex.h"
+#include "../../core/Vertex.h"
 
 class VBO
 {

@@ -98,6 +98,22 @@ namespace game
             return false;
         }
 
+        bool IsWaterMaterial(const std::string &surfaceName)
+        {
+            std::string name = ToLower(surfaceName);
+
+            static const char *const waterWords[] = {"water", "ocean", "sea", "lake", "river", "pond", "pool", "liquid"};
+
+            for (size_t i = 0; i < sizeof(waterWords) / sizeof(waterWords[0]);++i)
+            {
+                if (name.find(waterWords[i]) != std::string::npos)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         bool IsKnownCityNonBlockingGroundDetail(const std::string &surfaceName)
         {
             std::string name = ToLower(surfaceName);
@@ -371,6 +387,12 @@ namespace game
                 tri.maxBounds = maxBounds;
                 tri.isRoad = materialAllowsGround && IsRoadTriangle(normal, minBounds, maxBounds, materialAllowsGround);
                 tri.nonBlockingSurface = nonBlockingSurface;
+                tri.isWater = IsWaterMaterial(surfaceName);
+
+                if (tri.isWater)
+                {
+                    mWaterTriangles.push_back(tri);
+                }
 
                 if (tri.isRoad)
                 {
@@ -430,6 +452,26 @@ namespace game
                 }
             }
         }
+    }
+
+    bool CityPhysics::IsInWater(const glm::vec3& position) const
+    {
+        for (const auto& tri : mWaterTriangles)
+        {
+            if (position.x >= tri.minBounds.x - 1.0f && position.x <= tri.maxBounds.x + 1.0f && position.z >= tri.minBounds.z -1.0f && position.z <= tri.maxBounds.z + 1.0f)
+            {
+                // Is in water material
+                return true;
+            }
+        }
+
+        // If is down, is in water
+        if (position.y < 0.0f)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     glm::vec3 TriangleCenter(const WorldTriangle &tri)
