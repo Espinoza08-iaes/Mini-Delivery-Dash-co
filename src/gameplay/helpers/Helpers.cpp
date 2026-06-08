@@ -21,6 +21,10 @@ namespace
 // Initializes the GLFW window and the OpenGL context.
 bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebufferHeight) //fbW To save the width and fbH to save the height of the framebuffer (real pixels)
 {
+#ifdef _WIN32
+    DisableProcessWindowsGhosting();
+#endif
+
     // Initialize the GLFW library
     glfwInit();
 
@@ -71,6 +75,13 @@ bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebuff
     // Configure the viewport. We use GetFrame buffer Size for Retina/High DPI displays
     GetFramebufferSize(window, framebufferWidth, framebufferHeight);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
+
+    // Clear window to a premium dark background immediately to prevent white screen flash
+    glClearColor(0.07f, 0.07f, 0.08f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glfwSwapBuffers(window);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glfwSwapBuffers(window);
 
     return true;
 }

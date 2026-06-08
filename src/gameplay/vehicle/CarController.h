@@ -15,7 +15,7 @@ const float kMaxDownSnap = 0.40f;
 
 struct CarState
 {
-    glm::vec3 position = glm::vec3(20.0f, 0.0f, 0.0f);
+    glm::vec3 position = glm::vec3(-47.64f, 1.76f, 56.14f);
 
     float yaw = 0.0f;
 

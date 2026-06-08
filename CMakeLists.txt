@@ -30,25 +30,25 @@ if(WIN32)
 
     find_library(GLFW_LIBRARY
         NAMES glfw3 libglfw3
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/GLFW/lib"
         NO_DEFAULT_PATH REQUIRED
     )
 
     find_library(ASSIMP_LIBRARY
         NAMES assimp libassimp
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/assimp/lib"
         NO_DEFAULT_PATH REQUIRED
     )
 
     find_library(SOIL2_LIBRARY
-        NAMES soil2 libsoil2
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NAMES soil2 libsoil2 opengl32 libopengl32
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/SOIL2/lib"
         NO_DEFAULT_PATH REQUIRED
     )
 
     find_library(GLEW_LIBRARY
-        NAMES glew32s
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/lib"
+        NAMES glew32s glew32 libglew32
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/GL/lib"
         NO_DEFAULT_PATH REQUIRED
     )
 

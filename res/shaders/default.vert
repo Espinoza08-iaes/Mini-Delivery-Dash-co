@@ -26,16 +26,22 @@ uniform mat4 translation;
 uniform mat4 rotation;
 uniform mat4 scale;
 
+uniform mat4 uLightSpaceMatrix;
+
+out vec4 vLightSpacePos;
+
 void main()
 {
-    // calculates current position
+    // Calculates current position
     crntPos = vec3(model * translation * rotation * scale * vec4(aPos, 1.0f));
-    // Assigns the normal from the Vertex Data to "Normal"
-    Normal = aNormal;
+    // Transform normal to world space and normalize
+    Normal = normalize(mat3(model * translation * rotation * scale) * aNormal);
     // Assigns the colors from the Vertex Data to "color"
     color = aColor;
     // Assigns the texture coordinates from the Vertex Data to "texCoord"
     texCoord = aTex;
+
+    vLightSpacePos = uLightSpaceMatrix * vec4(crntPos, 1.0f);
 
     // Outputs the positions/coordinates of all vertices
     gl_Position = camMatrix * vec4(crntPos, 1.0);

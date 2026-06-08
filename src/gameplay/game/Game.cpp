@@ -145,6 +145,11 @@ void Game::DrawOcean(Shader &waterShader, Mesh &ocean, Camera &camera, float cur
     glUniform3f(glGetUniformLocation(waterShader.ID, "uFogColor"), fogColor.x, fogColor.y, fogColor.z);
     glUniform1f(glGetUniformLocation(waterShader.ID, "uFogStart"), 60.0f);
     glUniform1f(glGetUniformLocation(waterShader.ID, "uFogEnd"), 350.0f);
+    glm::vec3 lightPos = dayNight.GetLightPosition();
+    glm::vec3 lightColor = dayNight.GetLightColor();
+    glUniform3f(glGetUniformLocation(waterShader.ID, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
+    glUniform4f(glGetUniformLocation(waterShader.ID, "lightColor"), lightColor.x, lightColor.y, lightColor.z, 1.0f);
+
     camera.Matrix(waterShader, "camMatrix");
     ocean.Draw(waterShader, camera, glm::mat4(1.0f));
 }
@@ -164,9 +169,12 @@ int Game::Run()
         return -1;
     }
 
+    std::cout << "[INFO] Loading assets and compiling shaders... Please wait." << std::endl;
+
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
     Shader skyShader("res/shaders/sky.vert", "res/shaders/sky.frag");
     Shader waterShader("res/shaders/water.vert", "res/shaders/water.frag");
+    glfwPollEvents();
 
     SetupOpenGL(shaderProgram); // Configure initial OpenGL state
 
@@ -183,9 +191,11 @@ int Game::Run()
     Mesh ocean = CreateOceanMesh();
     Mesh originMarker = CreateOriginMarker();
     Mesh skySphere = CreateSkySphereMesh("res/textures/sunflowers_puresky_4k.hdr");
+    glfwPollEvents();
 
     // --- Car model ---
     Model carModel("res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj");
+    glfwPollEvents();
 
     // --- City ---
     City city("res/models/city_3d/scene.gltf",
@@ -195,6 +205,56 @@ int Game::Run()
               0.0f, // sin offset Z manual
               true  // auto-align map to ground
     );
+    glfwPollEvents();
+
+    // --- Shadow Map Shader & FBO Setup ---
+    Shader shadowShader("res/shaders/shadow.vert", "res/shaders/shadow.frag");
+    const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+    GLuint depthMapFBO;
+    glGenFramebuffers(1, &depthMapFBO);
+    
+    GLuint depthMap;
+    glGenTextures(1, &depthMap);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
+                 SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // --- Camera Depth Map FBO Setup for SSAO ---
+    GLuint cameraDepthFBO;
+    glGenFramebuffers(1, &cameraDepthFBO);
+    
+    GLuint cameraDepthMap;
+    glGenTextures(1, &cameraDepthMap);
+    glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
+                 fbW, fbH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, cameraDepthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    int lastCameraWidth = fbW;
+    int lastCameraHeight = fbH;
 
     DayNightCycle dayNight;
 
@@ -266,7 +326,58 @@ int Game::Run()
 
         ApplyDayNightLighting(shaderProgram, dayNight);
 
-        // --- Draw ---
+        // --- 1. Render depth of scene to texture (from light's perspective) ---
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // Define light space matrix centered around the car
+        glm::vec3 lightDir = glm::normalize(dayNight.GetLightPosition());
+        glm::vec3 lightPos = car.position + lightDir * 180.0f;
+        glm::vec3 up = glm::abs(lightDir.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::mat4 lightView = glm::lookAt(lightPos, car.position, up);
+        glm::mat4 lightProjection = glm::ortho(-75.0f, 75.0f, -75.0f, 75.0f, 0.1f, 350.0f);
+        glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+        shadowShader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(shadowShader.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(2.5f, 10.0f);
+
+        city.Draw(shadowShader, camera);
+        carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // --- 1b. Resize camera depth texture if window size changed ---
+        if (camera.width != lastCameraWidth || camera.height != lastCameraHeight)
+        {
+            lastCameraWidth = camera.width;
+            lastCameraHeight = camera.height;
+            glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
+                         camera.width, camera.height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        }
+
+        // --- 1c. Render depth of scene from camera's perspective (for SSAO) ---
+        glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
+        glViewport(0, 0, camera.width, camera.height);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        shadowShader.Activate();
+        camera.Matrix(shadowShader, "lightSpaceMatrix");
+
+        city.Draw(shadowShader, camera);
+        carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Reset viewport to window size
+        SyncCameraToFramebuffer(window, camera);
+
+        // --- 2. Normal Render Pass ---
         glm::vec3 horizon = dayNight.GetHorizonColor();
         glClearColor(horizon.x, horizon.y, horizon.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -296,6 +407,25 @@ int Game::Run()
             originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
         }
 
+        // Bind skybox texture for reflections on slot 10
+        shaderProgram.Activate();
+        glActiveTexture(GL_TEXTURE0 + 10);
+        glBindTexture(GL_TEXTURE_2D, skySphere.textures[0].ID);
+        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uSkyReflectionMap"), 10);
+        glUniform1f(glGetUniformLocation(shaderProgram.ID, "uSkyRotationAngle"), glm::radians(dayNight.GetTime() * 15.0f));
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
+
+        // Bind shadow map depth texture on slot 11
+        glActiveTexture(GL_TEXTURE0 + 11);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uShadowMap"), 11);
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram.ID, "uLightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+        // Bind camera depth map for SSAO on slot 12
+        glActiveTexture(GL_TEXTURE0 + 12);
+        glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
+        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uCameraDepthMap"), 12);
+
         city.Draw(shaderProgram, camera);
         carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
@@ -322,6 +452,13 @@ int Game::Run()
     shaderProgram.Delete();
     skyShader.Delete();
     waterShader.Delete();
+    shadowShader.Delete();
+
+    glDeleteFramebuffers(1, &depthMapFBO);
+    glDeleteTextures(1, &depthMap);
+    glDeleteFramebuffers(1, &cameraDepthFBO);
+    glDeleteTextures(1, &cameraDepthMap);
+
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
