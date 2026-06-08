@@ -115,11 +115,11 @@ void City::BuildVisualGapFillMesh()
         return;
     }
 
-    const float gapCoverMargin = 0.65f;
-    const float topDrop = 0.035f;
-    const float backingDrop = 0.16f;
-    const glm::vec3 backingColor(0.62f, 0.62f, 0.58f);
-    const glm::vec3 skirtColor(0.52f, 0.52f, 0.49f);
+     const float gapCoverMargin = 4.5f;
+    const float topDrop = 0.02f;
+    const float backingDrop = 2.0f;
+    const glm::vec3 backingColor(0.46f, 0.46f, 0.46f);
+    const glm::vec3 skirtColor(0.44f, 0.44f, 0.44f);
 
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
