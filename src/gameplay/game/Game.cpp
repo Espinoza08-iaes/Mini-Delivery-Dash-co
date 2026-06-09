@@ -82,24 +82,17 @@ void Game::UpdateHeadlights(Shader &shaderProgram, const CarState &car, bool hea
 void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalSpeed, bool &isOnGround, float &lastGroundHeight)
 {
     game::GroundSample groundSample;
-    if (city.GetGroundSample(car.position, car.position.y, groundSample) && groundSample.found)
+    if (city.GetGroundSample(car.position, car.position.y, groundSample, 15.0f, 2.0f))
     {
         float groundY = groundSample.height;
         lastGroundHeight = groundY;
-
         float desiredY = groundY + kGroundClearance;
-
-        if (car.position.y < desiredY - 0.02f)
-        {
-            // Evitar hundir o caer por debajo del suelo real.
-            car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-        }
-        else if (car.position.y <= desiredY + 0.12f && carVerticalSpeed <= 0.5f)
+        
+        // Si el auto está cerca del suelo, pegarlo
+        if (car.position.y <= desiredY + 0.5f)
         {
             car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
+            if (carVerticalSpeed < 0.0f) carVerticalSpeed = 0.0f;
             isOnGround = true;
         }
         else
@@ -109,26 +102,14 @@ void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalS
     }
     else
     {
-        // If no ground detected, attempt an expanded recovery probe before forcing position.
-        game::GroundSample recoverySample;
-        if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
+        // No hay suelo, el auto está cayendo
+        isOnGround = false;
+        
+        // Solo evitar que caiga infinitamente (respawn se encarga)
+        if (car.position.y < -10.0f)
         {
-            float desiredY = recoverySample.height + kGroundClearance;
-            car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-            lastGroundHeight = recoverySample.height;
-        }
-        else if (car.position.y < lastGroundHeight - 0.5f)
-        {
-            // If the car dropped far below the last known ground, clamp it back to prevent falling through.
-            car.position.y = lastGroundHeight + kGroundClearance;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-        }
-        else
-        {
-            isOnGround = false;
+            // Forzar respawn si cae demasiado
+            car.position.y = -5.0f; // Para activar el respawn
         }
     }
 }
@@ -136,35 +117,12 @@ void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalS
 // --- Water Detection and Respawn ---
 void Game::CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
 {
-    // Variables estáticas para detectar rebotes repetidos
-    static int bounceCount = 0;
-    static float lastBounceTime = 0.0f;
-    static bool wasBouncing = false;
-    
-    float currentTime = static_cast<float>(glfwGetTime());
-    
-    // Detectar si el auto está rebotando (velocidad vertical alta y no está en el suelo)
-    bool isBouncing = (std::abs(carVerticalSpeed) > 2.0f && !isOnGround);
-    
-    // Detectar zona de agua por coordenadas (ajusta estos números según tu mapa)
-    bool inWaterZone = (car.position.x > -100.0f && car.position.x < 100.0f &&
-                        car.position.z > -100.0f && car.position.z < 100.0f);
-    
-    // Contar rebotes
-    if (isBouncing && !wasBouncing)
+    // Detects falling into a void
+    if (car.position.y < -5.0f)
     {
-        bounceCount++;
-        lastBounceTime = currentTime;
-    }
-    
-    // Si hay muchos rebotes en poco tiempo o sigue rebotando por mucho tiempo
-    if ((bounceCount >= 3 && (currentTime - lastBounceTime) < 1.0f) || 
-        (isBouncing && inWaterZone && bounceCount >= 2))
-    {
-        std::cout << "[GAME] Car stuck in water! Bounce count: " << bounceCount << std::endl;
+        std::cout << "[GAME] Car fell into void! Respawning..." << std::endl;
         
-        // Posición segura
-        glm::vec3 safeSpawn = glm::vec3(20.5588f, 7.22175f, -1.32232f);
+        glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, 500.0f);
         
         car.position = safeSpawn + glm::vec3(0.0f, 0.5f, 0.0f);
         car.speed = 0.0f;
@@ -176,19 +134,8 @@ void Game::CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed,
         isOnGround = true;
         lastGroundHeight = safeSpawn.y;
         
-        // Resetear contador
-        bounceCount = 0;
-        
         std::cout << "[GAME] Respawned at: " << car.position.x << ", " << car.position.y << ", " << car.position.z << std::endl;
     }
-    
-    // Resetear contador si pasa mucho tiempo sin rebotar
-    if (!isBouncing && (currentTime - lastBounceTime) > 2.0f)
-    {
-        bounceCount = 0;
-    }
-    
-    wasBouncing = isBouncing;
 }
 
 void Game::ApplyDayNightLighting(Shader &shaderProgram, DayNightCycle &dayNight)

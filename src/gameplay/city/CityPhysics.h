@@ -17,7 +17,6 @@ namespace game
         glm::vec3 maxBounds;
         bool isRoad;
         bool nonBlockingSurface;
-        bool isWater;
     };
 
     struct GroundSample
@@ -37,12 +36,10 @@ namespace game
         bool GetGroundSample(const glm::vec3& worldPos, float currentY, GroundSample& outSample, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
 
         // Samples the closest drivable road height at horizontal coordinate (x, z).
-        float GetHeightAt(const Model& model, const glm::mat4& cityMatrix, float x, float z, float currentY, bool* outFound = nullptr, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
+        float GetHeightAt(float x, float z, float currentY, bool* outFound = nullptr, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
 
         // Checks if the car's collision sphere intersects any obstacle triangle.
         bool CheckCollision(const glm::vec3& pos, float radius) const;
-
-        bool IsInWater(const glm::vec3& position) const;
 
         // Returns the closest road triangle center to the preferred spawn position.
         glm::vec3 GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance = 1000.0f) const;
@@ -63,7 +60,6 @@ namespace game
 
         std::vector<WorldTriangle> mRoadTriangles;
         std::vector<WorldTriangle> mObstacleTriangles;
-        std::vector<WorldTriangle> mWaterTriangles;
         glm::vec3 mWorldMinBounds;
         glm::vec3 mWorldMaxBounds;
 

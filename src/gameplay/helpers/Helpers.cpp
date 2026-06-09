@@ -1,4 +1,4 @@
-#include <Windows.h>
+//#include <Windows.h>
 #include "Helpers.h"
 
 #ifndef _WIN32_WINNT

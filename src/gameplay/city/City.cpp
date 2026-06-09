@@ -154,7 +154,7 @@ void City::BuildVisualGapFillMesh()
 
 float City::GetHeightAt(float x, float z, float currentY, bool* outFound, float snapDownMax, float snapUpMax) const
 {
-    return mPhysics.GetHeightAt(mModel, GetMatrix(), x, z, currentY, outFound, snapDownMax, snapUpMax);
+    return mPhysics.GetHeightAt(x, z, currentY, outFound, snapDownMax, snapUpMax);
 }
 
 bool City::GetGroundSample(const glm::vec3& worldPos, float currentY, game::GroundSample& outSample, float snapDownMax, float snapUpMax) const
