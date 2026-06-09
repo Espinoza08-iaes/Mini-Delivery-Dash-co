@@ -5,13 +5,25 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cmath>
 
 #define STB_EASY_FONT_IMPLEMENTATION
 #include "../../../third_party/stb/stb_easy_font.h"
 
-// ------------------------------------------------------------------
+// Only include the header for stb_image (implementation is in Texture.cpp)
+#include "../../../third_party/stb/stb_image.h"
+
+// ======================================================================
+// SHADER COMPILATION
+// ======================================================================
+
+// Compiles a vertex + fragment shader pair and returns the linked program ID.
 static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc)
 {
+    // Vertex shader
     unsigned int vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertexSrc, NULL);
     glCompileShader(vs);
@@ -23,6 +35,7 @@ static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc
         std::cerr << "Vertex shader failed: " << info << std::endl;
     }
 
+    // Fragment shader
     unsigned int fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragmentSrc, NULL);
     glCompileShader(fs);
@@ -33,6 +46,7 @@ static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc
         std::cerr << "Fragment shader failed: " << info << std::endl;
     }
 
+    // Link program
     unsigned int prog = glCreateProgram();
     glAttachShader(prog, vs);
     glAttachShader(prog, fs);
@@ -42,68 +56,121 @@ static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc
     return prog;
 }
 
-// ------------------------------------------------------------------
+// ======================================================================
+// QUAD TO TRIANGLE CONVERSION (stb_easy_font outputs quads)
+// ======================================================================
+
+// Converts an array of quads (4 vertices each) into triangles (6 vertices each).
+// stb_easy_font outputs 16 floats per quad: x0,y0,u0,v0, x1,y1,u1,v1, x2,y2,u2,v2, x3,y3,u3,v3
+// We split each quad into two triangles: (0,1,2) and (0,2,3).
 static void convertQuadsToTriangles(float* quads, int numQuads, float* triangles)
 {
     for (int i = 0; i < numQuads; i++)
     {
         float* quad = quads + i * 16;
 
-        triangles[i * 24 + 0]  = quad[0];
-        triangles[i * 24 + 1]  = quad[1];
-        triangles[i * 24 + 2]  = quad[2];
-        triangles[i * 24 + 3]  = quad[3];
+        // Triangle 1: vertices 0, 1, 2
+        triangles[i * 24 + 0]  = quad[0];   // v0.x
+        triangles[i * 24 + 1]  = quad[1];   // v0.y
+        triangles[i * 24 + 2]  = quad[2];   // v0.u
+        triangles[i * 24 + 3]  = quad[3];   // v0.v
 
-        triangles[i * 24 + 4]  = quad[4];
-        triangles[i * 24 + 5]  = quad[5];
-        triangles[i * 24 + 6]  = quad[6];
-        triangles[i * 24 + 7]  = quad[7];
+        triangles[i * 24 + 4]  = quad[4];   // v1.x
+        triangles[i * 24 + 5]  = quad[5];   // v1.y
+        triangles[i * 24 + 6]  = quad[6];   // v1.u
+        triangles[i * 24 + 7]  = quad[7];   // v1.v
 
-        triangles[i * 24 + 8]  = quad[8];
-        triangles[i * 24 + 9]  = quad[9];
-        triangles[i * 24 + 10] = quad[10];
-        triangles[i * 24 + 11] = quad[11];
+        triangles[i * 24 + 8]  = quad[8];   // v2.x
+        triangles[i * 24 + 9]  = quad[9];   // v2.y
+        triangles[i * 24 + 10] = quad[10];  // v2.u
+        triangles[i * 24 + 11] = quad[11];  // v2.v
 
-        triangles[i * 24 + 12] = quad[0];
-        triangles[i * 24 + 13] = quad[1];
-        triangles[i * 24 + 14] = quad[2];
-        triangles[i * 24 + 15] = quad[3];
+        // Triangle 2: vertices 0, 2, 3
+        triangles[i * 24 + 12] = quad[0];   // v0.x
+        triangles[i * 24 + 13] = quad[1];   // v0.y
+        triangles[i * 24 + 14] = quad[2];   // v0.u
+        triangles[i * 24 + 15] = quad[3];   // v0.v
 
-        triangles[i * 24 + 16] = quad[8];
-        triangles[i * 24 + 17] = quad[9];
-        triangles[i * 24 + 18] = quad[10];
-        triangles[i * 24 + 19] = quad[11];
+        triangles[i * 24 + 16] = quad[8];   // v2.x
+        triangles[i * 24 + 17] = quad[9];   // v2.y
+        triangles[i * 24 + 18] = quad[10];  // v2.u
+        triangles[i * 24 + 19] = quad[11];  // v2.v
 
-        triangles[i * 24 + 20] = quad[12];
-        triangles[i * 24 + 21] = quad[13];
-        triangles[i * 24 + 22] = quad[14];
-        triangles[i * 24 + 23] = quad[15];
+        triangles[i * 24 + 20] = quad[12];  // v3.x
+        triangles[i * 24 + 21] = quad[13];  // v3.y
+        triangles[i * 24 + 22] = quad[14];  // v3.u
+        triangles[i * 24 + 23] = quad[15];  // v3.v
     }
 }
 
-// ==================================================================
+// ======================================================================
+// TEXT WIDTH CALCULATION
+// ======================================================================
+
+// Returns the exact pixel width of the text after scaling, by measuring
+// the actual bounding box of the quads generated by stb_easy_font.
+static float GetTextWidth(const char* text, float scale)
+{
+    float quadBuffer[60000];
+    int numQuads = stb_easy_font_print(0, 0, (char*)text, NULL, quadBuffer, sizeof(quadBuffer));
+    if (numQuads <= 0) return 0.0f;
+
+    float minX = quadBuffer[0], maxX = quadBuffer[0];
+    for (int i = 0; i < numQuads; i++)
+    {
+        float* quad = quadBuffer + i * 16;
+        float x0 = quad[0], x1 = quad[4], x2 = quad[8], x3 = quad[12];
+
+        if (x0 < minX) minX = x0;
+        if (x1 < minX) minX = x1;
+        if (x2 < minX) minX = x2;
+        if (x3 < minX) minX = x3;
+
+        if (x0 > maxX) maxX = x0;
+        if (x1 > maxX) maxX = x1;
+        if (x2 > maxX) maxX = x2;
+        if (x3 > maxX) maxX = x3;
+    }
+
+    return (maxX - minX) * scale;
+}
+
+// ======================================================================
+// CONSTRUCTOR / DESTRUCTOR
+// ======================================================================
+
 MainMenu::MainMenu(GLFWwindow* win, int screenWidth, int screenHeight)
     : window(win), width(screenWidth), height(screenHeight),
       quadVAO(0), quadVBO(0), hudProgram(0),
-      textVAO(0), textVBO(0), textProgram(0)
+      arrowVAO(0), arrowVBO(0),
+      textVAO(0), textVBO(0), textProgram(0),
+      titleTexture(0), titleTexWidth(0), titleTexHeight(0)
 {
     SetupGraphics();
     SetupTextRendering();
+    LoadTitleTexture();
 }
 
 MainMenu::~MainMenu()
 {
     glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &quadVBO);
+    glDeleteVertexArrays(1, &arrowVAO);
+    glDeleteBuffers(1, &arrowVBO);
     glDeleteVertexArrays(1, &textVAO);
     glDeleteBuffers(1, &textVBO);
+    if (titleTexture) glDeleteTextures(1, &titleTexture);
     if (hudProgram)  glDeleteProgram(hudProgram);
     if (textProgram) glDeleteProgram(textProgram);
 }
 
-// ------------------------------------------------------------------
+// ======================================================================
+// SETUP
+// ======================================================================
+
 void MainMenu::SetupGraphics()
 {
+    // Vertex shader for 2D colored quads and triangles
     const char* vertSrc = R"(
         #version 330 core
         layout (location = 0) in vec2 aPos;
@@ -116,6 +183,8 @@ void MainMenu::SetupGraphics()
             TexCoord = aTexCoord;
         }
     )";
+
+    // Fragment shader: supports both textures and solid colors
     const char* fragSrc = R"(
         #version 330 core
         out vec4 FragColor;
@@ -132,14 +201,16 @@ void MainMenu::SetupGraphics()
     )";
     hudProgram = compileShader(vertSrc, fragSrc);
 
+    // Unit quad (2 triangles, 6 vertices) with texture coordinates
     float quad[] = {
-        0.f, 0.f,   0.f, 1.f,
-        0.f, 1.f,   0.f, 0.f,
-        1.f, 1.f,   1.f, 0.f,
+        // x, y,    u, v
+        0.f, 0.f,   0.f, 1.f,  // bottom-left
+        0.f, 1.f,   0.f, 0.f,  // top-left
+        1.f, 1.f,   1.f, 0.f,  // top-right
 
-        0.f, 0.f,   0.f, 1.f,
-        1.f, 1.f,   1.f, 0.f,
-        1.f, 0.f,   1.f, 1.f
+        0.f, 0.f,   0.f, 1.f,  // bottom-left
+        1.f, 1.f,   1.f, 0.f,  // top-right
+        1.f, 0.f,   1.f, 1.f   // bottom-right
     };
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
@@ -151,11 +222,35 @@ void MainMenu::SetupGraphics()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glBindVertexArray(0);
+
+    // --- Arrow geometry (isosceles triangle pointing right, centered at origin) ---
+    // The triangle is defined as: tip at (1, 0), base at (-1, 1) and (-1, -1)
+    // We scale and translate via the model matrix to position it.
+    // For a left-pointing arrow, we flip the X axis with a negative scale.
+    float arrow[] = {
+        // Single triangle (3 vertices) with dummy UVs
+        // tip (right)
+         1.0f,  0.0f,   0.f, 0.f,
+        // top-left
+        -1.0f,  1.0f,   0.f, 0.f,
+        // bottom-left
+        -1.0f, -1.0f,   0.f, 0.f,
+    };
+    glGenVertexArrays(1, &arrowVAO);
+    glGenBuffers(1, &arrowVBO);
+    glBindVertexArray(arrowVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, arrowVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(arrow), arrow, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
 }
 
-// ------------------------------------------------------------------
 void MainMenu::SetupTextRendering()
 {
+    // Simple vertex shader for text (only position, no texture coords needed)
     const char* textVertSrc = R"(
         #version 330 core
         layout (location = 0) in vec2 aPos;
@@ -165,6 +260,8 @@ void MainMenu::SetupTextRendering()
             gl_Position = projection * model * vec4(aPos, 0.0, 1.0);
         }
     )";
+
+    // Fragment shader: solid color output
     const char* textFragSrc = R"(
         #version 330 core
         out vec4 FragColor;
@@ -179,8 +276,42 @@ void MainMenu::SetupTextRendering()
     glGenBuffers(1, &textVBO);
 }
 
-// ------------------------------------------------------------------
-void MainMenu::RenderText(const char* text, float x, float y, float r, float g, float b)
+// ======================================================================
+// TITLE TEXTURE LOADING
+// ======================================================================
+
+// Loads the title PNG image from res/textures/ and creates an OpenGL texture.
+// Called once in the constructor. If loading fails, titleTexture remains 0
+// and the menu falls back to rendering text.
+void MainMenu::LoadTitleTexture()
+{
+    int comp;
+    unsigned char* data = stbi_load("res/textures/Title_STB.png", &titleTexWidth, &titleTexHeight, &comp, 4);
+    if (!data)
+    {
+        std::cerr << "[MainMenu] Failed to load title texture: res/textures/Title_STB.png" << std::endl;
+        titleTexture = 0;
+        return;
+    }
+
+    glGenTextures(1, &titleTexture);
+    glBindTexture(GL_TEXTURE_2D, titleTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, titleTexWidth, titleTexHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    stbi_image_free(data);
+    std::cout << "[MainMenu] Title texture loaded: " << titleTexWidth << "x" << titleTexHeight << std::endl;
+}
+
+// ======================================================================
+// RENDERING FUNCTIONS
+// ======================================================================
+
+// Renders a string at the specified position with the given color and scale.
+void MainMenu::RenderText(const char* text, float x, float y, float r, float g, float b, float scale)
 {
     static float quadBuffer[60000];
     int numQuads = stb_easy_font_print(0, 0, (char*)text, NULL, quadBuffer, sizeof(quadBuffer));
@@ -191,13 +322,14 @@ void MainMenu::RenderText(const char* text, float x, float y, float r, float g, 
 
     glUseProgram(textProgram);
 
-    // Usar tamaño actual de la ventana
+    // Use current framebuffer size for orthographic projection
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     glm::mat4 proj = glm::ortho(0.0f, (float)fbW, (float)fbH, 0.0f);
 
+    // Model matrix: translate to position, then scale
     glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
-    model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.0f));
+    model = glm::scale(model, glm::vec3(scale, scale, 1.0f));
 
     glUniformMatrix4fv(glGetUniformLocation(textProgram, "projection"), 1, GL_FALSE, &proj[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(textProgram, "model"), 1, GL_FALSE, &model[0][0]);
@@ -213,68 +345,374 @@ void MainMenu::RenderText(const char* text, float x, float y, float r, float g, 
     glBindVertexArray(0);
 }
 
-// ------------------------------------------------------------------
+// Centers text horizontally around centerX.
+void MainMenu::RenderTextCentered(const char* text, float centerX, float y, float r, float g, float b, float scale)
+{
+    float textWidth = GetTextWidth(text, scale);
+    float x = centerX - textWidth * 0.5f;
+    RenderText(text, x, y, r, g, b, scale);
+}
+
+// Renders the title PNG image centered at (centerX, y) with a FIXED size
+// that does NOT change when the window is resized.
+void MainMenu::RenderTitleImage(float centerX, float y, float displayWidth, float displayHeight)
+{
+    if (titleTexture == 0) return;  // No texture loaded, skip
+
+    // Center the image horizontally
+    float x = centerX - displayWidth * 0.5f;
+
+    // Render the textured quad with fixed dimensions
+    RenderQuad(x, y, displayWidth, displayHeight, titleTexture);
+}
+
+// Renders a textured quad.
+void MainMenu::RenderQuad(float x, float y, float w, float h, unsigned int texture)
+{
+    glUseProgram(hudProgram);
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+    model = glm::scale(model, glm::vec3(w, h, 1.0f));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uUseSolidColor"), 0);
+    glUniform1i(glGetUniformLocation(hudProgram, "uTexture"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+// Renders a solid-color quad with optional alpha.
+void MainMenu::RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a)
+{
+    glUseProgram(hudProgram);
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+    model = glm::scale(model, glm::vec3(w, h, 1.0f));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uUseSolidColor"), 1);
+    glUniform4f(glGetUniformLocation(hudProgram, "uSolidColor"), r, g, b, a);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+// Renders a perfect triangle arrow pointing left or right.
+// (x, y) is the center of the arrow. 'size' is the half-width and half-height.
+// pointingRight=true draws tip to the right (>), false draws tip to the left (<).
+void MainMenu::RenderTriangle(float x, float y, float size, bool pointingRight, float r, float g, float b, float a)
+{
+    glUseProgram(hudProgram);
+
+    // Model matrix: translate to position, scale to desired size
+    // The base geometry is a triangle with tip at x=1, base at x=-1, height from y=-1 to y=1
+    // So scaling by 'size' makes it size*2 wide and size*2 tall
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+    // Flip X if pointing left
+    float dir = pointingRight ? 1.0f : -1.0f;
+    model = glm::scale(model, glm::vec3(size * dir, size, 1.0f));
+
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uUseSolidColor"), 1);
+    glUniform4f(glGetUniformLocation(hudProgram, "uSolidColor"), r, g, b, a);
+
+    glBindVertexArray(arrowVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+}
+
+// ======================================================================
+// UTILITY
+// ======================================================================
+
+bool MainMenu::PointInRect(float px, float py, float rx, float ry, float rw, float rh)
+{
+    return (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh);
+}
+
+// ======================================================================
+// HOW TO PLAY SCREEN
+// ======================================================================
+
+void MainMenu::ShowHowToPlay()
+{
+    while (!glfwWindowShouldClose(window))
+    {
+        glfwPollEvents();
+
+        // Get actual framebuffer size (handles Retina/HiDPI)
+        int fbW, fbH;
+        glfwGetFramebufferSize(window, &fbW, &fbH);
+        glViewport(0, 0, fbW, fbH);
+
+        // Get mouse position and adjust for Retina/HiDPI displays
+        double mx, my;
+        glfwGetCursorPos(window, &mx, &my);
+        int wW, wH;
+        glfwGetWindowSize(window, &wW, &wH);
+        float scaleX = (float)fbW / (float)wW;
+        float scaleY = (float)fbH / (float)wH;
+        mx *= scaleX;
+        my *= scaleY;
+
+        bool leftPressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+        // "BACK" button dimensions and position
+        float bw = 200.0f, bh = 50.0f;
+        float backX = (fbW - bw) * 0.5f;
+        float backY = fbH - 120.0f;
+
+        bool overBack = PointInRect((float)mx, (float)my, backX, backY, bw, bh);
+
+        // Handle click on BACK button (single press)
+        static bool wasPressed = false;
+        if (leftPressed && !wasPressed && overBack)
+        {
+            return;
+        }
+        wasPressed = leftPressed;
+
+        // ESC also returns to menu
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        {
+            return;
+        }
+
+        // --- RENDER ---
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
+
+        glm::mat4 proj = glm::ortho(0.0f, (float)fbW, (float)fbH, 0.0f);
+        glUseProgram(hudProgram);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "projection"), 1, GL_FALSE, &proj[0][0]);
+
+        // Full-screen black background
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f);
+
+        // Title image with FIXED size at the top
+        float titleFixedW = 400.0f;  // Fixed width, does not change with window size
+        float titleFixedH = 0.0f;
+        if (titleTexture != 0)
+        {
+            float aspectRatio = (float)titleTexWidth / (float)titleTexHeight;
+            titleFixedH = titleFixedW / aspectRatio;
+            float titleY = 20.0f;
+            RenderTitleImage(fbW * 0.5f, titleY, titleFixedW, titleFixedH);
+        }
+
+        // Dark panel with subtle border
+        float panelW = fbW * 0.75f;
+        float panelH = fbH * 0.60f;
+        float panelX = (fbW - panelW) * 0.5f;
+        float panelY = 40.0f + titleFixedH + 20.0f;  // Below the title image with gap
+        RenderColoredQuad(panelX, panelY, panelW, panelH, 0.05f, 0.05f, 0.05f, 0.95f);
+
+        // Panel border (top, bottom, left, right)
+        float border = 2.0f;
+        float borderCol = 0.25f;
+        RenderColoredQuad(panelX - border, panelY - border, panelW + border * 2, border, borderCol, borderCol, borderCol);
+        RenderColoredQuad(panelX - border, panelY + panelH, panelW + border * 2, border, borderCol, borderCol, borderCol);
+        RenderColoredQuad(panelX - border, panelY, border, panelH, borderCol, borderCol, borderCol);
+        RenderColoredQuad(panelX + panelW, panelY, border, panelH, borderCol, borderCol, borderCol);
+
+        // "HOW TO PLAY" subtitle
+        float subScale = 1.8f;
+        float subY = panelY + 30.0f;
+        RenderTextCentered("HOW TO PLAY", panelX + panelW * 0.5f, subY, 0.85f, 0.85f, 0.85f, subScale);
+
+        // Separator line
+        RenderColoredQuad(panelX + 40, subY + 40, panelW - 80, 1.0f, 0.3f, 0.3f, 0.3f);
+
+        // Control instructions
+        const char* lines[] = {
+            "W / S       - Accelerate / Brake",
+            "A / D       - Steer Left / Right",
+            "Z           - Jump",
+            "R           - Respawn",
+            "L           - Toggle Headlights",
+            "SHIFT       - Nitro Boost",
+            "ESC         - Pause Menu",
+            "RIGHT CLICK - Orbit Camera",
+        };
+        int numLines = sizeof(lines) / sizeof(lines[0]);
+
+        float lineScale = 1.3f;
+        float lineH = 38.0f;
+        float startY = subY + 75.0f;
+
+        for (int i = 0; i < numLines; i++)
+        {
+            RenderText(lines[i], panelX + 60, startY + i * lineH, 0.65f, 0.65f, 0.65f, lineScale);
+        }
+
+        // BACK button highlight
+        if (overBack)
+        {
+            RenderColoredQuad(backX - 6, backY - 2, bw + 12, bh + 4, 0.45f, 0.45f, 0.45f, 0.25f);
+            float arrowSize = 8.0f;
+            float arrowYcenter = backY + bh * 0.5f;
+            RenderTriangle(backX - 20.0f, arrowYcenter, arrowSize, true, 0.75f, 0.75f, 0.75f);
+            RenderTriangle(backX + bw + 20.0f, arrowYcenter, arrowSize, false, 0.75f, 0.75f, 0.75f);
+        }
+
+        // BACK button background
+        float backBgR = overBack ? 0.18f : 0.10f;
+        float backBgG = overBack ? 0.18f : 0.10f;
+        float backBgB = overBack ? 0.18f : 0.10f;
+        RenderColoredQuad(backX, backY, bw, bh, backBgR, backBgG, backBgB);
+
+        // BACK button border
+        float bThick = 1.2f;
+        float bCol = overBack ? 0.45f : 0.30f;
+        RenderColoredQuad(backX, backY, bw, bThick, bCol, bCol, bCol);
+        RenderColoredQuad(backX, backY + bh - bThick, bw, bThick, bCol, bCol, bCol);
+        RenderColoredQuad(backX, backY, bThick, bh, bCol, bCol, bCol);
+        RenderColoredQuad(backX + bw - bThick, backY, bThick, bh, bCol, bCol, bCol);
+
+        // BACK text
+        float textCol = overBack ? 0.95f : 0.75f;
+        RenderTextCentered("BACK", backX + bw * 0.5f, backY + (bh - 18.0f) * 0.5f, textCol, textCol, textCol, 1.3f);
+
+        glfwSwapBuffers(window);
+    }
+}
+
+// ======================================================================
+// MAIN MENU / PAUSE MENU
+// ======================================================================
+
 MainMenu::Result MainMenu::Show(bool showPause)
 {
     Result choice = Result::None;
 
-    // Variable para evitar toggle instantáneo de ESC al entrar en pausa
+    // Track ESC key state to prevent instant dismissal of pause menu
     static bool escWasPressed = false;
-
     if (showPause)
     {
-        // Al entrar en pausa, marcar ESC como "ya presionada" para que no cierre inmediatamente
         escWasPressed = true;
     }
+
+    // Track which button the mouse is hovering over for the highlight bar
+    int hoveredIndex = -1;
 
     while (!glfwWindowShouldClose(window) && choice == Result::None)
     {
         glfwPollEvents();
 
-        // Obtener tamaño REAL de la ventana en cada frame
+        // Get actual framebuffer size (handles Retina/HiDPI and window resizes)
         int fbW, fbH;
         glfwGetFramebufferSize(window, &fbW, &fbH);
-
-        // Asegurar viewport completo
         glViewport(0, 0, fbW, fbH);
 
+        // Get mouse position and adjust for Retina/HiDPI displays
         double mx, my;
         glfwGetCursorPos(window, &mx, &my);
+        int wW, wH;
+        glfwGetWindowSize(window, &wW, &wH);
+        float scaleX = (float)fbW / (float)wW;
+        float scaleY = (float)fbH / (float)wH;
+        mx *= scaleX;
+        my *= scaleY;
+
         bool leftPressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
-        // ESC para salir de pausa (solo en modo pausa)
+        // Handle ESC for pause menu dismissal
         if (showPause)
         {
             bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
             if (escPressed && !escWasPressed)
             {
-                choice = Result::Play;  // Play = continuar jugando
+                choice = Result::Play;  // Resume game
             }
             escWasPressed = escPressed;
         }
 
-        // Tamaño fijo de botones
-        float bw = 300.0f;
-        float bh = 70.0f;
-        float spacing = 30.0f;
+        // ============================================================
+        // DYNAMIC SIZING based on window dimensions
+        // ============================================================
 
-        // Posiciones centradas
-        float totalHeight = bh + spacing + bh;
-        float startY = (fbH - totalHeight) * 0.5f;
+        // Use the smaller dimension as reference for scaling
+        float refSize = (fbW < fbH) ? (float)fbW : (float)fbH;
 
-        float button1X = (fbW - bw) * 0.5f;
-        float button1Y = startY;
-        float button2X = (fbW - bw) * 0.5f;
-        float button2Y = startY + bh + spacing;
+        // Title image scales with window but has a maximum size
+        float titleMaxWidth = refSize * 0.65f;   // 65% of the smaller dimension
+        if (titleMaxWidth > 600.0f) titleMaxWidth = 600.0f;  // Cap at 600px
+        if (titleMaxWidth < 250.0f) titleMaxWidth = 250.0f;  // Minimum 250px
 
-        bool overButton1 = PointInRect((float)mx, (float)my, button1X, button1Y, bw, bh);
-        bool overButton2 = PointInRect((float)mx, (float)my, button2X, button2Y, bw, bh);
+        // Calculate title height maintaining aspect ratio
+        float titleDisplayHeight = 0.0f;
+        if (titleTexture != 0)
+        {
+            float aspectRatio = (float)titleTexWidth / (float)titleTexHeight;
+            titleDisplayHeight = titleMaxWidth / aspectRatio;
+        }
+        else
+        {
+            titleDisplayHeight = 80.0f;  // Fallback for text title
+        }
 
+        // Title position: centered horizontally, proportional distance from top
+        float titleY = refSize * 0.04f;  // 4% from top
+        if (titleY < 20.0f) titleY = 20.0f;
+
+        // --- BUTTON LAYOUT ---
+        // Buttons also scale with window size
+        float bw = refSize * 0.45f;     // Button width: 45% of reference
+        if (bw > 450.0f) bw = 450.0f;   // Cap at 450px
+        if (bw < 220.0f) bw = 220.0f;   // Minimum 220px
+
+        float bh = refSize * 0.06f;     // Button height: 6% of reference
+        if (bh > 60.0f) bh = 60.0f;     // Cap at 60px
+        if (bh < 35.0f) bh = 35.0f;     // Minimum 35px
+
+        float spacing = refSize * 0.025f; // Spacing: 2.5% of reference
+        if (spacing > 30.0f) spacing = 30.0f;
+        if (spacing < 10.0f) spacing = 10.0f;
+
+        // Gap between title and first button: proportional
+        float titleGap = refSize * -0.35f;          // Negative = overlap (35% of reference)
+        if (titleGap > 60.0f) titleGap = 60.0f;     // Max cap (keep)
+        if (titleGap < -refSize * 0.50f) titleGap = -refSize * 0.50f;  // Min cap: prevent too much overlap
+
+        // Calculate button positions
+        float buttonsTop = titleY + titleDisplayHeight + titleGap;
+        int numButtons = 3;
+        float totalHeight = numButtons * bh + (numButtons - 1) * spacing;
+
+        // Center buttons in remaining space below title
+        float availableHeight = fbH - buttonsTop;
+        float startY = buttonsTop + (availableHeight - totalHeight) * 0.5f;
+        if (startY < buttonsTop) startY = buttonsTop;  // Don't go above title
+
+        float btnX = (fbW - bw) * 0.5f;
+        float btn1Y = startY;
+        float btn2Y = startY + bh + spacing;
+        float btn3Y = startY + (bh + spacing) * 2;
+
+        // --- TEXT ZONE ---
+        float textZoneW = bw * 0.78f;  // Text zone is 78% of button width
+        float textZoneX = (fbW - textZoneW) * 0.5f;
+
+        // Text scale also proportional
+        float textScale = refSize * 0.0018f;  // Proportional scale
+        if (textScale > 1.8f) textScale = 1.8f;
+        if (textScale < 1.0f) textScale = 1.0f;
+
+        // Check which button is being hovered
+        bool overBtn1 = PointInRect((float)mx, (float)my, btnX, btn1Y, bw, bh);
+        bool overBtn2 = PointInRect((float)mx, (float)my, btnX, btn2Y, bw, bh);
+        bool overBtn3 = PointInRect((float)mx, (float)my, btnX, btn3Y, bw, bh);
+
+        if (overBtn1)      hoveredIndex = 0;
+        else if (overBtn2) hoveredIndex = 1;
+        else if (overBtn3) hoveredIndex = 2;
+        else               hoveredIndex = -1;
+
+        // Handle click (single press, not hold)
         static bool wasPressed = false;
         if (leftPressed && !wasPressed)
         {
-            if (overButton1)  choice = Result::Play;
-            if (overButton2)  choice = Result::Quit;
+            if (overBtn1)  choice = Result::Play;
+            if (overBtn2)  choice = Result::HowToPlay;
+            if (overBtn3)  choice = Result::Quit;
         }
         wasPressed = leftPressed;
 
@@ -287,55 +725,79 @@ MainMenu::Result MainMenu::Show(bool showPause)
         glUseProgram(hudProgram);
         glUniformMatrix4fv(glGetUniformLocation(hudProgram, "projection"), 1, GL_FALSE, &proj[0][0]);
 
-        // Fondo negro
-        RenderColoredQuad(0.0f, 0.0f, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f);
+        // Full-screen black background
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f);
 
-        // Botón 1: PLAY o RESUME
-        float r1 = overButton1 ? 0.3f : 0.2f;
-        float g1 = overButton1 ? 0.8f : 0.6f;
-        float b1 = overButton1 ? 0.3f : 0.2f;
-        RenderColoredQuad(button1X, button1Y, bw, bh, r1, g1, b1);
+        // --- TITLE IMAGE ---
+        if (titleTexture != 0)
+        {
+            RenderTitleImage(fbW * 0.5f, titleY, titleMaxWidth, titleDisplayHeight);
+        }
+        else
+        {
+            // Fallback text title
+            float fallbackScale = refSize * 0.0035f;
+            if (fallbackScale > 3.5f) fallbackScale = 3.5f;
+            if (fallbackScale < 2.0f) fallbackScale = 2.0f;
+            RenderTextCentered("MINI DELIVERY DASH", fbW * 0.5f,
+                              titleY + titleDisplayHeight * 0.5f,
+                              0.80f, 0.80f, 0.80f, fallbackScale);
+        }
 
-        const char* text1 = showPause ? "RESUME" : "PLAY";
-        int len1 = (int)strlen(text1);
-        float textWidth1 = len1 * 1.5f * 9.0f;
-        float textX1 = button1X + (bw - textWidth1) * 0.5f;
-        float textY1 = button1Y + (bh - 20.0f) * 0.5f;
-        RenderText(text1, textX1, textY1, 1.0f, 1.0f, 1.0f);
+        // --- BUTTON RENDERING ---
+        float buttonY[3] = { btn1Y, btn2Y, btn3Y };
+        const char* buttonLabels[3] = {
+            showPause ? "RESUME" : "PLAY",
+            "HOW TO PLAY",
+            showPause ? "MAIN MENU" : "EXIT"
+        };
 
-        // Botón 2: EXIT o MAIN MENU
-        float r2 = overButton2 ? 0.9f : 0.6f;
-        float g2 = overButton2 ? 0.2f : 0.1f;
-        float b2 = overButton2 ? 0.2f : 0.1f;
-        RenderColoredQuad(button2X, button2Y, bw, bh, r2, g2, b2);
+        // Arrow size also scales
+        float arrowSize = refSize * 0.012f;
+        if (arrowSize > 12.0f) arrowSize = 12.0f;
+        if (arrowSize < 6.0f) arrowSize = 6.0f;
 
-        const char* text2 = showPause ? "MAIN MENU" : "EXIT";
-        int len2 = (int)strlen(text2);
-        float textWidth2 = len2 * 1.5f * 9.0f;
-        float textX2 = button2X + (bw - textWidth2) * 0.5f;
-        float textY2 = button2Y + (bh - 20.0f) * 0.5f;
-        RenderText(text2, textX2, textY2, 1.0f, 1.0f, 1.0f);
+        float arrowOffset = textZoneW * 0.07f + arrowSize * 1.5f;
+
+        for (int i = 0; i < 3; i++)
+        {
+            float by = buttonY[i];
+            bool isHovered = (hoveredIndex == i);
+
+            // --- GTA-style highlight bar ---
+            if (isHovered)
+            {
+                RenderColoredQuad(textZoneX - 6, by - 2, textZoneW + 12, bh + 4,
+                                  0.55f, 0.55f, 0.55f, 0.30f);
+
+                float arrowYcenter = by + bh * 0.5f;
+
+                // Left arrow
+                RenderTriangle(textZoneX - arrowOffset, arrowYcenter, arrowSize,
+                              true, 0.80f, 0.80f, 0.80f);
+
+                // Right arrow
+                RenderTriangle(textZoneX + textZoneW + arrowOffset, arrowYcenter, arrowSize,
+                              false, 0.80f, 0.80f, 0.80f);
+            }
+
+            // Button text
+            float textR = isHovered ? 0.95f : 0.65f;
+            float textG = isHovered ? 0.95f : 0.65f;
+            float textB = isHovered ? 0.95f : 0.65f;
+            float textY = by + (bh - 18.0f) * 0.5f;
+            RenderTextCentered(buttonLabels[i], textZoneX + textZoneW * 0.5f, textY,
+                              textR, textG, textB, textScale);
+        }
 
         glfwSwapBuffers(window);
     }
+
+    if (choice == Result::HowToPlay)
+    {
+        ShowHowToPlay();
+        return Show(showPause);
+    }
+
     return choice;
-}
-
-// ------------------------------------------------------------------
-void MainMenu::RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b)
-{
-    glUseProgram(hudProgram);
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
-    model = glm::scale(model, glm::vec3(w, h, 1.0f));
-    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
-    glUniform1i(glGetUniformLocation(hudProgram, "uUseSolidColor"), 1);
-    glUniform4f(glGetUniformLocation(hudProgram, "uSolidColor"), r, g, b, 1.0f);
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
-// ------------------------------------------------------------------
-bool MainMenu::PointInRect(float px, float py, float rx, float ry, float rw, float rh)
-{
-    return (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh);
 }
