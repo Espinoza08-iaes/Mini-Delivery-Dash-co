@@ -14,6 +14,7 @@ in vec2 texCoord;
 // Imports the position in light space
 in vec4 vLightSpacePos;
 
+
 // Gets the Texture Units from the main function
 uniform sampler2D diffuse0;
 uniform sampler2D specular0;
@@ -25,6 +26,8 @@ uniform vec3 lightPos;
 uniform vec3 camPos;
 // Controls whether to use texture alpha channel for transparency blending
 uniform bool uUseAlpha;
+uniform int  uStreetLightsOn;
+uniform vec3 uStreetLightPos[8];
 
 // Emissive lighting for glowing parts
 uniform bool uIsEmissive;
@@ -199,6 +202,32 @@ vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 
     return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity * 0.22f;
 }
 
+vec3 calculateStreetLight(vec3 lampPos, vec3 normal, vec3 albedo)
+{
+    vec3 toLight = lampPos - crntPos;
+    float dist = length(toLight);
+    if (dist < 0.001 || dist > 40.0)
+        return vec3(0.0);
+
+    vec3 lightDir = normalize(toLight);
+    float wrapDiffuse = max((dot(normal, lightDir) + 0.35) / 1.35, 0.0);
+
+    float range = 40.0;
+    float atten = pow(clamp(1.0 - dist / range, 0.0, 1.0), 1.1);
+    atten /= (1.0 + 0.012 * dist + 0.003 * dist * dist);
+
+    // Dirección desde la lámpara hacia el fragmento (cono hacia abajo)
+    vec3 fromLamp = normalize(crntPos - lampPos);
+    float downCone = smoothstep(0.30, 0.90, dot(fromLamp, vec3(0.0, -1.0, 0.0)));
+    float facadeSpill = 1.0 - smoothstep(0.0, 0.80, abs(fromLamp.y));
+    float distribution = max(downCone, facadeSpill * 0.70);
+
+    vec3 warmColor = vec3(1.0, 0.90, 0.65);
+    vec3 diffuse = albedo * warmColor * wrapDiffuse * atten * distribution * 0.50;
+    vec3 glow = warmColor * wrapDiffuse * atten * distribution * 0.24;
+    return diffuse + glow;
+}
+
 vec4 direcLight()
 {
     // ambient lighting
@@ -232,8 +261,10 @@ vec4 direcLight()
     // Calculate shadow factor
     float shadow = ShadowCalculation(vLightSpacePos, normal, lightDirection);
 
-    // Calculate ambient occlusion factor
+    // Calculate ambient occlusion factor (suavizar de noche para evitar ruido en aceras)
     float ao = CalculateSSAO();
+    if (uStreetLightsOn == 1)
+        ao = mix(ao, 1.0, 0.5);
     float ambientWithAO = ambient * ao;
 
     vec3 litColor = (texColor.rgb * (diffuse * (1.0 - shadow) + ambientWithAO) + vec3(spec * (1.0 - shadow))) * lightColor.rgb;
@@ -282,6 +313,20 @@ void main()
             baseLight.rgb += leftSpot + rightSpot;
         }
         
+        // --- Street light contribution (antes del fog) ---
+        if (uStreetLightsOn == 1)
+        {
+            vec3 normal = normalize(Normal);
+            vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            vec3 streetLight = vec3(0.0);
+
+            for (int i = 0; i < 8; ++i)
+                streetLight += calculateStreetLight(uStreetLightPos[i], normal, texColor.rgb);
+
+            streetLight = min(streetLight, vec3(0.85));
+            baseLight.rgb += streetLight;
+        }
+
         finalColor = baseLight;
     }
 

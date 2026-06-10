@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <glm/glm.hpp>
+#include <vector>
 
 #include "../../engine/resources/Model.h"
 #include "CityPhysics.h"
@@ -44,6 +45,9 @@ public:
     float GetYOffset() const { return mYOffset; }
     float GetXOffset() const { return mXOffset; }
     float GetZOffset() const { return mZOffset; }
+
+    std::vector<glm::vec3> GetStreetLampPositions(float spacing = 18.0f) const;
+    std::vector<glm::vec3> GetStreetLampPositionsFromFile(const char* filePath) const;
 
 private:
     void BuildVisualGapFillMesh();

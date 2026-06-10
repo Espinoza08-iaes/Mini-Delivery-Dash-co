@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../city/City.h"
+#include "../scene/StreetLamp.h"
 #include "../helpers/MainMenu.h"
 
 #include <iostream>
@@ -51,31 +52,17 @@ void Game::UpdateHeadlights(Shader &shaderProgram, const CarState &car, bool hea
     glUniform1i(glGetUniformLocation(shaderProgram.ID, "uHeadlightsLightOn"), headlightsOn ? 1 : 0);
     if (headlightsOn)
     {
-        glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+        glm::vec3 fwd   = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
         glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
-        glm::vec3 base = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
-        glm::vec3 lPos = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
-        glm::vec3 rPos = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
-        glm::vec3 lDir = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
-        
-    if (headlightsOn)
-    {
-        glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-        glm::vec3 right = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
-        glm::vec3 base = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
-        glm::vec3 lPos = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
-        glm::vec3 rPos = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
-        glm::vec3 lDir = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
+        glm::vec3 base  = car.position + glm::vec3(0.0f, kCarGroundYOffset + 0.55f * kCarModelScale, 0.0f);
+        glm::vec3 lPos  = base + fwd * (1.8f * kCarModelScale) + right * (0.7f * kCarModelScale);
+        glm::vec3 rPos  = base + fwd * (1.8f * kCarModelScale) - right * (0.7f * kCarModelScale);
+        glm::vec3 lDir  = glm::normalize(fwd - glm::vec3(0.0f, 0.12f, 0.0f));
 
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), lPos.x, lPos.y, lPos.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"),  lPos.x, lPos.y, lPos.z);
         glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rPos.x, rPos.y, rPos.z);
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lDir.x, lDir.y, lDir.z);
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
-    }
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightLeftPos"), lPos.x, lPos.y, lPos.z);
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightRightPos"), rPos.x, rPos.y, rPos.z);
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"), lDir.x, lDir.y, lDir.z);
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"), 2.2f, 2.2f, 1.8f);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightDir"),      lDir.x, lDir.y, lDir.z);
+        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uHeadlightColor"),    2.2f, 2.2f, 1.8f);
     }
 }
 
@@ -175,7 +162,6 @@ int Game::Run()
     int fbW = 0;
     int fbH = 0;
 
-
     if (!InitializeWindow(window, fbW, fbH))
         return -1;
 
@@ -187,6 +173,7 @@ int Game::Run()
     Shader shaderProgram("res/shaders/default.vert", "res/shaders/default.frag");
     Shader skyShader("res/shaders/sky.vert", "res/shaders/sky.frag");
     Shader waterShader("res/shaders/water.vert", "res/shaders/water.frag");
+    Shader lampShader("res/shaders/default.vert", "res/shaders/streetlamp.frag");
     glfwPollEvents();
 
     SetupOpenGL(shaderProgram);
@@ -213,16 +200,30 @@ int Game::Run()
     );
     glfwPollEvents();
 
+    // Cargar desde archivo si existe, si no usar auto-generación
+    // Cargar desde archivo si existe, si no usar auto-generación
+    std::vector<glm::vec3> lampPositions;
+    {
+        std::ifstream testFile("res/lamp_positions.txt");
+        if (testFile.good())
+            lampPositions = city.GetStreetLampPositionsFromFile("res/lamp_positions.txt");
+        else
+            lampPositions = city.GetStreetLampPositions(18.0f);
+    }
+    std::cout << "[INFO] Street lamps: " << lampPositions.size() << std::endl;
+
+    Mesh lampMesh = CreateStreetLampMesh(); // ← FALTA ESTA LÍNEA
+
     // --- Shadow Map Shader & FBO Setup ---
     Shader shadowShader("res/shaders/shadow.vert", "res/shaders/shadow.frag");
     const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
     GLuint depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
-    
+
     GLuint depthMap;
     glGenTextures(1, &depthMap);
     glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
                  SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -230,9 +231,9 @@ int Game::Run()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    
+
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
     glDrawBuffer(GL_NONE);
@@ -242,17 +243,17 @@ int Game::Run()
     // --- Camera Depth Map FBO Setup for SSAO ---
     GLuint cameraDepthFBO;
     glGenFramebuffers(1, &cameraDepthFBO);
-    
+
     GLuint cameraDepthMap;
     glGenTextures(1, &cameraDepthMap);
     glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
                  fbW, fbH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
+
     glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, cameraDepthMap, 0);
     glDrawBuffer(GL_NONE);
@@ -352,105 +353,153 @@ int Game::Run()
             UpdateHeadlights(shaderProgram, car, headlightsOn);
             ApplyDayNightLighting(shaderProgram, dayNight);
 
-        // --- 1. Render depth of scene to texture (from light's perspective) ---
-        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-        glClear(GL_DEPTH_BUFFER_BIT);
+            // --- 1. Render depth of scene to texture (from light's perspective) ---
+            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+            glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+            glClear(GL_DEPTH_BUFFER_BIT);
 
-        // Define light space matrix centered around the car
-        glm::vec3 lightDir = glm::normalize(dayNight.GetLightPosition());
-        glm::vec3 lightPos = car.position + lightDir * 180.0f;
-        glm::vec3 up = glm::abs(lightDir.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
-        glm::mat4 lightView = glm::lookAt(lightPos, car.position, up);
-        glm::mat4 lightProjection = glm::ortho(-75.0f, 75.0f, -75.0f, 75.0f, 0.1f, 350.0f);
-        glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+            // Define light space matrix centered around the car
+            glm::vec3 lightDir = glm::normalize(dayNight.GetLightPosition());
+            glm::vec3 lightPos = car.position + lightDir * 180.0f;
+            glm::vec3 up = glm::abs(lightDir.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::mat4 lightView = glm::lookAt(lightPos, car.position, up);
+            glm::mat4 lightProjection = glm::ortho(-75.0f, 75.0f, -75.0f, 75.0f, 0.1f, 350.0f);
+            glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-        shadowShader.Activate();
-        glUniformMatrix4fv(glGetUniformLocation(shadowShader.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+            shadowShader.Activate();
+            glUniformMatrix4fv(glGetUniformLocation(shadowShader.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
 
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(2.5f, 10.0f);
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(2.5f, 10.0f);
 
-        city.Draw(shadowShader, camera);
-        carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+            city.Draw(shadowShader, camera);
+            carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
-        glDisable(GL_POLYGON_OFFSET_FILL);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // --- 1b. Resize camera depth texture if window size changed ---
-        if (camera.width != lastCameraWidth || camera.height != lastCameraHeight)
-        {
-            lastCameraWidth = camera.width;
-            lastCameraHeight = camera.height;
+            // --- 1b. Resize camera depth texture if window size changed ---
+            if (camera.width != lastCameraWidth || camera.height != lastCameraHeight)
+            {
+                lastCameraWidth = camera.width;
+                lastCameraHeight = camera.height;
+                glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+                             camera.width, camera.height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+            }
+
+            // --- 1c. Render depth of scene from camera's perspective (for SSAO) ---
+            glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
+            glViewport(0, 0, camera.width, camera.height);
+            glClear(GL_DEPTH_BUFFER_BIT);
+
+            shadowShader.Activate();
+            camera.Matrix(shadowShader, "lightSpaceMatrix");
+
+            city.Draw(shadowShader, camera);
+            carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            // Reset viewport to window size
+            SyncCameraToFramebuffer(window, camera);
+
+            // --- 2. Normal Render Pass ---
+            glm::vec3 horizon = dayNight.GetHorizonColor();
+            glClearColor(horizon.x, horizon.y, horizon.z, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // --- Draw Sky Sphere first ---
+            glDepthMask(GL_FALSE); // Disable depth buffer writing so sky sphere is always in the background
+            skyShader.Activate();
+
+            // Pass camera matrix
+            camera.Matrix(skyShader, "camMatrix");
+
+            // Center sky sphere around camera and slowly rotate it over time to simulate moving clouds
+            glm::mat4 skyModel = glm::translate(glm::mat4(1.0f), camera.Position);
+            skyModel = glm::rotate(skyModel, glm::radians(dayNight.GetTime() * 15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+            // Pass sky tint uniform
+            glm::vec3 skyTint = dayNight.GetSkyTint();
+            glUniform3f(glGetUniformLocation(skyShader.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
+
+            // Draw the sky sphere
+            skySphere.Draw(skyShader, camera, skyModel);
+            glDepthMask(GL_TRUE); // Re-enable depth writing
+
+            if (drawLegacyGround)
+            {
+                ground.Draw(shaderProgram, camera, glm::mat4(1.0f));
+                originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
+            }
+
+            // Bind skybox texture for reflections on slot 10
+            shaderProgram.Activate();
+            glActiveTexture(GL_TEXTURE0 + 10);
+            glBindTexture(GL_TEXTURE_2D, skySphere.textures[0].ID);
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uSkyReflectionMap"), 10);
+            glUniform1f(glGetUniformLocation(shaderProgram.ID, "uSkyRotationAngle"), glm::radians(dayNight.GetTime() * 15.0f));
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
+
+            // Bind shadow map depth texture on slot 11
+            glActiveTexture(GL_TEXTURE0 + 11);
+            glBindTexture(GL_TEXTURE_2D, depthMap);
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uShadowMap"), 11);
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram.ID, "uLightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+            // Bind camera depth map for SSAO on slot 12
+            glActiveTexture(GL_TEXTURE0 + 12);
             glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
-                         camera.width, camera.height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-        }
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uCameraDepthMap"), 12);
 
-        // --- 1c. Render depth of scene from camera's perspective (for SSAO) ---
-        glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
-        glViewport(0, 0, camera.width, camera.height);
-        glClear(GL_DEPTH_BUFFER_BIT);
+            // --- Street Lamps: encender de noche ---
+            float timeOfDay = dayNight.GetTime();
+            bool isNight = (timeOfDay >= 18.0f || timeOfDay < 6.0f);
 
-        shadowShader.Activate();
-        camera.Matrix(shadowShader, "lightSpaceMatrix");
+            shaderProgram.Activate();
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uStreetLightsOn"), isNight ? 1 : 0);
 
-        city.Draw(shadowShader, camera);
-        carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+            // Encontrar las 8 mas cercanas al carro
+            const int MAX_SL = 8;
+            std::vector<std::pair<float, int>> byDist;
+            byDist.reserve(lampPositions.size());
+            for (int i = 0; i < (int)lampPositions.size(); ++i)
+            {
+                glm::vec3 diff = lampPositions[i] - car.position;
+                diff.y = 0.0f;
+                byDist.push_back({glm::dot(diff, diff), i});
+            }
+            std::sort(byDist.begin(), byDist.end());
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            for (int i = 0; i < MAX_SL; ++i)
+            {
+                glm::vec3 lp = (i < (int)byDist.size())
+                                   ? lampPositions[byDist[i].second] + glm::vec3(0.0f, 4.7f, 0.0f)
+                                   : glm::vec3(0.0f, 0.0f, 0.0f);
+                std::string uname = "uStreetLightPos[" + std::to_string(i) + "]";
+                glUniform3f(glGetUniformLocation(shaderProgram.ID, uname.c_str()),
+                            lp.x, lp.y, lp.z);
+            }
 
-        // Reset viewport to window size
-        SyncCameraToFramebuffer(window, camera);
-
-        // --- 2. Normal Render Pass ---
-        glm::vec3 horizon = dayNight.GetHorizonColor();
-        glClearColor(horizon.x, horizon.y, horizon.z, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // --- Draw Sky Sphere first ---
-        glDepthMask(GL_FALSE); // Disable depth buffer writing so sky sphere is always in the background
-        skyShader.Activate();
-
-        // Pass camera matrix
-        camera.Matrix(skyShader, "camMatrix");
-
-        // Center sky sphere around camera and slowly rotate it over time to simulate moving clouds
-        glm::mat4 skyModel = glm::translate(glm::mat4(1.0f), camera.Position);
-        skyModel = glm::rotate(skyModel, glm::radians(dayNight.GetTime() * 15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-        // Pass sky tint uniform
-        glm::vec3 skyTint = dayNight.GetSkyTint();
-        glUniform3f(glGetUniformLocation(skyShader.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
-
-        // Draw the sky sphere
-        skySphere.Draw(skyShader, camera, skyModel);
-        glDepthMask(GL_TRUE); // Re-enable depth writing
-
-        if (drawLegacyGround)
-        {
-            ground.Draw(shaderProgram, camera, glm::mat4(1.0f));
-            originMarker.Draw(shaderProgram, camera, glm::mat4(1.0f));
-        }
-
-        // Bind skybox texture for reflections on slot 10
-        shaderProgram.Activate();
-        glActiveTexture(GL_TEXTURE0 + 10);
-        glBindTexture(GL_TEXTURE_2D, skySphere.textures[0].ID);
-        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uSkyReflectionMap"), 10);
-        glUniform1f(glGetUniformLocation(shaderProgram.ID, "uSkyRotationAngle"), glm::radians(dayNight.GetTime() * 15.0f));
-        glUniform3f(glGetUniformLocation(shaderProgram.ID, "uSkyTint"), skyTint.x, skyTint.y, skyTint.z);
-
-        // Bind shadow map depth texture on slot 11
-        glActiveTexture(GL_TEXTURE0 + 11);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
-        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uShadowMap"), 11);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram.ID, "uLightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
-
-        // Bind camera depth map for SSAO on slot 12
-        glActiveTexture(GL_TEXTURE0 + 12);
-        glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
-        glUniform1i(glGetUniformLocation(shaderProgram.ID, "uCameraDepthMap"), 12);
+            // Dibujar postes visibles
+            for (const auto &pos : lampPositions)
+            {
+                glm::vec3 diff = pos - camera.Position;
+                if (glm::dot(diff, diff) > 300.0f * 300.0f)
+                    continue;
+                glm::mat4 lampMatrix = glm::translate(glm::mat4(1.0f), pos);
+                lampShader.Activate();
+                glUniform1i(glGetUniformLocation(lampShader.ID, "uStreetLightsOn"), isNight ? 1 : 0);
+                glUniform1f(glGetUniformLocation(lampShader.ID, "uAmbientStrength"), dayNight.GetAmbientStrength());
+                glUniform4f(glGetUniformLocation(lampShader.ID, "lightColor"),
+                            dayNight.GetLightColor().x, dayNight.GetLightColor().y, dayNight.GetLightColor().z, 1.0f);
+                glUniform3f(glGetUniformLocation(lampShader.ID, "lightPos"),
+                            dayNight.GetLightPosition().x, dayNight.GetLightPosition().y, dayNight.GetLightPosition().z);
+                glm::vec3 fc = dayNight.GetHorizonColor();
+                glUniform3f(glGetUniformLocation(lampShader.ID, "uFogColor"), fc.x, fc.y, fc.z);
+                lampMesh.Draw(lampShader, camera, lampMatrix);
+            }
 
             city.Draw(shaderProgram, camera);
             carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
@@ -458,16 +507,15 @@ int Game::Run()
 
             shaderProgram.Activate();
 
-        float timeOfDay = dayNight.GetTime();
-        int hours = static_cast<int>(timeOfDay);
-        int minutes = static_cast<int>((timeOfDay - hours) * 60.0f);
-        char title[256];
-        std::snprintf(title, sizeof(title),
-                      "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h | Pos: (%.2f, %.2f, %.2f)",
-                      hours, minutes,
-                      std::abs(car.speed) * 3.6f,
-                      car.position.x, car.position.y, car.position.z);
-        glfwSetWindowTitle(window, title);
+            int hours = static_cast<int>(timeOfDay);
+            int minutes = static_cast<int>((timeOfDay - hours) * 60.0f);
+            char title[256];
+            std::snprintf(title, sizeof(title),
+                          "Mini Delivery Dash | Time: %02d:%02d | Speed: %.1f km/h | Pos: (%.2f, %.2f, %.2f)",
+                          hours, minutes,
+                          std::abs(car.speed) * 3.6f,
+                          car.position.x, car.position.y, car.position.z);
+            glfwSetWindowTitle(window, title);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -483,7 +531,7 @@ int Game::Run()
 
                 // Crear un menú temporal para la pausa (mismo estilo que el principal)
                 MainMenu pauseMenu(window, fbW, fbH);
-                MainMenu::Result pauseResult = pauseMenu.Show(true);  // true = modo pausa
+                MainMenu::Result pauseResult = pauseMenu.Show(true); // true = modo pausa
 
                 if (pauseResult == MainMenu::Result::Quit)
                 {
@@ -500,6 +548,42 @@ int Game::Run()
                 lastFrame = static_cast<float>(glfwGetTime());
             }
             escWasPressed = escPressed;
+
+            // --- F8: guardar posición de poste ---
+            static bool f8WasPressed = false;
+            bool f8Pressed = glfwGetKey(window, GLFW_KEY_F8) == GLFW_PRESS;
+            if (f8Pressed && !f8WasPressed)
+            {
+                lampPositions.push_back(car.position);
+                std::ofstream lf("res/lamp_positions.txt", std::ios::app);
+                lf << car.position.x << " " << car.position.y << " " << car.position.z << "\n";
+                std::cout << "[LAMP] Agregado poste #" << lampPositions.size()
+                          << " en (" << car.position.x << ", " << car.position.y
+                          << ", " << car.position.z << ")" << std::endl;
+            }
+            f8WasPressed = f8Pressed;
+
+            // --- F9: borrar el último poste ---
+            static bool f9WasPressed = false;
+            bool f9Pressed = glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS;
+            if (f9Pressed && !f9WasPressed)
+            {
+                if (!lampPositions.empty())
+                {
+                    lampPositions.pop_back();
+                    // Reescribir el archivo completo sin el último
+                    std::ofstream lf("res/lamp_positions.txt", std::ios::trunc);
+                    for (const auto &p : lampPositions)
+                        lf << p.x << " " << p.y << " " << p.z << "\n";
+                    std::cout << "[LAMP] Borrado último poste. Quedan: "
+                              << lampPositions.size() << std::endl;
+                }
+                else
+                {
+                    std::cout << "[LAMP] No hay postes que borrar." << std::endl;
+                }
+            }
+            f9WasPressed = f9Pressed;
         }
     }
 
@@ -508,6 +592,7 @@ int Game::Run()
     skyShader.Delete();
     waterShader.Delete();
     shadowShader.Delete();
+    lampShader.Delete();
 
     glDeleteFramebuffers(1, &depthMapFBO);
     glDeleteTextures(1, &depthMap);
