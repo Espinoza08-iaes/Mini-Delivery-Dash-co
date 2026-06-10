@@ -14,6 +14,45 @@ namespace game
     namespace
     {
         // ============================================================================
+        // Constants (tunable parameters)
+        // ============================================================================
+        
+        // Geometry thresholds
+        constexpr float EPSILON = 1e-5f;           // General floating point tolerance
+        constexpr float NORMAL_EPSILON = 1e-8f;    // Tolerance for zero-length normals
+        
+        // Road detection thresholds
+        constexpr float MIN_ROAD_NORMAL_Y = 0.58f;      // Minimum Y component for road normals (cos(54°))
+        constexpr float MIN_ROAD_HORIZONTAL_SPAN = 0.25f; // Minimum width/length of a road triangle
+        constexpr float MIN_ROAD_AREA_XY = 0.01f;        // Minimum X*Z area for road
+        constexpr float MAX_ROAD_HEIGHT = 4.0f;          // Maximum height difference for road surfaces
+        
+        // Obstacle filtering
+        constexpr float TINY_AREA_THRESHOLD = 0.001f;    // Triangles smaller than this are ignored
+        constexpr float DEGENERATE_HEIGHT = 0.001f;      // Height below which a triangle is degenerate
+        constexpr float DEGENERATE_AREA = 0.0001f;       // Area below which a triangle is degenerate
+        constexpr float FLAT_SKIN_NORMAL_Y = 0.55f;      // Triangles flatter than this are considered "flat skin"
+        constexpr float LOW_ROAD_LIP_HEIGHT = 0.45f;     // Height threshold for curb-like obstacles
+        constexpr float LOW_ROAD_LIP_AREA = 12.0f;       // Area threshold for curb-like obstacles
+        
+        // Ground sampling
+        constexpr float DEFAULT_SNAP_DOWN_MAX = 8.0f;    // Default downward search distance (meters)
+        constexpr float DEFAULT_SNAP_UP_MAX = 0.5f;     // Default upward search distance (NOTE: may be too small)
+        constexpr float EDGE_SNAP_MARGIN = 0.55f;        // Margin around triangle edges for ground detection
+        
+        // Scoring weights for ground sampling
+        constexpr float PROJECTED_SCORE_BONUS = 1000.0f; // Bonus for exact projection
+        constexpr float CLOSEST_SCORE_BONUS = 500.0f;    // Bonus for closest point on edge
+        constexpr float VERTICAL_DISTANCE_WEIGHT = 4.0f;  // Weight for vertical distance penalty
+        constexpr float HORIZONTAL_DISTANCE_WEIGHT = 25.0f; // Weight for horizontal distance penalty
+        constexpr float HEIGHT_SCORE_FACTOR = 0.01f;     // Small bonus for higher Y
+        
+        // Spatial grid configuration
+        constexpr float GRID_CELL_SIZE = 15.0f;          // Size of each spatial partition cell (meters)
+        
+        // Collision detection
+        constexpr float COLLISION_SEARCH_RADIUS_FACTOR = 2.5f; // Multiplier for collision search radius
+        // ============================================================================
         // Basic Math
         // ============================================================================
 
@@ -327,16 +366,18 @@ namespace game
         // Evaluates if a triangle qualifies as a road or walkable surface based on slope, dimensions, and confidence.
         bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds, bool trustedGroundSurface)
         {
+                // If material explicitly marks this as ground, trust it
+            if (trustedGroundSurface) return true;
             // Calculate dimensions and the largest horizontal extent.
             float height = maxBounds.y - minBounds.y;
             float widthX = maxBounds.x - minBounds.x;
             float widthZ = maxBounds.z - minBounds.z;
             float horizontalSpan = std::max(widthX, widthZ);
 
-            bool upward = normal.y >= 0.58f;
-            bool wideEnough = horizontalSpan >= 0.25f;
-            bool hasAreaInXZ = widthX > 0.01f && widthZ > 0.01f && (widthX * widthZ) >= 0.01f;
-            bool heightOk = trustedGroundSurface || height <= 4.0f;
+            bool upward = normal.y >= MIN_ROAD_NORMAL_Y;
+            bool wideEnough = horizontalSpan >= MIN_ROAD_HORIZONTAL_SPAN;
+            bool hasAreaInXZ = widthX > MIN_ROAD_AREA_XY && widthZ > MIN_ROAD_AREA_XY && (widthX * widthZ) >= MIN_ROAD_AREA_XY;
+            bool heightOk = trustedGroundSurface || height <= MAX_ROAD_HEIGHT;
 
             return upward && wideEnough && hasAreaInXZ && heightOk;
         }
@@ -348,10 +389,10 @@ namespace game
             float height = size.y;
             float area = TriangleArea(tri.a, tri.b, tri.c);
             // Flag triangles with almost no surface area.
-            bool extremelyTiny = area < 0.001f;
-            bool degenerate = height < 0.001f && area < 0.0001f;
-            bool flatSkin = std::abs(tri.normal.y) > 0.55f;
-            bool lowRoadLip = height < 0.45f && area < 12.0f;
+            bool extremelyTiny = area < TINY_AREA_THRESHOLD;
+            bool degenerate = height < DEGENERATE_HEIGHT && area < DEGENERATE_AREA;
+            bool flatSkin = std::abs(tri.normal.y) > FLAT_SKIN_NORMAL_Y;
+            bool lowRoadLip = height < LOW_ROAD_LIP_HEIGHT && area < LOW_ROAD_LIP_AREA;
             // Return true if any condition is met or if the surface is explicitly marked as non-blocking.
             return extremelyTiny || degenerate || flatSkin || lowRoadLip || tri.nonBlockingSurface;
         }
@@ -382,7 +423,7 @@ namespace game
         mGrid.clear();
         mWorldMinBounds = glm::vec3(FLT_MAX);
         mWorldMaxBounds = glm::vec3(-FLT_MAX);
-        mGridCellSize = 15.0f;
+        mGridCellSize = GRID_CELL_SIZE;
         mGridCols = 0;
         mGridRows = 0;
 
@@ -535,11 +576,11 @@ namespace game
 
         // Clamp down/up search distances. For initial spawn or large drops, snapDownMax can be raised.
         if (snapDownMax < 0.0f)
-            snapDownMax = 8.0f;
+            snapDownMax = DEFAULT_SNAP_DOWN_MAX;
         if (snapUpMax < 0.0f)
-            snapUpMax = 0.12f;
+            snapUpMax = DEFAULT_SNAP_UP_MAX;
 
-        const float edgeSnapMargin = 0.55f;
+        const float edgeSnapMargin = EDGE_SNAP_MARGIN;
 
         int minCol = GetCellCol(worldPos.x - edgeSnapMargin);
         int maxCol = GetCellCol(worldPos.x + edgeSnapMargin);
@@ -578,7 +619,7 @@ namespace game
                         continue;
 
                     float verticalDistance = std::abs(y - currentY);
-                    float score = (projected ? 1000.0f : 500.0f) - verticalDistance * 4.0f - horizontalDistance * 25.0f + y * 0.01f;
+                    float score = (projected ? PROJECTED_SCORE_BONUS : CLOSEST_SCORE_BONUS) - verticalDistance * VERTICAL_DISTANCE_WEIGHT - horizontalDistance * HORIZONTAL_DISTANCE_WEIGHT + y * HEIGHT_SCORE_FACTOR;
                     if (!found || score > bestScore)
                     {
                         bestScore = score;
@@ -610,7 +651,7 @@ namespace game
     bool CityPhysics::CheckCollision(const glm::vec3 &pos, float radius) const
     {
         // Search radius: position + collision radius (expanded for safety)
-        float searchRadius = radius * 2.5f;
+        float searchRadius = radius * COLLISION_SEARCH_RADIUS_FACTOR;
 
         int minCol = GetCellCol(pos.x - searchRadius);
         int maxCol = GetCellCol(pos.x + searchRadius);

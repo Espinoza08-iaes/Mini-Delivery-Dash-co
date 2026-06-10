@@ -30,7 +30,7 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     const float maxForwardSpeed = isBoosting ? 24.0f : 11.0f;
     const float maxReverseSpeed = 3.5f;
     const float friction = 5.0f;
-    const float steeringResponse = isBoosting ? 3.5f : 5.5f; // Stiffer steering during high-speed boost
+    const float steeringResponse = isBoosting ? 3.5f : 5.5f;
     const float steeringReturn = 9.0f;
     const float maxSteering = glm::radians(35.0f);
     const float turnRate = glm::radians(125.0f);
@@ -103,13 +103,10 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     glm::vec3 nextPosition = car.position + fullMove;
 
     float carCollisionRadius = kCarModelScale * 1.8f;
-    // Removed hard bounds clamping - rely on collision detection instead
 
     if (city.CheckCollision(nextPosition, carCollisionRadius))
     {
-        // Intentar deslizamiento en X
         glm::vec3 tryX = glm::vec3(nextPosition.x, prevPosition.y, prevPosition.z);
-        // Intentar deslizamiento en Z
         glm::vec3 tryZ = glm::vec3(prevPosition.x, prevPosition.y, nextPosition.z);
 
         bool xOk = !city.CheckCollision(tryX, carCollisionRadius);
@@ -120,60 +117,74 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
         else if (zOk && !xOk)
             nextPosition = tryZ;
         else if (xOk && zOk)
-            nextPosition = tryX; // ambos libres: prioriza X
+            nextPosition = tryX;
         else
         {
-            // Colisión total — detener
             car.speed = 0.0f;
             nextPosition = prevPosition;
         }
     }
     car.position = nextPosition;
 
-    // --- Terrain heights and normals (for tilt and snap) ---
-    float d = 0.5f * (kCarModelScale / 0.28f); // Distancia de las ruedas proporcional a la escala del coche
-    glm::vec3 probePoints[4] = {
-        car.position + forward * d, // front
-        car.position - forward * d, // back
-        car.position + right * d,   // right
-        car.position - right * d    // left
+    // ========================================================================
+    // CAR TILT (PITCH AND ROLL) - FIXED
+    // ========================================================================
+
+    // Use the car's current yaw to get forward/right axes in the XZ plane.
+    // Wheel distance: how far front/rear/left/right samples are taken from center.
+    const float wheelBase    = 1.0f;   // half-distance front<->rear (tune to model)
+    const float trackWidth   = 0.7f;   // half-distance left<->right (tune to model)
+    const float tiltSmooth   = 6.0f;   // lower = smoother/slower response
+    const float heightSmooth = 8.0f;
+
+    glm::vec3 fwd   = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+
+    glm::vec3 frontPos = car.position + fwd   *  wheelBase;
+    glm::vec3 rearPos  = car.position - fwd   *  wheelBase;
+    glm::vec3 leftPos  = car.position + right *  trackWidth;
+    glm::vec3 rightPos = car.position - right *  trackWidth;
+
+    game::GroundSample sample;
+    auto sampleH = [&](const glm::vec3& pos) -> float {
+        if (city.GetGroundSample(pos, car.position.y, sample, 3.0f, 0.5f) && sample.found)
+            return sample.height;
+        return car.position.y - kGroundClearance;
     };
 
-    glm::vec3 normals[4] = {};
-    for (int i = 0; i < 4; ++i)
-    {
-        game::GroundSample s;
-        if (city.GetGroundSample(probePoints[i], car.position.y, s, 2.0f, 0.12f) && s.found)
-        {
-            normals[i] = s.normal;
-        }
-        else
-        {
-            normals[i] = glm::vec3(0, 1, 0);
-        }
+    float frontH = sampleH(frontPos);
+    float rearH  = sampleH(rearPos);
+    float leftH  = sampleH(leftPos);
+    float rightH = sampleH(rightPos);
+
+    // --- Pitch ---
+    // On uphill: frontH > rearH → pitchDiff > 0 → we want the front UP, rear DOWN.
+    // A NEGATIVE targetPitch rotates the nose UP in the BuildCarMatrix convention
+    // (glm::rotate with local X axis: positive pitch tilts nose down).
+    // So negate the sign to get the correct visual.
+    float pitchDiff   = frontH - rearH;
+    float targetPitch = -std::atan2(pitchDiff, wheelBase * 2.0f);   // <-- negated
+
+    const float MAX_PITCH = glm::radians(20.0f);
+    targetPitch = glm::clamp(targetPitch, -MAX_PITCH, MAX_PITCH);
+
+    // --- Roll ---
+    // leftH > rightH means left side is higher → car should roll right (negative).
+    // Use a wider effective track to damp sensitivity.
+    float rollDiff   = leftH - rightH;
+    float targetRoll = -std::atan2(rollDiff, trackWidth * 2.0f);    // <-- negated, wider base
+
+    const float MAX_ROLL = glm::radians(6.0f);
+    targetRoll = glm::clamp(targetRoll, -MAX_ROLL, MAX_ROLL);
+
+    // --- Smooth ---
+    car.pitch = glm::mix(car.pitch, targetPitch, tiltSmooth   * dt);
+    car.roll  = glm::mix(car.roll,  targetRoll,  tiltSmooth   * dt);
+
+    // --- Height: settle car onto average ground AFTER tilt is decided ---
+    float avgHeight    = (frontH + rearH + leftH + rightH) * 0.25f;
+    float desiredHeight = avgHeight + kGroundClearance;
+    car.position.y = glm::mix(car.position.y, desiredHeight, heightSmooth * dt);
     }
-
-    // Corregir solo si la altura detectada no es una caída falsa.
-    game::GroundSample centerSample;
-    if (city.GetGroundSample(car.position, car.position.y, centerSample, 2.0f, 0.12f) && centerSample.found)
-    {
-        if (centerSample.height >= car.position.y - kMaxDownSnap)
-        {
-            car.position.y = std::max(car.position.y, centerSample.height + kGroundClearance);
-        }
-    }
-
-    // Tilt: usar promedio de normales de las 4 ruedas
-    glm::vec3 avgNormal = glm::normalize(normals[0] + normals[1] + normals[2] + normals[3]);
-    float targetPitch = std::atan2(avgNormal.x, avgNormal.y);
-    float targetRoll = -std::atan2(avgNormal.z, avgNormal.y);
-    car.pitch = glm::mix(car.pitch, targetPitch, 15.0f * dt);
-    car.roll = glm::mix(car.roll, targetRoll, 15.0f * dt);
-
-    // --- Wheel spin ---
-    car.wheelSpin += (car.speed * dt) / wheelRadius;
-}
-
 // --- Car jump and respawn ---
     void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight)
     {

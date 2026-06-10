@@ -80,3 +80,5 @@ ehthumbs_vista.db
 # --- Assets (Opcional) ---
 # assets/
 # res/  # mantener si los recursos son pequeños y deben versionarse
+
+debug_log.txt

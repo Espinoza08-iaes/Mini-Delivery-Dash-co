@@ -53,6 +53,9 @@ public:
 private:
     void BuildVisualGapFillMesh();
 
+    void AlignModelToGround();
+    void AddGapFillForTriangle(const game::WorldTriangle& tri, std::vector<Vertex>& vertices, std::vector<GLuint>& indices) const;
+
     Model mModel;
     float mScale;
     float mYOffset;
