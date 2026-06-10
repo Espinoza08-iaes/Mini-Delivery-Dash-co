@@ -358,9 +358,9 @@ MainMenu::Result MainMenu::Show(bool pause)
 
         // Per-button size multipliers { widthScale, heightScale }
         float btnScale[3][2] = {
-            { 1.00f, 1.00f },  // Top button    (PLAY / RESUME)
-            { 1.10f, 1.10f },  // Middle button (HOW TO PLAY)
-            { 0.85f, 0.85f },  // Bottom button (EXIT / MAIN MENU)
+            { 1.20f, 1.20f },  // Top button    (PLAY / RESUME)
+            { 1.30f, 1.30f },  // Middle button (HOW TO PLAY)
+            { 1.03f, 1.03f },  // Bottom button (EXIT / MAIN MENU)
         };
 
         float dw[3], dh[3];
@@ -389,7 +389,7 @@ MainMenu::Result MainMenu::Show(bool pause)
         float totalH = dh[0] + dh[1] + dh[2] + sp * 2;
 
         // Center vertically
-        float startY = (fbH - totalH) * 0.6f;
+        float startY = (fbH - totalH) * 0.7f;
 
         // Button center Y positions
         // Order: 0=PLAY/RESUME (top), 1=HOW TO PLAY (middle), 2=EXIT/MAIN MENU (bottom)

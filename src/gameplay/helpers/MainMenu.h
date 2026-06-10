@@ -24,17 +24,17 @@ private:
     unsigned int quadVBO = 0;
     unsigned int hudProgram = 0;
 
-    // OpenGL resources for text rendering
+    // OpenGL resources for text rendering (used in HowToPlay)
     unsigned int textVAO = 0;
     unsigned int textVBO = 0;
     unsigned int textProgram = 0;
 
-    // Background texture (main menu only)
+    // Background texture (main menu and HowToPlay)
     unsigned int backgroundTexture = 0;
     int bgTexWidth = 0;
     int bgTexHeight = 0;
 
-    // Button textures + alpha for pixel-perfect hit detection
+    // Button textures + alpha for pixel‑perfect hit detection
     unsigned int playTexture = 0;
     int playTexWidth = 0, playTexHeight = 0;
     std::vector<unsigned char> playAlpha;
@@ -72,7 +72,7 @@ private:
     // Utility
     bool PointInRect(float px, float py, float rx, float ry, float rw, float rh);
 
-    // Sub-menu
+    // Sub‑menu
     void ShowHowToPlay();
 };
 

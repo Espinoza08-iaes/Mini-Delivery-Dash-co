@@ -23,47 +23,51 @@ namespace
 // Window Helpers
 // ------------------------------------------------
 // Initializes the GLFW window and the OpenGL context.
-bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebufferHeight) //fbW To save the width and fbH to save the height of the framebuffer (real pixels)
+bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebufferHeight)
 {
 #ifdef _WIN32
     DisableProcessWindowsGhosting();
 #endif
 
-    // Initialize the GLFW library
     glfwInit();
 
-    // Configure OpenGL versions (Core Profile 3.3)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 4);
 
-    // Enable MSAA (Multi-Sample Anti-Aliasing) to smooth edges
-    window = glfwCreateWindow(width, height, "Mini Delivery Dash", nullptr, nullptr);
+    // Start with a 16:9 window (1280x720)
+    const unsigned int width = 1280;
+    const unsigned int height = 720;
 
+    window = glfwCreateWindow(width, height, "Mini Delivery Dash", nullptr, nullptr);
     if (!window)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
-
+        std::cerr << "Failed to create GLFW window" << std::endl;
         glfwDestroyWindow(window);
-        glfwTerminate(); // Release GLFW resources if it fails
-
-         return false;
+        glfwTerminate();
+        return false;
     }
 
-    // Make this window context the current one for OpenGL
+    // ============================================================
+    // LOCK THE ASPECT RATIO TO 16:9
+    // ============================================================
+    glfwSetWindowAspectRatio(window, 16, 9);
+
+    glfwSetWindowSizeLimits(window, 1024,576, GLFW_DONT_CARE, GLFW_DONT_CARE);
+
     glfwMakeContextCurrent(window);
+
     glfwSwapInterval(1);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-
+        std::cerr << "Failed to initialize GLAD" << std::endl;
         glfwDestroyWindow(window);
-        glfwTerminate(); // Release GLFW resources if it fails
-
+        glfwTerminate();
         return false;
     }
+
         // Try to recover OpenGL functions from opengl32.dll if GLAD fails
 #ifdef _WIN32
         if (glad_glBlendFunc == NULL)
