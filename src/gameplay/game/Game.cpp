@@ -56,7 +56,7 @@ namespace GameConstants
     constexpr float GROUND_SNAP_UP = 2.0f;
     constexpr float GROUND_CLEARANCE_TOLERANCE = 0.5f;
     constexpr float VOID_THRESHOLD_FORCE = -10.0f;
-    constexpr float VOID_THRESHOLD_RESPAWN = -5.0f;
+    constexpr float VOID_THRESHOLD_RESPAWN = -2.5f; 
     
     // Respawn
     constexpr float RESPAWN_SEARCH_DISTANCE = 500.0f;
