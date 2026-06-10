@@ -35,13 +35,7 @@ namespace
     // Geometry Helpers
     // ------------------------------------------------------------------------
     
-    /**
-     * Expands a vertex outward from a center point in the XZ plane.
-     * @param vertex The original vertex position
-     * @param center The center point to expand away from
-     * @param margin The distance to expand (must be > 0)
-     * @return Expanded vertex position
-     */
+    // Expands a vertex outward from a center point in the XZ plane.
     glm::vec3 ExpandVertexXZ(const glm::vec3& vertex, const glm::vec3& center, float margin)
     {
         // Safety: margin must be positive
@@ -66,9 +60,7 @@ namespace
     // Mesh Building Helpers
     // ------------------------------------------------------------------------
     
-    /**
-     * Adds a single vertex to the mesh with default UVs.
-     */
+    // Adds a single vertex to the mesh with default UVs.
     void AddVertex(std::vector<Vertex>& vertices, 
                    const glm::vec3& position, 
                    const glm::vec3& normal, 
@@ -82,9 +74,7 @@ namespace
         vertices.push_back(vertex);
     }
     
-    /**
-     * Adds a triangle to the mesh with a flat normal pointing up.
-     */
+    //Adds a triangle to the mesh with a flat normal pointing up.
     void AddTriangle(std::vector<Vertex>& vertices, 
                      std::vector<GLuint>& indices,
                      const glm::vec3& a, 
@@ -106,10 +96,7 @@ namespace
         indices.push_back(start + 2);
     }
     
-    /**
-     * Adds a quad (two triangles) to the mesh.
-     * Order: a → b → c → d (clockwise or counter-clockwise)
-     */
+    // Adds a quad (two triangles) to the mesh.
     void AddQuad(std::vector<Vertex>& vertices, 
                  std::vector<GLuint>& indices,
                  const glm::vec3& a, 
@@ -126,10 +113,7 @@ namespace
     // Texture Helpers
     // ------------------------------------------------------------------------
     
-    /**
-     * Creates a 1x1 pixel texture for solid color rendering.
-     * Uses static storage to avoid recreating identical textures.
-     */
+    // Creates a 1x1 pixel texture for solid color rendering. Uses static storage to avoid recreating identical textures.
     const Texture& GetWhiteDiffuseTexture()
     {
         static const unsigned char whitePixel[] = {255, 255, 255, 255};

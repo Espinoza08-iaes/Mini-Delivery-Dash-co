@@ -1,4 +1,4 @@
-#include "StreetLamp.h"
+#include "streetLamp.h"
 
 #include <vector>
 #include <cmath>

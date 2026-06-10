@@ -1,4 +1,4 @@
-#include <Windows.h>
+//#include <Windows.h>
 #include "Helpers.h"
 
 #ifndef _WIN32_WINNT
@@ -145,26 +145,61 @@ void ApplyGravity(CarState& car, float& carVerticalSpeed, bool isOnGround, float
 // --------------------------------------------------
 
 // Camera follow
-void UpdateFollowCamera(Camera &camera, const CarState &car, float dt)
+void UpdateFollowCamera(Camera &camera, const CarState &car, float dt, const City &city)
 {
-    float yaw = car.yaw + orbitYaw;
+    float yaw   = car.yaw + orbitYaw;
     float pitch = 0.32f + orbitPitch;
+    glm::vec3 dir(-std::sin(yaw) * std::cos(pitch),
+                   std::sin(pitch),
+                  -std::cos(yaw) * std::cos(pitch));
 
-    glm::vec3 dir(-std::sin(yaw) * std::cos(pitch), std::sin(pitch), -std::cos(yaw) * std::cos(pitch));
-
-    // Dynamically scale follow camera distance and heights based on the car model scale
     float followDistance = 6.0f * (kCarModelScale / 0.42f) + 0.2f;
-    float cameraHeight = 0.25f * (kCarModelScale / 0.42f) + 0.05f;
-    float lookHeight = 0.45f * (kCarModelScale / 0.42f) + 0.02f;
+    float cameraHeight   = 0.25f * (kCarModelScale / 0.42f) + 0.05f;
+    float lookHeight     = 0.45f * (kCarModelScale / 0.42f) + 0.02f;
 
-    glm::vec3 desiredPosition = car.position + dir * followDistance + glm::vec3(0.0f, cameraHeight, 0.0f);
-    glm::vec3 lookTarget = car.position + glm::vec3(0.0f, kCarGroundYOffset + lookHeight, 0.0f);
+    glm::vec3 carEye      = car.position + glm::vec3(0.0f, kCarGroundYOffset + lookHeight, 0.0f);
+    glm::vec3 desiredPosition = car.position + dir * followDistance
+                              + glm::vec3(0.0f, cameraHeight, 0.0f);
+    glm::vec3 lookTarget  = carEye;
+
+    // -----------------------------------------------------------------------
+    // CAMERA COLLISION  (active always, critical when reversing)
+    // -----------------------------------------------------------------------
+    // Pull the camera to at most hitDistance-margin along the car→camera ray
+    // so it never sits inside solid geometry.
+    // -----------------------------------------------------------------------
+// CAMERA COLLISION - stepcast from car toward desired camera position
+// -----------------------------------------------------------------------
+    float safeDistance = followDistance;
+
+    glm::vec3 rayDir = glm::normalize(desiredPosition - carEye);
+    float stepSize   = 0.5f;
+    int   numSteps   = static_cast<int>(followDistance / stepSize);
+
+    for (int i = 1; i <= numSteps; ++i)
+    {
+        float      dist    = i * stepSize;
+        glm::vec3  sample  = carEye + rayDir * dist;
+
+        if (city.CheckCollision(sample, 0.3f))
+        {
+            const float margin = 0.5f;
+            safeDistance = glm::max(dist - margin, 0.8f);
+            break;
+        }
+    }
+
+    if (safeDistance < followDistance)
+        desiredPosition = car.position + dir * safeDistance
+                        + glm::vec3(0.0f, cameraHeight, 0.0f);
+    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
 
     float t = isOrbiting ? 1.0f : glm::clamp(1.0f - std::pow(0.005f, dt), 0.0f, 1.0f);
-
-    camera.Position = glm::mix(camera.Position, desiredPosition, t);
+    camera.Position    = glm::mix(camera.Position, desiredPosition, t);
     camera.Orientation = glm::normalize(glm::mix(
-    camera.Orientation, glm::normalize(lookTarget - camera.Position), t));
+        camera.Orientation,
+        glm::normalize(lookTarget - camera.Position), t));
 }
 
 void UpdateOrbitCamera(GLFWwindow* window)

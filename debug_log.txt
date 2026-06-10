@@ -10488,3 +10488,2187 @@ void main()
 {
     vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
     gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/default.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Attempting to load vertex shader: 'res/shaders/sky.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/sky.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 3) in vec2 aTex;
+
+out vec3 localPos;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+void main()
+{
+    localPos = aPos;
+    texCoord = aTex;
+Attempting to load vertex shader: 'res/shaders/water.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/water.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 3) in vec2 aTex;
+
+out vec3 Position;
+out vec3 Normal;
+out vec2 texCoord;
+
+uniform mat4 camMatrix;
+uniform mat4 model;
+
+void main()
+{
+    Position = vec3(model * vec4(aPos, 1.0));
+    Norm
+Attempting to load vertex shader: 'res/shaders/default.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/streetlamp.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+// Normals (not necessarily normalized)
+layout (location = 1) in vec3 aNormal;
+// Colors
+layout (location = 2) in vec3 aColor;
+// Texture Coordinates
+layout (location = 3) in vec2 aTex;
+
+// Outputs the current position f
+Model constructor called with file: 'res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj'
+  hasExtension(.obj): YES
+Assimp loaded scene meshes: 58, drawable meshes: 79 from file: res/models/mclaren/source/McLaren F1 1993 By Alex.Ka/McLaren F1 1993 by Alex.Ka..obj
+Model constructor called with file: 'res/models/city_3d/scene.gltf'
+  hasExtension(.obj): NO
+Assimp loaded scene meshes: 177, drawable meshes: 177 from file: res/models/city_3d/scene.gltf
+Attempting to load vertex shader: 'res/shaders/shadow.vert'
+  SUCCESS: Vertex shader opened successfully.
+Attempting to load fragment shader: 'res/shaders/shadow.frag'
+  SUCCESS: Fragment shader opened successfully.
+Vertex shader code prefix:
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 model;
+uniform mat4 translation;
+uniform mat4 rotation;
+uniform mat4 scale;
+
+uniform mat4 lightSpaceMatrix;
+
+void main()
+{
+    vec4 worldPos = model * translation * rotation * scale * vec4(aPos, 1.0);
+    gl_Position = lightSpaceMat

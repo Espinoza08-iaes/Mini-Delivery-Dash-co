@@ -42,6 +42,9 @@ namespace game
         // Checks if the car's collision sphere intersects any obstacle triangle.
         bool CheckCollision(const glm::vec3& pos, float radius) const;
 
+        // Cambia la declaración
+        bool LineOfSight(const glm::vec3& from, const glm::vec3& to, float& outHitDistance) const;
+
         // Returns the closest road triangle center to the preferred spawn position.
         glm::vec3 GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance = 1000.0f) const;
 
