@@ -1,46 +1,101 @@
 {
+    "version": "2.0.0",
     "tasks": [
         {
+            "label": "cmake: configure",
             "type": "shell",
-            "label": "C/C++: g++.exe compilar archivo activo",
-            "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
+            "command": "cmake",
             "args": [
-                "-std=c++11",
-                "-O3",
-                "-fdiagnostics-color=always",
-                "-g",
-                "-I${workspaceFolder}",
-                "-I${workspaceFolder}/src/engine",
-                "-I${workspaceFolder}/Dependencies/include",
-                "-I${workspaceFolder}/Dependencies/include/SOIL2",
-                "-I${workspaceFolder}/Dependencies/include/glm",
-                "${workspaceFolder}/src/main.cpp",
-                "${workspaceFolder}/src/game/Game.cpp",
-                "${workspaceFolder}/src/engine/Mesh.cpp",
-                "${workspaceFolder}/src/engine/Model.cpp",
-                "${workspaceFolder}/src/engine/Texture.cpp",
-                "${workspaceFolder}/src/glad_loader.c",
-                "-o",
-                "${workspaceFolder}\\main.exe",
-                "-L${workspaceFolder}/Dependencies/lib",
-                "-lassimp",
-                "-lsoil2",
-                "-lglfw3",
-                "-lglew32s",
-                "-lopengl32",
-                "-lgdi32",
-                "-luser32"
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/cmake-build",
+                "-DCMAKE_BUILD_TYPE=Debug"
+            ],
+            "windows": {
+                "args": [
+                    "-S",
+                    "${workspaceFolder}",
+                    "-B",
+                    "${workspaceFolder}/cmake-build",
+                    "-G",
+                    "MinGW Makefiles",
+                    "-DCMAKE_BUILD_TYPE=Debug"
+                ]
+            },
+            "linux": {
+                "args": [
+                    "-S",
+                    "${workspaceFolder}",
+                    "-B",
+                    "${workspaceFolder}/cmake-build",
+                    "-G",
+                    "Unix Makefiles",
+                    "-DCMAKE_BUILD_TYPE=Debug"
+                ]
+            },
+            "osx": {
+                "args": [
+                    "-S",
+                    "${workspaceFolder}",
+                    "-B",
+                    "${workspaceFolder}/cmake-build",
+                    "-G",
+                    "Unix Makefiles",
+                    "-DCMAKE_BUILD_TYPE=Debug"
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake: build",
+            "type": "shell",
+            "command": "cmake",
+            "dependsOn": "cmake: configure",
+            "dependsOrder": "sequence",
+            "args": [
+                "--build",
+                "${workspaceFolder}/cmake-build",
+                "--config",
+                "Debug"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
-            "problemMatcher": [],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
+            "detail": "Compila el proyecto con CMake en una carpeta build compartida."
+        },
+        {
+            "type": "cppbuild",
+            "label": "C/C++: g++.exe compilar archivo activo",
+            "command": "C:/msys64/ucrt64/bin/g++.exe",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}\\${fileBasenameNoExtension}.exe"
+            ],
+            "options": {
+                "cwd": "C:/msys64/ucrt64/bin"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "detail": "Tarea generada por el depurador."
         }
-    ],
-    "version": "2.0.0"
+    ]
 }

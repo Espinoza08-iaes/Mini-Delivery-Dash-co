@@ -1,23 +1,72 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Windows",
             "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
             "intelliSenseMode": "windows-gcc-x64",
             "cppStandard": "c++11",
             "includePath": [
                 "${workspaceFolder}",
-                "${workspaceFolder}/Dependencies/include",
-                "${workspaceFolder}/Dependencies/include/GL",
-                "${workspaceFolder}/Dependencies/include/GLFW",
-                "${workspaceFolder}/Dependencies/include/glad",
-                "${workspaceFolder}/Dependencies/include/SOIL2",
-                "${workspaceFolder}/Dependencies/include/glm"
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
             ],
             "browse": {
                 "path": [
                     "${workspaceFolder}",
-                    "${workspaceFolder}/Dependencies/include"
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/third_party",
+                    "${workspaceFolder}/third_party/glad/include"
+                ]
+            }
+        },
+        {
+            "name": "Linux",
+            "compilerPath": "/usr/bin/g++",
+            "intelliSenseMode": "linux-gcc-x64",
+            "cppStandard": "c++11",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
+            ]
+        },
+        {
+            "name": "macOS",
+            "compilerPath": "/usr/bin/clang++",
+            "intelliSenseMode": "macos-clang-x64",
+            "cppStandard": "c++11",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party",
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/GL",
+                "${workspaceFolder}/third_party/GLFW",
+                "${workspaceFolder}/third_party/SOIL2",
+                "${workspaceFolder}/third_party/glm",
+                "${workspaceFolder}/third_party/assimp",
+                "${workspaceFolder}/third_party/stb"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/third_party",
+                    "${workspaceFolder}/third_party/glad/include"
                 ]
             }
         }
