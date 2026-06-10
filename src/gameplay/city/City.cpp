@@ -1,58 +1,149 @@
 #include "City.h"
- 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
-
 #include <cmath>
 #include <vector>
 
+// ============================================================================
+// Anonymous namespace - Constants and helpers
+// ============================================================================
 namespace
 {
+    // ========================================================================
+    // Constants (tunable parameters)
+    // ------------------------------------------------------------------------
+    
+    // Geometry precision
+    constexpr float LEN_EPSILON = 1e-4f;           // Tolerance for zero-length vectors
+    
+    // Gap fill mesh generation
+    constexpr float GAP_COVER_MARGIN = 4.5f;       // How far to expand the cover mesh (meters)
+    constexpr float TOP_DROP = 0.02f;              // Small downward offset to avoid z-fighting
+    constexpr float BACKING_DROP = 2.0f;           // How far down the backing extends (meters)
+    constexpr float VERTEX_RESERVE_FACTOR = 21.0f; // Approximate vertices per triangle (3 faces × 7 vertices)
+    
+    // Colors (RGB)
+    const glm::vec3 BACKING_COLOR(0.46f, 0.46f, 0.46f);  // Gray for bottom faces
+    const glm::vec3 SKIRT_COLOR(0.44f, 0.44f, 0.44f);    // Slightly darker gray for sides
+    
+    // ------------------------------------------------------------------------
+    // Geometry Helpers
+    // ------------------------------------------------------------------------
+    
+    /**
+     * Expands a vertex outward from a center point in the XZ plane.
+     * @param vertex The original vertex position
+     * @param center The center point to expand away from
+     * @param margin The distance to expand (must be > 0)
+     * @return Expanded vertex position
+     */
     glm::vec3 ExpandVertexXZ(const glm::vec3& vertex, const glm::vec3& center, float margin)
     {
+        // Safety: margin must be positive
+        if (margin <= 0.0f)
+        {
+            return vertex;
+        }
+        
         glm::vec2 dir(vertex.x - center.x, vertex.z - center.z);
         float len = glm::length(dir);
-        if (len > 1e-4f)
+        
+        if (len > LEN_EPSILON)
         {
             dir /= len;
             return glm::vec3(vertex.x + dir.x * margin, vertex.y, vertex.z + dir.y * margin);
         }
+        
         return vertex;
     }
-
-    void AddVertex(std::vector<Vertex>& vertices, const glm::vec3& position, const glm::vec3& normal, const glm::vec3& color)
+    
+    // ------------------------------------------------------------------------
+    // Mesh Building Helpers
+    // ------------------------------------------------------------------------
+    
+    /**
+     * Adds a single vertex to the mesh with default UVs.
+     */
+    void AddVertex(std::vector<Vertex>& vertices, 
+                   const glm::vec3& position, 
+                   const glm::vec3& normal, 
+                   const glm::vec3& color)
     {
         Vertex vertex;
         vertex.position = position;
         vertex.normal = normal;
         vertex.color = color;
-        vertex.texUV = glm::vec2(0.0f);
+        vertex.texUV = glm::vec2(0.0f);  // No texture coordinates needed for gap fill
         vertices.push_back(vertex);
     }
-
-    void AddTriangle(std::vector<Vertex>& vertices, std::vector<GLuint>& indices,
-                     const glm::vec3& a, const glm::vec3& b, const glm::vec3& c,
+    
+    /**
+     * Adds a triangle to the mesh with a flat normal pointing up.
+     */
+    void AddTriangle(std::vector<Vertex>& vertices, 
+                     std::vector<GLuint>& indices,
+                     const glm::vec3& a, 
+                     const glm::vec3& b, 
+                     const glm::vec3& c,
                      const glm::vec3& color)
     {
-        glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
-        GLuint start = static_cast<GLuint>(vertices.size());
+        // Flat normal pointing upward (for gap fill meshes)
+        const glm::vec3 normal(0.0f, 1.0f, 0.0f);
+        
+        const GLuint start = static_cast<GLuint>(vertices.size());
+        
         AddVertex(vertices, a, normal, color);
         AddVertex(vertices, b, normal, color);
         AddVertex(vertices, c, normal, color);
+        
         indices.push_back(start);
         indices.push_back(start + 1);
         indices.push_back(start + 2);
     }
-
-    void AddQuad(std::vector<Vertex>& vertices, std::vector<GLuint>& indices,
-                 const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& d,
+    
+    /**
+     * Adds a quad (two triangles) to the mesh.
+     * Order: a → b → c → d (clockwise or counter-clockwise)
+     */
+    void AddQuad(std::vector<Vertex>& vertices, 
+                 std::vector<GLuint>& indices,
+                 const glm::vec3& a, 
+                 const glm::vec3& b, 
+                 const glm::vec3& c, 
+                 const glm::vec3& d,
                  const glm::vec3& color)
     {
         AddTriangle(vertices, indices, a, b, c, color);
         AddTriangle(vertices, indices, c, d, a, color);
     }
+    
+    // ------------------------------------------------------------------------
+    // Texture Helpers
+    // ------------------------------------------------------------------------
+    
+    /**
+     * Creates a 1x1 pixel texture for solid color rendering.
+     * Uses static storage to avoid recreating identical textures.
+     */
+    const Texture& GetWhiteDiffuseTexture()
+    {
+        static const unsigned char whitePixel[] = {255, 255, 255, 255};
+        static Texture whiteTexture(whitePixel, 1, 1, GL_RGBA, "diffuse", 0);
+        return whiteTexture;
+    }
+    
+    const Texture& GetBlackSpecularTexture()
+    {
+        static const unsigned char blackPixel[] = {0, 0, 0, 255};
+        static Texture blackTexture(blackPixel, 1, 1, GL_RGBA, "specular", 1);
+        return blackTexture;
+    }
 }
- 
+
+// ============================================================================
+// City Class Implementation
+// ============================================================================
+
 City::City(const std::string& modelPath, float scale, float yOffset, float xOffset, float zOffset, bool autoAlign)
     : mModel(modelPath.c_str())
     , mScale(scale)
@@ -62,30 +153,103 @@ City::City(const std::string& modelPath, float scale, float yOffset, float xOffs
 {
     if (autoAlign)
     {
-        // Calculate minY directly from untransformed model bounds
-        float minY = 1e9f;
-        const auto& meshes = mModel.GetMeshes();
-        const auto& matrices = mModel.GetMatricesMeshes();
-        for (size_t i = 0; i < meshes.size(); ++i)
-        {
-            glm::mat4 meshMatrix = matrices[i];
-            for (const auto& vertex : meshes[i].vertices)
-            {
-                glm::vec3 worldPos = glm::vec3(meshMatrix * glm::vec4(vertex.position, 1.0f));
-                if (worldPos.y < minY)
-                {
-                    minY = worldPos.y;
-                }
-            }
-        }
-        if (minY == 1e9f) minY = 0.0f;
-        mYOffset = -minY * mScale + 0.01f;
+        AlignModelToGround();
     }
-
+    
     mPhysics.Initialize(mModel, GetMatrix());
     BuildVisualGapFillMesh();
 }
- 
+
+// ----------------------------------------------------------------------------
+// Private Helpers
+// ----------------------------------------------------------------------------
+
+void City::AlignModelToGround()
+{
+    float minY = 1e9f;
+    const auto& meshes = mModel.GetMeshes();
+    const auto& matrices = mModel.GetMatricesMeshes();
+    
+    for (size_t i = 0; i < meshes.size(); ++i)
+    {
+        const glm::mat4 meshMatrix = matrices[i];
+        for (const auto& vertex : meshes[i].vertices)
+        {
+            const glm::vec3 worldPos = glm::vec3(meshMatrix * glm::vec4(vertex.position, 1.0f));
+            if (worldPos.y < minY)
+            {
+                minY = worldPos.y;
+            }
+        }
+    }
+    
+    if (minY == 1e9f)
+    {
+        minY = 0.0f;  // Fallback if no vertices found
+    }
+    
+    mYOffset = -minY * mScale + 0.01f;  // 0.01f to prevent z-fighting with ground
+}
+
+void City::BuildVisualGapFillMesh()
+{
+    const std::vector<game::WorldTriangle>& roadTriangles = mPhysics.GetRoadTriangles();
+    
+    if (roadTriangles.empty())
+    {
+        mVisualGapFillMesh.reset();
+        return;
+    }
+    
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+    
+    // Pre-allocate memory for performance
+    vertices.reserve(static_cast<size_t>(roadTriangles.size() * VERTEX_RESERVE_FACTOR));
+    indices.reserve(vertices.capacity() * 3);
+    
+    for (const game::WorldTriangle& tri : roadTriangles)
+    {
+        AddGapFillForTriangle(tri, vertices, indices);
+    }
+    
+    // Build mesh with shared textures
+    std::vector<Texture> textures;
+    textures.push_back(GetWhiteDiffuseTexture());
+    textures.push_back(GetBlackSpecularTexture());
+    
+    mVisualGapFillMesh.reset(new Mesh(vertices, indices, textures));
+}
+
+void City::AddGapFillForTriangle(const game::WorldTriangle& tri,
+                                  std::vector<Vertex>& vertices,
+                                  std::vector<GLuint>& indices) const
+{
+    const glm::vec3 center = (tri.a + tri.b + tri.c) / 3.0f;
+    
+    // Top face (slightly lowered to avoid z-fighting)
+    const glm::vec3 aTop = tri.a - glm::vec3(0.0f, TOP_DROP, 0.0f);
+    const glm::vec3 bTop = tri.b - glm::vec3(0.0f, TOP_DROP, 0.0f);
+    const glm::vec3 cTop = tri.c - glm::vec3(0.0f, TOP_DROP, 0.0f);
+    
+    // Bottom/backing face (expanded outward and lowered)
+    const glm::vec3 aBack = ExpandVertexXZ(tri.a, center, GAP_COVER_MARGIN) - glm::vec3(0.0f, BACKING_DROP, 0.0f);
+    const glm::vec3 bBack = ExpandVertexXZ(tri.b, center, GAP_COVER_MARGIN) - glm::vec3(0.0f, BACKING_DROP, 0.0f);
+    const glm::vec3 cBack = ExpandVertexXZ(tri.c, center, GAP_COVER_MARGIN) - glm::vec3(0.0f, BACKING_DROP, 0.0f);
+    
+    // Bottom triangle
+    AddTriangle(vertices, indices, aBack, bBack, cBack, BACKING_COLOR);
+    
+    // Side walls (quads)
+    AddQuad(vertices, indices, aTop, bTop, bBack, aBack, SKIRT_COLOR);
+    AddQuad(vertices, indices, bTop, cTop, cBack, bBack, SKIRT_COLOR);
+    AddQuad(vertices, indices, cTop, aTop, aBack, cBack, SKIRT_COLOR);
+}
+
+// ----------------------------------------------------------------------------
+// Public Interface
+// ----------------------------------------------------------------------------
+
 glm::mat4 City::GetMatrix() const
 {
     glm::mat4 transform = glm::mat4(1.0f);
@@ -93,10 +257,13 @@ glm::mat4 City::GetMatrix() const
     transform = glm::scale(transform, glm::vec3(mScale));
     return transform;
 }
- 
+
 void City::Draw(Shader& shader, Camera& camera)
 {
+    // Draw the main city model
     mModel.Draw(shader, camera, GetMatrix());
+    
+    // Draw visual gap fill mesh if it exists
     if (mVisualGapFillMesh)
     {
         shader.Activate();
@@ -104,52 +271,6 @@ void City::Draw(Shader& shader, Camera& camera)
         glUniform1i(glGetUniformLocation(shader.ID, "uIsEmissive"), 0);
         mVisualGapFillMesh->Draw(shader, camera, glm::mat4(1.0f));
     }
-}
-
-void City::BuildVisualGapFillMesh()
-{
-    const std::vector<game::WorldTriangle>& roadTriangles = mPhysics.GetRoadTriangles();
-    if (roadTriangles.empty())
-    {
-        mVisualGapFillMesh.reset();
-        return;
-    }
-
-     const float gapCoverMargin = 4.5f;
-    const float topDrop = 0.02f;
-    const float backingDrop = 2.0f;
-    const glm::vec3 backingColor(0.46f, 0.46f, 0.46f);
-    const glm::vec3 skirtColor(0.44f, 0.44f, 0.44f);
-
-    std::vector<Vertex> vertices;
-    std::vector<GLuint> indices;
-    vertices.reserve(roadTriangles.size() * 21);
-    indices.reserve(roadTriangles.size() * 21);
-
-    for (const game::WorldTriangle& tri : roadTriangles)
-    {
-        glm::vec3 center = (tri.a + tri.b + tri.c) / 3.0f;
-
-        glm::vec3 aTop = tri.a - glm::vec3(0.0f, topDrop, 0.0f);
-        glm::vec3 bTop = tri.b - glm::vec3(0.0f, topDrop, 0.0f);
-        glm::vec3 cTop = tri.c - glm::vec3(0.0f, topDrop, 0.0f);
-
-        glm::vec3 aBack = ExpandVertexXZ(tri.a, center, gapCoverMargin) - glm::vec3(0.0f, backingDrop, 0.0f);
-        glm::vec3 bBack = ExpandVertexXZ(tri.b, center, gapCoverMargin) - glm::vec3(0.0f, backingDrop, 0.0f);
-        glm::vec3 cBack = ExpandVertexXZ(tri.c, center, gapCoverMargin) - glm::vec3(0.0f, backingDrop, 0.0f);
-
-        AddTriangle(vertices, indices, aBack, bBack, cBack, backingColor);
-        AddQuad(vertices, indices, aTop, bTop, bBack, aBack, skirtColor);
-        AddQuad(vertices, indices, bTop, cTop, cBack, bBack, skirtColor);
-        AddQuad(vertices, indices, cTop, aTop, aBack, cBack, skirtColor);
-    }
-
-    static const unsigned char whitePixel[] = {255, 255, 255, 255};
-    static const unsigned char blackPixel[] = {0, 0, 0, 255};
-    std::vector<Texture> textures;
-    textures.emplace_back(whitePixel, 1, 1, GL_RGBA, "diffuse", 0);
-    textures.emplace_back(blackPixel, 1, 1, GL_RGBA, "specular", 1);
-    mVisualGapFillMesh.reset(new Mesh(vertices, indices, textures));
 }
 
 float City::GetHeightAt(float x, float z, float currentY, bool* outFound, float snapDownMax, float snapUpMax) const
@@ -181,4 +302,3 @@ glm::vec3 City::GetWorldMaxBounds() const
 {
     return mPhysics.GetWorldMaxBounds();
 }
- 
