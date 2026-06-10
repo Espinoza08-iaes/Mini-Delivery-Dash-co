@@ -14,7 +14,6 @@ in vec2 texCoord;
 // Imports the position in light space
 in vec4 vLightSpacePos;
 
-
 // Gets the Texture Units from the main function
 uniform sampler2D diffuse0;
 uniform sampler2D specular0;
@@ -199,7 +198,7 @@ vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 
     float innerCone = 0.92f;
     float intensity = clamp((angle - outerCone) / (innerCone - outerCone), 0.0, 1.0);
 
-    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity * 0.22f;
+    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity;
 }
 
 vec3 calculateStreetLight(vec3 lampPos, vec3 normal, vec3 albedo)
@@ -312,7 +311,7 @@ void main()
             
             baseLight.rgb += leftSpot + rightSpot;
         }
-        
+
         // --- Street light contribution (antes del fog) ---
         if (uStreetLightsOn == 1)
         {
@@ -326,14 +325,7 @@ void main()
             streetLight = min(streetLight, vec3(0.85));
             baseLight.rgb += streetLight;
         }
-
-        finalColor = baseLight;
+        
+        FragColor = baseLight;
     }
-
-    // Apply distance fog
-    float dist = length(camPos - crntPos);
-    float fogFactor = clamp((uFogEnd - dist) / (uFogEnd - uFogStart), 0.0, 1.0);
-    finalColor.rgb = mix(uFogColor, finalColor.rgb, fogFactor);
-
-    FragColor = finalColor;
 }

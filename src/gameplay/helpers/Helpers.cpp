@@ -1,5 +1,9 @@
-#include <windows.h>
+#include <Windows.h>
 #include "Helpers.h"
+
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#endif
 
 namespace
 {
@@ -133,24 +137,6 @@ void ApplyGravity(CarState& car, float& carVerticalSpeed, bool isOnGround, float
     {
         carVerticalSpeed -= gravity * dt;
         car.position.y += carVerticalSpeed * dt;
-    }
-}
-
-// --- Water Detection and Respawn ---
-void CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
-{
-    if (car.position.y < -2.0f)
-    {
-        std::cout << "[GAME] Car fell into the ocean! Respawning on the nearest read..." << std::endl;
-
-        glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, 1200.0f);
-        car.position = safeSpawn + glm::vec3(0.0f, kGroundClearance + 0.1f, 0.0f);
-        car.speed = 0.0f;
-        car.steering = 0.0f;
-        carVerticalSpeed = 0.0f;
-        isOnGround = true;
-
-        lastGroundHeight = safeSpawn.y;
     }
 }
 

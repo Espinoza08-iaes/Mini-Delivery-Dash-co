@@ -23,7 +23,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 #include "../meshes/ProceduralMeshes.h"
 #include "../vehicle/CarController.h"
 #include "../scene/DayNightCycle.h"
@@ -69,24 +69,17 @@ void Game::UpdateHeadlights(Shader &shaderProgram, const CarState &car, bool hea
 void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalSpeed, bool &isOnGround, float &lastGroundHeight)
 {
     game::GroundSample groundSample;
-    if (city.GetGroundSample(car.position, car.position.y, groundSample) && groundSample.found)
+    if (city.GetGroundSample(car.position, car.position.y, groundSample, 15.0f, 2.0f))
     {
         float groundY = groundSample.height;
         lastGroundHeight = groundY;
-
         float desiredY = groundY + kGroundClearance;
-
-        if (car.position.y < desiredY - 0.02f)
-        {
-            // Evitar hundir o caer por debajo del suelo real.
-            car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-        }
-        else if (car.position.y <= desiredY + 0.12f && carVerticalSpeed <= 0.5f)
+        
+        // Si el auto está cerca del suelo, pegarlo
+        if (car.position.y <= desiredY + 0.5f)
         {
             car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
+            if (carVerticalSpeed < 0.0f) carVerticalSpeed = 0.0f;
             isOnGround = true;
         }
         else
@@ -96,27 +89,39 @@ void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalS
     }
     else
     {
-        // If no ground detected, attempt an expanded recovery probe before forcing position.
-        game::GroundSample recoverySample;
-        if (city.GetGroundSample(car.position, car.position.y, recoverySample, 12.0f, 1.0f) && recoverySample.found)
+        // No hay suelo, el auto está cayendo
+        isOnGround = false;
+        
+        // Solo evitar que caiga infinitamente (respawn se encarga)
+        if (car.position.y < -10.0f)
         {
-            float desiredY = recoverySample.height + kGroundClearance;
-            car.position.y = desiredY;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-            lastGroundHeight = recoverySample.height;
+            // Forzar respawn si cae demasiado
+            car.position.y = -5.0f; // Para activar el respawn
         }
-        else if (car.position.y < lastGroundHeight - 0.5f)
-        {
-            // If the car dropped far below the last known ground, clamp it back to prevent falling through.
-            car.position.y = lastGroundHeight + kGroundClearance;
-            carVerticalSpeed = 0.0f;
-            isOnGround = true;
-        }
-        else
-        {
-            isOnGround = false;
-        }
+    }
+}
+
+// --- Water Detection and Respawn ---
+void Game::CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
+{
+    // Detects falling into a void
+    if (car.position.y < -5.0f)
+    {
+        std::cout << "[GAME] Car fell into void! Respawning..." << std::endl;
+        
+        glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, 500.0f);
+        
+        car.position = safeSpawn + glm::vec3(0.0f, 0.5f, 0.0f);
+        car.speed = 0.0f;
+        car.steering = 0.0f;
+        car.yaw = 0.0f;
+        car.pitch = 0.0f;
+        car.roll = 0.0f;
+        carVerticalSpeed = 0.0f;
+        isOnGround = true;
+        lastGroundHeight = safeSpawn.y;
+        
+        std::cout << "[GAME] Respawned at: " << car.position.x << ", " << car.position.y << ", " << car.position.z << std::endl;
     }
 }
 
@@ -219,11 +224,11 @@ int Game::Run()
     const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
     GLuint depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
-
+    
     GLuint depthMap;
     glGenTextures(1, &depthMap);
     glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
                  SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -231,9 +236,9 @@ int Game::Run()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
     glDrawBuffer(GL_NONE);
@@ -243,17 +248,17 @@ int Game::Run()
     // --- Camera Depth Map FBO Setup for SSAO ---
     GLuint cameraDepthFBO;
     glGenFramebuffers(1, &cameraDepthFBO);
-
+    
     GLuint cameraDepthMap;
     glGenTextures(1, &cameraDepthMap);
     glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 
                  fbW, fbH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, cameraDepthMap, 0);
     glDrawBuffer(GL_NONE);
@@ -531,7 +536,7 @@ int Game::Run()
 
                 // Crear un menú temporal para la pausa (mismo estilo que el principal)
                 MainMenu pauseMenu(window, fbW, fbH);
-                MainMenu::Result pauseResult = pauseMenu.Show(true); // true = modo pausa
+                MainMenu::Result pauseResult = pauseMenu.Show(true);  // true = modo pausa
 
                 if (pauseResult == MainMenu::Result::Quit)
                 {

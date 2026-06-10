@@ -77,15 +77,14 @@ City::City(const std::string &modelPath, float scale, float yOffset, float xOffs
                 }
             }
         }
-        if (minY == 1e9f)
-            minY = 0.0f;
+        if (minY == 1e9f) minY = 0.0f;
         mYOffset = -minY * mScale + 0.01f;
     }
 
     mPhysics.Initialize(mModel, GetMatrix());
     BuildVisualGapFillMesh();
 }
-
+ 
 glm::mat4 City::GetMatrix() const
 {
     glm::mat4 transform = glm::mat4(1.0f);
@@ -152,22 +151,22 @@ void City::BuildVisualGapFillMesh()
     mVisualGapFillMesh.reset(new Mesh(vertices, indices, textures));
 }
 
-float City::GetHeightAt(float x, float z, float currentY, bool *outFound, float snapDownMax, float snapUpMax) const
+float City::GetHeightAt(float x, float z, float currentY, bool* outFound, float snapDownMax, float snapUpMax) const
 {
-    return mPhysics.GetHeightAt(mModel, GetMatrix(), x, z, currentY, outFound, snapDownMax, snapUpMax);
+    return mPhysics.GetHeightAt(x, z, currentY, outFound, snapDownMax, snapUpMax);
 }
 
-bool City::GetGroundSample(const glm::vec3 &worldPos, float currentY, game::GroundSample &outSample, float snapDownMax, float snapUpMax) const
+bool City::GetGroundSample(const glm::vec3& worldPos, float currentY, game::GroundSample& outSample, float snapDownMax, float snapUpMax) const
 {
     return mPhysics.GetGroundSample(worldPos, currentY, outSample, snapDownMax, snapUpMax);
 }
 
-bool City::CheckCollision(const glm::vec3 &pos, float radius) const
+bool City::CheckCollision(const glm::vec3& pos, float radius) const
 {
     return mPhysics.CheckCollision(pos, radius);
 }
 
-glm::vec3 City::GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance) const
+glm::vec3 City::GetBestRoadSpawn(const glm::vec3& preferred, float maxDistance) const
 {
     return mPhysics.GetBestRoadSpawn(preferred, maxDistance);
 }

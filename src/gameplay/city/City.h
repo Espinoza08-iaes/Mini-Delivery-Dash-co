@@ -4,9 +4,8 @@
 #include <memory>
 #include <string>
 #include <glm/glm.hpp>
-#include <vector>
 
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 #include "CityPhysics.h"
 
 class City
@@ -48,6 +47,8 @@ public:
 
     std::vector<glm::vec3> GetStreetLampPositions(float spacing = 18.0f) const;
     std::vector<glm::vec3> GetStreetLampPositionsFromFile(const char* filePath) const;
+    game::CityPhysics& GetPhysics() { return mPhysics; }
+    const game::CityPhysics& GetPhysics() const { return mPhysics; }
 
 private:
     void BuildVisualGapFillMesh();

@@ -11,8 +11,6 @@ public:
 
     enum class Result { Play, Quit, None };
 
-    // showPause = false → menú principal (PLAY / EXIT)
-    // showPause = true  → menú de pausa  (RESUME / MAIN MENU)
     Result Show(bool showPause = false);
 
 private:

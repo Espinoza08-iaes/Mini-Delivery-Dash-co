@@ -2,7 +2,7 @@
 
 #include "Texture.h"
 
-#include <stdexcept>
+#include <stdexcept> 
 
 Texture::Texture(const char* image, const char* texType, GLuint slot)
 {

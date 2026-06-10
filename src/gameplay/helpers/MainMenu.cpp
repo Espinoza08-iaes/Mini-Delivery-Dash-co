@@ -10,8 +10,6 @@
 #include "../../../third_party/stb/stb_easy_font.h"
 
 // ------------------------------------------------------------------
-// Compilación local de shaders
-// ------------------------------------------------------------------
 static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc)
 {
     unsigned int vs = glCreateShader(GL_VERTEX_SHADER);
@@ -44,8 +42,6 @@ static unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc
     return prog;
 }
 
-// ------------------------------------------------------------------
-// Conversión de quads (stb_easy_font) a triángulos
 // ------------------------------------------------------------------
 static void convertQuadsToTriangles(float* quads, int numQuads, float* triangles)
 {
@@ -85,8 +81,6 @@ static void convertQuadsToTriangles(float* quads, int numQuads, float* triangles
     }
 }
 
-// ==================================================================
-// MainMenu - Constructor / Destructor
 // ==================================================================
 MainMenu::MainMenu(GLFWwindow* win, int screenWidth, int screenHeight)
     : window(win), width(screenWidth), height(screenHeight),
@@ -197,7 +191,11 @@ void MainMenu::RenderText(const char* text, float x, float y, float r, float g, 
 
     glUseProgram(textProgram);
 
-    glm::mat4 proj = glm::ortho(0.0f, (float)width, (float)height, 0.0f);
+    // Usar tamaño actual de la ventana
+    int fbW, fbH;
+    glfwGetFramebufferSize(window, &fbW, &fbH);
+    glm::mat4 proj = glm::ortho(0.0f, (float)fbW, (float)fbH, 0.0f);
+
     glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
     model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.0f));
 
@@ -220,37 +218,54 @@ MainMenu::Result MainMenu::Show(bool showPause)
 {
     Result choice = Result::None;
 
-    // Ignorar primer frame de ESC si es pausa
+    // Variable para evitar toggle instantáneo de ESC al entrar en pausa
+    static bool escWasPressed = false;
+
     if (showPause)
     {
-        glfwPollEvents();
+        // Al entrar en pausa, marcar ESC como "ya presionada" para que no cierre inmediatamente
+        escWasPressed = true;
     }
 
     while (!glfwWindowShouldClose(window) && choice == Result::None)
     {
         glfwPollEvents();
 
-        // Si es pausa, ESC también cierra el menú
-        if (showPause)
-        {
-            static bool escWasPressed = true;
-            bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-            if (escPressed && !escWasPressed)
-            {
-                choice = Result::Play; // Play = continuar jugando
-            }
-            escWasPressed = escPressed;
-        }
+        // Obtener tamaño REAL de la ventana en cada frame
+        int fbW, fbH;
+        glfwGetFramebufferSize(window, &fbW, &fbH);
+
+        // Asegurar viewport completo
+        glViewport(0, 0, fbW, fbH);
 
         double mx, my;
         glfwGetCursorPos(window, &mx, &my);
         bool leftPressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
-        float bw = 300, bh = 70;
-        float button1X = (width - bw) * 0.5f;
-        float button1Y = 280;
-        float button2X = (width - bw) * 0.5f;
-        float button2Y = 380;
+        // ESC para salir de pausa (solo en modo pausa)
+        if (showPause)
+        {
+            bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+            if (escPressed && !escWasPressed)
+            {
+                choice = Result::Play;  // Play = continuar jugando
+            }
+            escWasPressed = escPressed;
+        }
+
+        // Tamaño fijo de botones
+        float bw = 300.0f;
+        float bh = 70.0f;
+        float spacing = 30.0f;
+
+        // Posiciones centradas
+        float totalHeight = bh + spacing + bh;
+        float startY = (fbH - totalHeight) * 0.5f;
+
+        float button1X = (fbW - bw) * 0.5f;
+        float button1Y = startY;
+        float button2X = (fbW - bw) * 0.5f;
+        float button2Y = startY + bh + spacing;
 
         bool overButton1 = PointInRect((float)mx, (float)my, button1X, button1Y, bw, bh);
         bool overButton2 = PointInRect((float)mx, (float)my, button2X, button2Y, bw, bh);
@@ -258,49 +273,52 @@ MainMenu::Result MainMenu::Show(bool showPause)
         static bool wasPressed = false;
         if (leftPressed && !wasPressed)
         {
-            if (overButton1)  choice = Result::Play;       // Play / Resume
-            if (overButton2)  choice = Result::Quit;       // Exit / Main Menu
+            if (overButton1)  choice = Result::Play;
+            if (overButton2)  choice = Result::Quit;
         }
         wasPressed = leftPressed;
 
+        // --- RENDER ---
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
 
-        // Fondo azul oscuro (igual en ambos modos)
-        RenderColoredQuad(0, 0, (float)width, (float)height, 0.05f, 0.05f, 0.2f);
+        glm::mat4 proj = glm::ortho(0.0f, (float)fbW, (float)fbH, 0.0f);
+        glUseProgram(hudProgram);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "projection"), 1, GL_FALSE, &proj[0][0]);
+
+        // Fondo negro
+        RenderColoredQuad(0.0f, 0.0f, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f);
 
         // Botón 1: PLAY o RESUME
         float r1 = overButton1 ? 0.3f : 0.2f;
         float g1 = overButton1 ? 0.8f : 0.6f;
         float b1 = overButton1 ? 0.3f : 0.2f;
         RenderColoredQuad(button1X, button1Y, bw, bh, r1, g1, b1);
-        RenderText(showPause ? "RESUME" : "PLAY", button1X + (showPause ? 70 : 95), button1Y + 22, 1.0f, 1.0f, 1.0f);
+
+        const char* text1 = showPause ? "RESUME" : "PLAY";
+        int len1 = (int)strlen(text1);
+        float textWidth1 = len1 * 1.5f * 9.0f;
+        float textX1 = button1X + (bw - textWidth1) * 0.5f;
+        float textY1 = button1Y + (bh - 20.0f) * 0.5f;
+        RenderText(text1, textX1, textY1, 1.0f, 1.0f, 1.0f);
 
         // Botón 2: EXIT o MAIN MENU
         float r2 = overButton2 ? 0.9f : 0.6f;
         float g2 = overButton2 ? 0.2f : 0.1f;
         float b2 = overButton2 ? 0.2f : 0.1f;
         RenderColoredQuad(button2X, button2Y, bw, bh, r2, g2, b2);
-        RenderText(showPause ? "MAIN MENU" : "EXIT", button2X + (showPause ? 55 : 95), button2Y + 22, 1.0f, 1.0f, 1.0f);
+
+        const char* text2 = showPause ? "MAIN MENU" : "EXIT";
+        int len2 = (int)strlen(text2);
+        float textWidth2 = len2 * 1.5f * 9.0f;
+        float textX2 = button2X + (bw - textWidth2) * 0.5f;
+        float textY2 = button2Y + (bh - 20.0f) * 0.5f;
+        RenderText(text2, textX2, textY2, 1.0f, 1.0f, 1.0f);
 
         glfwSwapBuffers(window);
     }
     return choice;
-}
-
-// ------------------------------------------------------------------
-void MainMenu::RenderQuad(float x, float y, float w, float h, unsigned int texture)
-{
-    glUseProgram(hudProgram);
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
-    model = glm::scale(model, glm::vec3(w, h, 1.0f));
-    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
-    glUniform1i(glGetUniformLocation(hudProgram, "uUseSolidColor"), 0);
-    glUniform1i(glGetUniformLocation(hudProgram, "uTexture"), 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 // ------------------------------------------------------------------
