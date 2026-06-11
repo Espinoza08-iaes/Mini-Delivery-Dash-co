@@ -1,4 +1,7 @@
-#include <Windows.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "Helpers.h"
 
 #ifndef _WIN32_WINNT
@@ -23,7 +26,7 @@ namespace
 // Window Helpers
 // ------------------------------------------------
 // Initializes the GLFW window and the OpenGL context.
-bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebufferHeight) //fbW To save the width and fbH to save the height of the framebuffer (real pixels)
+bool InitializeWindow(GLFWwindow *&window, int &framebufferWidth, int &framebufferHeight) // fbW To save the width and fbH to save the height of the framebuffer (real pixels)
 {
 #ifdef _WIN32
     DisableProcessWindowsGhosting();
@@ -48,7 +51,7 @@ bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebuff
         glfwDestroyWindow(window);
         glfwTerminate(); // Release GLFW resources if it fails
 
-         return false;
+        return false;
     }
 
     // Make this window context the current one for OpenGL
@@ -64,16 +67,16 @@ bool InitializeWindow(GLFWwindow*& window, int& framebufferWidth, int& framebuff
 
         return false;
     }
-        // Try to recover OpenGL functions from opengl32.dll if GLAD fails
+    // Try to recover OpenGL functions from opengl32.dll if GLAD fails
 #ifdef _WIN32
-        if (glad_glBlendFunc == NULL)
+    if (glad_glBlendFunc == NULL)
+    {
+        HMODULE openGL = GetModuleHandleA("opengl32.dll");
+        if (openGL)
         {
-            HMODULE openGL = GetModuleHandleA("opengl32.dll");
-            if (openGL)
-            {
-                glad_glBlendFunc = (PFNGLBLENDFUNCPROC)GetProcAddress(openGL, "glBlendFunc");
-            }
+            glad_glBlendFunc = (PFNGLBLENDFUNCPROC)GetProcAddress(openGL, "glBlendFunc");
         }
+    }
 #endif
 
     // Configure the viewport. We use GetFrame buffer Size for Retina/High DPI displays
@@ -99,7 +102,6 @@ void GetFramebufferSize(GLFWwindow *window, int &framebufferWidth, int &framebuf
         framebufferHeight = static_cast<int>(height);
 }
 
-
 void SyncCameraToFramebuffer(GLFWwindow *window, Camera &camera)
 {
     int w, h;
@@ -108,11 +110,11 @@ void SyncCameraToFramebuffer(GLFWwindow *window, Camera &camera)
     {
         camera.width = w;
         camera.height = h;
-        }
+    }
     glViewport(0, 0, w, h);
 }
 
-void SetupOpenGL (Shader& shaderProgram)
+void SetupOpenGL(Shader &shaderProgram)
 {
     glm::vec3 lightPos = glm::vec3(0.5f, 0.5f, 0.5f);
     shaderProgram.Activate();
@@ -123,13 +125,13 @@ void SetupOpenGL (Shader& shaderProgram)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_MULTISAMPLE); // Enable MSAA rendering pipeline
-} 
+}
 
 // -------------------------------------------------
 // Physics Helpers
 // -------------------------------------------------
 
-void ApplyGravity(CarState& car, float& carVerticalSpeed, bool isOnGround, float dt)
+void ApplyGravity(CarState &car, float &carVerticalSpeed, bool isOnGround, float dt)
 {
     const float gravity = 18.0f;
 
@@ -145,29 +147,85 @@ void ApplyGravity(CarState& car, float& carVerticalSpeed, bool isOnGround, float
 // --------------------------------------------------
 
 // Camera follow
-void UpdateFollowCamera(Camera &camera, const CarState &car, float dt)
+void UpdateFollowCamera(Camera &camera, const CarState &car, float dt, const City &city)
 {
     float yaw = car.yaw + orbitYaw;
     float pitch = 0.32f + orbitPitch;
+    glm::vec3 dir(-std::sin(yaw) * std::cos(pitch),
+                   std::sin(pitch),
+                  -std::cos(yaw) * std::cos(pitch));
 
-    glm::vec3 dir(-std::sin(yaw) * std::cos(pitch), std::sin(pitch), -std::cos(yaw) * std::cos(pitch));
-
-    // Dynamically scale follow camera distance and heights based on the car model scale
     float followDistance = 6.0f * (kCarModelScale / 0.42f) + 0.2f;
-    float cameraHeight = 0.25f * (kCarModelScale / 0.42f) + 0.05f;
-    float lookHeight = 0.45f * (kCarModelScale / 0.42f) + 0.02f;
+    float cameraHeight   = 0.25f * (kCarModelScale / 0.42f) + 0.05f;
+    float lookHeight     = 0.45f * (kCarModelScale / 0.42f) + 0.02f;
 
-    glm::vec3 desiredPosition = car.position + dir * followDistance + glm::vec3(0.0f, cameraHeight, 0.0f);
-    glm::vec3 lookTarget = car.position + glm::vec3(0.0f, kCarGroundYOffset + lookHeight, 0.0f);
+    glm::vec3 carEye     = car.position + glm::vec3(0.0f, kCarGroundYOffset + lookHeight, 0.0f);
+    glm::vec3 lookTarget = carEye;
 
+    // -----------------------------------------------------------------------
+    // CAMERA: intelligent collision (progressive elevation if blocked)
+    // -----------------------------------------------------------------------
+    float safeDistance = followDistance;
+    float elevation = 0.0f;
+    const float elevationStep = 0.5f;
+    const float maxElevation = 5.0f;
+    bool foundClear = false;
+    glm::vec3 bestPosition;
+
+    while (elevation <= maxElevation)
+    {
+        // Candidate position: behind the car with the current elevation
+        glm::vec3 candidate = car.position + dir * safeDistance
+                            + glm::vec3(0.0f, cameraHeight + elevation, 0.0f);
+
+        // Ray from the car's "eye" toward the candidate position
+        glm::vec3 rayDir = glm::normalize(candidate - carEye);
+        float distToTarget = glm::length(candidate - carEye);
+        float step = 0.2f;
+        int steps = static_cast<int>(distToTarget / step);
+        bool blocked = false;
+
+        for (int i = 1; i <= steps; ++i)
+        {
+            glm::vec3 sample = carEye + rayDir * (i * step);
+            if (city.CheckCollision(sample, 0.5f))   // generous radius for the camera
+            {
+                blocked = true;
+                break;
+            }
+        }
+
+        if (!blocked)
+        {
+            bestPosition = candidate;
+            foundClear = true;
+            break;
+        }
+
+        elevation += elevationStep;
+    }
+
+    // If even the maximum elevation is blocked, place the camera very close and high
+    if (!foundClear)
+    {
+        safeDistance = 0.8f;
+        bestPosition = car.position + dir * safeDistance
+                     + glm::vec3(0.0f, cameraHeight + maxElevation, 0.0f);
+    }
+
+    glm::vec3 desiredPosition = bestPosition;
+
+    // -----------------------------------------------------------------------
+    // Smooth movement
+    // -----------------------------------------------------------------------
     float t = isOrbiting ? 1.0f : glm::clamp(1.0f - std::pow(0.005f, dt), 0.0f, 1.0f);
-
-    camera.Position = glm::mix(camera.Position, desiredPosition, t);
+    camera.Position    = glm::mix(camera.Position, desiredPosition, t);
     camera.Orientation = glm::normalize(glm::mix(
-    camera.Orientation, glm::normalize(lookTarget - camera.Position), t));
+        camera.Orientation,
+        glm::normalize(lookTarget - camera.Position), t));
 }
 
-void UpdateOrbitCamera(GLFWwindow* window)
+void UpdateOrbitCamera(GLFWwindow *window)
 {
     // --- Camera orbit (right mouse) ---
     bool rmb = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
@@ -199,12 +257,11 @@ void UpdateOrbitCamera(GLFWwindow* window)
     }
 }
 
-
 // --------------------------------------------------
 // Gameplay Helpers
 // --------------------------------------------------
 
-void UpdateGameplay (GLFWwindow* window, DayNightCycle& dayNight, bool& headlightsOn, bool& lightsPressed)
+void UpdateGameplay(GLFWwindow *window, DayNightCycle &dayNight, bool &headlightsOn, bool &lightsPressed)
 {
     // --- Headlights toggle (L) or auto-toggle ---
     if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)

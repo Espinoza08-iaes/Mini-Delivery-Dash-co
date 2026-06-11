@@ -1,6 +1,6 @@
 #include "Game.h"
 #include "../city/City.h"
-#include "../scene/StreetLamp.h"
+#include "../scene/streetLamp.h"
 #include "../helpers/MainMenu.h"
 
 #include <iostream>
@@ -358,10 +358,10 @@ int Game::Run()
 
     DayNightCycle dayNight;
 
-    bool volverAlMenu = true;
+    bool backToMenu = true;
 
     // Bucle principal (menú + juego)
-    while (volverAlMenu && !glfwWindowShouldClose(window))
+    while (backToMenu && !glfwWindowShouldClose(window))
     {
 
         // Restaurar color de fondo a negro para el menú
@@ -373,7 +373,7 @@ int Game::Run()
 
         if (res == MainMenu::Result::Quit || glfwWindowShouldClose(window))
         {
-            volverAlMenu = false;
+            backToMenu  = false;
             break;
         }
 
@@ -441,7 +441,7 @@ int Game::Run()
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
             CheckWaterRespawn(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
-            UpdateFollowCamera(camera, car, dt);
+            UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car);
             UpdateHeadlights(shaderProgram, car, headlightsOn);
             ApplyDayNightLighting(shaderProgram, dayNight);
