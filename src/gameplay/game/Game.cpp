@@ -613,32 +613,19 @@ int Game::Run()
             glfwSwapBuffers(window);
             glfwPollEvents();
 
-            // ----- PAUSA CON ESC -----
-            static bool escWasPressed = false;
-            bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-            if (escPressed && !escWasPressed)
+        // ----- PAUSA CON ESC -----
+        static bool escWasPressed = false;
+        bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+        if (escPressed && !escWasPressed)
+        {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+            MainMenu pauseMenu(window, fbW, fbH);
+            MainMenu::Result pauseResult = pauseMenu.Show(true);
+
+            if (pauseResult == MainMenu::Result::Quit)
             {
-
-                // Resetear color de fondo para el menú de pausa
-                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-                // Crear un menú temporal para la pausa (mismo estilo que el principal)
-                MainMenu pauseMenu(window, fbW, fbH);
-                MainMenu::Result pauseResult = pauseMenu.Show(true);  // true = modo pausa
-
-                if (pauseResult == MainMenu::Result::Quit)
-                {
-                    // Salir al menú principal
-                    enJuego = false;
-                }
-                // Restaurar estado OpenGL
-                glEnable(GL_DEPTH_TEST);
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                glEnable(GL_MULTISAMPLE);
-                glDepthMask(GL_TRUE);
-                shaderProgram.Activate();
-                lastFrame = static_cast<float>(glfwGetTime());
+                enJuego = false;
             }
             escWasPressed = escPressed;
 
@@ -677,6 +664,16 @@ int Game::Run()
                 }
             }
             f9WasPressed = f9Pressed;
+            // Si es Play o HowToPlay, continuar
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_MULTISAMPLE);
+            glDepthMask(GL_TRUE);
+            shaderProgram.Activate();
+            lastFrame = static_cast<float>(glfwGetTime());
+        }
+        escWasPressed = escPressed;
         }
     }
 
