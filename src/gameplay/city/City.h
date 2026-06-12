@@ -8,6 +8,8 @@
 #include "../../engine/rendering/Model.h"
 #include "CityPhysics.h"
 
+class Frustum;
+
 class City
 {
 public:
@@ -34,7 +36,7 @@ public:
     bool CheckCollision(const glm::vec3& pos, float radius) const;
 
     // Dibuja la ciudad en el shader/camara actuales
-    void Draw(Shader &shader, Camera &camera);
+    void Draw(Shader &shader, Camera &camera, const Frustum* frustum = nullptr);
 
     // Devuelve la matriz mundo de la ciudad (escala + traslacion Y)
     glm::mat4 GetMatrix() const;

@@ -24,7 +24,7 @@ namespace
     // Gap fill mesh generation
     constexpr float GAP_COVER_MARGIN = 4.5f;       // How far to expand the cover mesh (meters)
     constexpr float TOP_DROP = 0.02f;              // Small downward offset to avoid z-fighting
-    constexpr float BACKING_DROP = 2.0f;           // How far down the backing extends (meters)
+    constexpr float BACKING_DROP = 20.0f;          // How far down the backing extends (meters)
     constexpr float VERTEX_RESERVE_FACTOR = 21.0f; // Approximate vertices per triangle (3 faces × 7 vertices)
     
     // Colors (RGB)
@@ -246,10 +246,10 @@ glm::mat4 City::GetMatrix() const
     return transform;
 }
 
-void City::Draw(Shader& shader, Camera& camera)
+void City::Draw(Shader& shader, Camera& camera, const Frustum* frustum)
 {
     // Draw the main city model
-    mModel.Draw(shader, camera, GetMatrix());
+    mModel.Draw(shader, camera, GetMatrix(), 0.0f, 0.0f, false, false, frustum);
     
     // Draw visual gap fill mesh if it exists
     if (mVisualGapFillMesh)

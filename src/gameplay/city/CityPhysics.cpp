@@ -366,7 +366,7 @@ namespace game
         // Evaluates if a triangle qualifies as a road or walkable surface based on slope, dimensions, and confidence.
         bool IsRoadTriangle(const glm::vec3 &normal, const glm::vec3 &minBounds, const glm::vec3 &maxBounds, bool trustedGroundSurface)
         {
-                // If material explicitly marks this as ground, trust it
+            // If material explicitly marks this as ground, trust it
             if (trustedGroundSurface) return true;
             // Calculate dimensions and the largest horizontal extent.
             float height = maxBounds.y - minBounds.y;

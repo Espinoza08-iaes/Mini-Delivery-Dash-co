@@ -18,6 +18,8 @@ struct CollisionBox
 };
 
 
+class Frustum;
+
 class Model
 {
 public:
@@ -27,6 +29,8 @@ public:
     const std::vector<glm::mat4>& GetMatricesMeshes() const { return matricesMeshes; }
     const std::vector<std::string>& GetMeshMaterialNames() const { return meshMaterialNames; }
     const std::vector<std::string>& GetMeshCollisionNames() const { return meshCollisionNames; }
+    const std::vector<glm::vec3>& GetMeshBoundsMin() const { return meshBoundsMin; }
+    const std::vector<glm::vec3>& GetMeshBoundsMax() const { return meshBoundsMax; }
 
     void Draw(
         Shader& shader,
@@ -35,7 +39,8 @@ public:
         float wheelSpin = 0.0f,
         float steeringAngle = 0.0f,
         bool headlightsOn = false,
-        bool braking = false
+        bool braking = false,
+        const Frustum* frustum = nullptr
     );
 
     //Declara la función para construir las cajas de colisión a partir de las mallas del modelo
@@ -61,6 +66,12 @@ private:
     std::vector<std::string> meshMaterialNames;
     std::vector<std::string> meshCollisionNames;
     std::vector<glm::vec3> meshCenters;
+    std::vector<glm::vec3> meshBoundsMin;
+    std::vector<glm::vec3> meshBoundsMax;
+    std::vector<bool> meshesHidden;
+    std::vector<int> meshEmissiveType;
+    std::vector<int> meshWheelType;
+    std::vector<float> meshReflectivity;
 
     std::vector<std::string> loadedTexName;
     std::vector<Texture> loadedTex;
@@ -68,6 +79,7 @@ private:
     void loadMesh(unsigned int indMesh);
     void loadAssimp(const std::string& filePath);
     void loadObj(const std::string& filePath);
+    void preclassifyMeshes();
     void processAssimpNode(aiNode* node, const aiScene* scene, const glm::mat4& parentMatrix, const std::string& fileDirectory, const std::string& nodePath = "");
     void processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& meshMatrix, const std::string& fileDirectory, const std::string& nodePath);
 

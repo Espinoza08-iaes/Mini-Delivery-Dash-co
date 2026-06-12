@@ -14,6 +14,8 @@ public:
     enum class Result { Play, Quit, None, HowToPlay };
 
     Result Show(bool showPause = false);
+    void SetPauseBackground(unsigned int texture);
+    void RenderLoading(float progress, const char* message);
 
 private:
     GLFWwindow* window;
@@ -33,6 +35,7 @@ private:
     unsigned int backgroundTexture = 0;
     int bgTexWidth = 0;
     int bgTexHeight = 0;
+    unsigned int pauseBackgroundTexture = 0;
 
     // Button textures + alpha for pixel‑perfect hit detection
     unsigned int playTexture = 0;
@@ -63,11 +66,13 @@ private:
 
     // Drawing
     void RenderQuad(float x, float y, float w, float h, unsigned int texture);
+    void RenderQuadSubset(float x, float y, float w, float h, unsigned int texture, float sx, float sy, float sw, float sh, float sheenVal = -10.0f);
     void RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a = 1.0f);
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.5f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.5f);
     void RenderButtonImage(float cx, float cy, float maxW, unsigned int tex, int tw, int th);
-    void RenderBackgroundImage(float fbW, float fbH);
+    void RenderBackgroundImage(float fbW, float fbH, float timeVal = 0.0f);
+    void RenderClouds(float fbW, float fbH, float timeVal);
 
     // Utility
     bool PointInRect(float px, float py, float rx, float ry, float rw, float rh);

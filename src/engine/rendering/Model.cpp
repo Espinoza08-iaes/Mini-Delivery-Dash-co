@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "../graphics/Frustum.h"
 
 #include <algorithm>
 #include <cctype>
@@ -240,6 +241,23 @@ glm::vec3 calculateCenter(const std::vector<Vertex>& vertices)
     return sum / static_cast<float>(vertices.size());
 }
 
+void calculateBounds(const std::vector<Vertex>& vertices, glm::vec3& outMin, glm::vec3& outMax)
+{
+    if (vertices.empty())
+    {
+        outMin = glm::vec3(0.0f);
+        outMax = glm::vec3(0.0f);
+        return;
+    }
+    outMin = glm::vec3(std::numeric_limits<float>::max());
+    outMax = glm::vec3(-std::numeric_limits<float>::max());
+    for (const Vertex& v : vertices)
+    {
+        outMin = glm::min(outMin, v.position);
+        outMax = glm::max(outMax, v.position);
+    }
+}
+
 bool materialUsesAlpha(const std::string& matName)
 {
     return matName == "windo" || matName == "windo_F" || matName == "windo_R" || matName == "windo_S" ||
@@ -356,6 +374,7 @@ Model::Model(const char* file)
     if (hasExtension(fileStr, ".obj") || hasExtension(fileStr, ".gltf") || hasExtension(fileStr, ".glb"))
     {
         loadAssimp(fileStr);
+        preclassifyMeshes();
         return;
     }
 
@@ -368,23 +387,45 @@ Model::Model(const char* file)
 
     // Traverse all nodes
     traverseNode(0);
+    preclassifyMeshes();
 }
 
-void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking)
+void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking, const Frustum* frustum)
 {
     for (unsigned int i = 0; i < meshes.size(); i++)
     {
-        std::string mat = meshMaterialNames[i];
-        std::string matLower = toLower(mat);
-        
-        // Hide showcase stand / base / support meshes and the under-car shadow plate "_"
-        if (matLower.find("floor") != std::string::npos ||
-            matLower.find("bottom") != std::string::npos ||
-            matLower.find("suport") != std::string::npos ||
-            matLower.find("support") != std::string::npos ||
-            matLower == "_")
+        // Skip hidden meshes
+        if (meshesHidden[i])
         {
             continue;
+        }
+
+        glm::mat4 meshMatrix = matricesMeshes[i];
+
+        if (frustum)
+        {
+            glm::mat4 M = worldMatrix * meshMatrix;
+            glm::vec3 localMin = meshBoundsMin[i];
+            glm::vec3 localMax = meshBoundsMax[i];
+            glm::vec3 worldMin(M[3]);
+            glm::vec3 worldMax(M[3]);
+            for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                    float a = M[c][r] * localMin[c];
+                    float b = M[c][r] * localMax[c];
+                    if (a < b) {
+                        worldMin[r] += a;
+                        worldMax[r] += b;
+                    } else {
+                        worldMin[r] += b;
+                        worldMax[r] += a;
+                    }
+                }
+            }
+            if (!frustum->IsBoxVisible(worldMin, worldMax))
+            {
+                continue;
+            }
         }
 
         glUniform1i(glGetUniformLocation(shader.ID, "uUseAlpha"), meshesUseAlpha[i] ? 1 : 0);
@@ -392,23 +433,24 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
         // Emissive lights (headlights / brakelights)
         bool isEmissive = false;
         glm::vec3 emissiveColor(0.0f);
+        int emissiveType = meshEmissiveType[i];
 
-        if (headlightsOn && (mat == "headlight_1" || mat == "headlight_2" || mat == "headlightglass"))
+        if (emissiveType == 1 && headlightsOn)
         {
             isEmissive = true;
             emissiveColor = glm::vec3(1.5f, 1.5f, 1.2f); // Bright yellow-white headlights
         }
-        else if (headlightsOn && (mat == "front_turn_signal" || mat == "side_turn_signal" || mat == "rear_turn_signal"))
+        else if (emissiveType == 2 && headlightsOn)
         {
             isEmissive = true;
             emissiveColor = glm::vec3(1.5f, 0.7f, 0.0f); // Bright amber signals
         }
-        else if (braking && mat == "brakelight")
+        else if (emissiveType == 3 && braking)
         {
             isEmissive = true;
             emissiveColor = glm::vec3(2.0f, 0.0f, 0.0f); // Intense red braking light
         }
-        else if (headlightsOn && mat == "rear_lamp")
+        else if (emissiveType == 4 && headlightsOn)
         {
             isEmissive = true;
             emissiveColor = glm::vec3(0.9f, 0.1f, 0.1f); // Standard red tail lamp
@@ -420,13 +462,9 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
             glUniform3f(glGetUniformLocation(shader.ID, "uEmissiveColor"), emissiveColor.x, emissiveColor.y, emissiveColor.z);
         }
 
-        glm::mat4 meshMatrix = matricesMeshes[i];
-
         // Animate wheels if this is a split wheel mesh
-        bool isWheel = (mat.rfind("FL_", 0) == 0 || mat.rfind("FR_", 0) == 0 || 
-                        mat.rfind("RL_", 0) == 0 || mat.rfind("RR_", 0) == 0);
-        
-        if (isWheel)
+        int wheelType = meshWheelType[i];
+        if (wheelType != 0)
         {
             glm::vec3 C = meshCenters[i];
             glm::mat4 wheelTransform = glm::mat4(1.0f);
@@ -434,8 +472,8 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
             // Translate to wheel local center
             wheelTransform = glm::translate(wheelTransform, C);
             
-            // Apply steering rotation for front wheels (FL and FR)
-            if (mat.rfind("FL_", 0) == 0 || mat.rfind("FR_", 0) == 0)
+            // Apply steering rotation for front wheels (FL = 1 and FR = 2)
+            if (wheelType == 1 || wheelType == 2)
             {
                 wheelTransform = glm::rotate(wheelTransform, steeringAngle, glm::vec3(0.0f, 1.0f, 0.0f));
             }
@@ -449,13 +487,7 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
             meshMatrix = wheelTransform * meshMatrix;
         }
 
-        float reflectivity = 0.0f;
-        if (mat == "McLaren_F1_1993_By_Alex_Ka_") reflectivity = 0.35f;
-        else if (mat == "rim" || mat == "chrome" || mat == "chrome2") reflectivity = 0.5f;
-        else if (mat == "windo" || mat == "windo_F" || mat == "windo_R" || mat == "windo_S" || mat == "headlightglass") reflectivity = 0.6f;
-        else if (matLower.find("window") != std::string::npos || matLower.find("glass") != std::string::npos) reflectivity = 0.4f;
-
-        glUniform1f(glGetUniformLocation(shader.ID, "uReflectivity"), reflectivity);
+        glUniform1f(glGetUniformLocation(shader.ID, "uReflectivity"), meshReflectivity[i]);
 
         meshes[i].Mesh::Draw(shader, camera, worldMatrix * meshMatrix);
     }
@@ -534,6 +566,12 @@ void Model::loadMesh(unsigned int indMesh)
     meshMaterialNames.push_back(meshName);
     meshCollisionNames.push_back(meshName);
     meshCenters.push_back(calculateCenter(vertices));
+
+    // Compute AABB for frustum culling
+    glm::vec3 bMin, bMax;
+    calculateBounds(vertices, bMin, bMax);
+    meshBoundsMin.push_back(bMin);
+    meshBoundsMax.push_back(bMax);
 
     // Combine the vertices, indices, and textures into a mesh
     meshes.push_back(Mesh(vertices, indices, textures));
@@ -710,6 +748,10 @@ void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat
             meshMaterialNames.push_back(splitMat[k]);
             meshCollisionNames.push_back(splitMat[k] + " " + collisionName);
             meshCenters.push_back(splitCent[k]);
+            glm::vec3 bMin, bMax;
+            calculateBounds(splitM[k].vertices, bMin, bMax);
+            meshBoundsMin.push_back(bMin);
+            meshBoundsMax.push_back(bMax);
             meshes.push_back(splitM[k]);
             translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
             rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
@@ -723,6 +765,10 @@ void Model::processAssimpMesh(aiMesh* mesh, const aiScene* scene, const glm::mat
         meshMaterialNames.push_back(materialName);
         meshCollisionNames.push_back(collisionName);
         meshCenters.push_back(calculateCenter(vertices));
+        glm::vec3 bMin, bMax;
+        calculateBounds(vertices, bMin, bMax);
+        meshBoundsMin.push_back(bMin);
+        meshBoundsMax.push_back(bMax);
         meshes.push_back(Mesh(vertices, indices, textures));
         translationsMeshes.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
         rotationsMeshes.push_back(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
@@ -1400,5 +1446,85 @@ std::vector<glm::vec4> Model::groupFloatsVec4(std::vector<float> floatVec)
         vectors.push_back(glm::vec4(floatVec[i], floatVec[i + 1], floatVec[i + 2], floatVec[i + 3]));
     }
     return vectors;
+}
+
+void Model::preclassifyMeshes()
+{
+    meshesHidden.assign(meshes.size(), false);
+    meshEmissiveType.assign(meshes.size(), 0);
+    meshWheelType.assign(meshes.size(), 0);
+    meshReflectivity.assign(meshes.size(), 0.0f);
+
+    for (size_t i = 0; i < meshes.size(); ++i)
+    {
+        std::string mat = (i < meshMaterialNames.size()) ? meshMaterialNames[i] : "";
+        std::string matLower = toLower(mat);
+
+        // Classify hidden
+        if (matLower.find("floor") != std::string::npos ||
+            matLower.find("bottom") != std::string::npos ||
+            matLower.find("suport") != std::string::npos ||
+            matLower.find("support") != std::string::npos ||
+            matLower == "_")
+        {
+            meshesHidden[i] = true;
+        }
+
+        // Classify emissive type
+        if (mat == "headlight_1" || mat == "headlight_2" || mat == "headlightglass")
+        {
+            meshEmissiveType[i] = 1; // headlight
+        }
+        else if (mat == "front_turn_signal" || mat == "side_turn_signal" || mat == "rear_turn_signal")
+        {
+            meshEmissiveType[i] = 2; // turn signal
+        }
+        else if (mat == "brakelight")
+        {
+            meshEmissiveType[i] = 3; // brakelight
+        }
+        else if (mat == "rear_lamp")
+        {
+            meshEmissiveType[i] = 4; // rear lamp
+        }
+
+        // Classify wheel type
+        if (mat.rfind("FL_", 0) == 0)
+        {
+            meshWheelType[i] = 1;
+        }
+        else if (mat.rfind("FR_", 0) == 0)
+        {
+            meshWheelType[i] = 2;
+        }
+        else if (mat.rfind("RL_", 0) == 0)
+        {
+            meshWheelType[i] = 3;
+        }
+        else if (mat.rfind("RR_", 0) == 0)
+        {
+            meshWheelType[i] = 4;
+        }
+
+        // Classify reflectivity
+        float reflectivity = 0.0f;
+        if (mat == "McLaren_F1_1993_By_Alex_Ka_")
+        {
+            reflectivity = 0.35f;
+        }
+        else if (mat == "rim" || mat == "chrome" || mat == "chrome2")
+        {
+            reflectivity = 0.5f;
+        }
+        else if (mat == "windo" || mat == "windo_F" || mat == "windo_R" || mat == "windo_S" || mat == "headlightglass")
+        {
+            reflectivity = 0.6f;
+        }
+        else if (matLower.find("window") != std::string::npos || matLower.find("glass") != std::string::npos)
+        {
+            reflectivity = 0.4f;
+        }
+        meshReflectivity[i] = reflectivity;
+    }
 }
 

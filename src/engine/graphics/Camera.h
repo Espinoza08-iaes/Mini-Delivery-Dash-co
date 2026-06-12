@@ -43,6 +43,8 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, uniform), 1, GL_FALSE, glm::value_ptr(cameraMatrix));
     }
 
+    glm::mat4 GetCameraMatrix() const { return cameraMatrix; }
+
     void Inputs(GLFWwindow* window)
     {
         float crntSpeed = speed;

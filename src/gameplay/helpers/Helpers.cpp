@@ -39,26 +39,43 @@ bool InitializeWindow(GLFWwindow *&window, int &framebufferWidth, int &framebuff
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 4);
 
-    // Start with a 16:9 window (1280x720)
-    const unsigned int width = 1280;
-    const unsigned int height = 720;
+    // Query the primary monitor to adapt to any device and occupy the full screen
+    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+    if (primaryMonitor)
+    {
+        const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+        
+        // Use the primary monitor's resolution and refresh rate
+        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+        
+        window = glfwCreateWindow(mode->width, mode->height, "Mini Delivery Dash", primaryMonitor, nullptr);
+    }
+    else
+    {
+        // Fallback to windowed mode if monitor query fails
+        const unsigned int fallbackWidth = 1280;
+        const unsigned int fallbackHeight = 720;
+        window = glfwCreateWindow(fallbackWidth, fallbackHeight, "Mini Delivery Dash", nullptr, nullptr);
+    }
 
-    window = glfwCreateWindow(width, height, "Mini Delivery Dash", nullptr, nullptr);
     if (!window)
     {
         std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwDestroyWindow(window);
         glfwTerminate(); // Release GLFW resources if it fails
-
         return false;
     }
 
     // ============================================================
-    // LOCK THE ASPECT RATIO TO 16:9
+    // LOCK THE ASPECT RATIO TO 16:9 (Only for windowed mode fallback)
     // ============================================================
-    glfwSetWindowAspectRatio(window, 16, 9);
-
-    glfwSetWindowSizeLimits(window, 1024,576, GLFW_DONT_CARE, GLFW_DONT_CARE);
+    if (!primaryMonitor)
+    {
+        glfwSetWindowAspectRatio(window, 16, 9);
+        glfwSetWindowSizeLimits(window, 1024, 576, GLFW_DONT_CARE, GLFW_DONT_CARE);
+    }
 
     glfwMakeContextCurrent(window);
 
@@ -171,7 +188,7 @@ void UpdateFollowCamera(Camera &camera, const CarState &car, float dt, const Cit
     // -----------------------------------------------------------------------
     float safeDistance = followDistance;
     float elevation = 0.0f;
-    const float elevationStep = 0.5f;
+    const float elevationStep = 1.0f;
     const float maxElevation = 5.0f;
     bool foundClear = false;
     glm::vec3 bestPosition;
@@ -185,7 +202,7 @@ void UpdateFollowCamera(Camera &camera, const CarState &car, float dt, const Cit
         // Ray from the car's "eye" toward the candidate position
         glm::vec3 rayDir = glm::normalize(candidate - carEye);
         float distToTarget = glm::length(candidate - carEye);
-        float step = 0.2f;
+        float step = 0.5f;
         int steps = static_cast<int>(distToTarget / step);
         bool blocked = false;
 

@@ -91,7 +91,8 @@ MainMenu::MainMenu(GLFWwindow* w, int sw, int sh)
       resumeTexture(0), resumeTexWidth(0), resumeTexHeight(0),
       howToPlayTexture(0), howToPlayTexWidth(0), howToPlayTexHeight(0),
       exitTexture(0), exitTexWidth(0), exitTexHeight(0),
-      mainMenuTexture(0), mainMenuTexWidth(0), mainMenuTexHeight(0)
+      mainMenuTexture(0), mainMenuTexWidth(0), mainMenuTexHeight(0),
+      pauseBackgroundTexture(0)
 {
     SetupGraphics();
     SetupTextRendering();
@@ -112,6 +113,11 @@ MainMenu::~MainMenu()
     if (textProgram)       glDeleteProgram(textProgram);
 }
 
+void MainMenu::SetPauseBackground(unsigned int texture)
+{
+    pauseBackgroundTexture = texture;
+}
+
 // ======================================================================
 // SETUP
 // ======================================================================
@@ -124,7 +130,48 @@ void MainMenu::SetupGraphics()
     const char* fs = R"(#version 330 core
         out vec4 frag; in vec2 Tex;
         uniform sampler2D uTex; uniform int uSolid; uniform vec4 uColor;
-        void main(){ frag = uSolid==1 ? uColor : texture(uTex,Tex); })";
+        uniform vec4 uTexCoordTransform;
+        uniform float uSheen;
+        uniform float uFlickerTime;
+        uniform int uCloudLayer;
+        uniform float uCloudTime;
+        void main(){ 
+            if (uCloudLayer == 1) {
+                float speed = uCloudTime * 0.035;
+                float n1 = sin(Tex.x * 4.0 - speed) * cos(Tex.y * 3.0 + speed * 0.4);
+                float n2 = cos(Tex.x * 8.0 + speed * 0.8) * sin(Tex.y * 5.0 - speed * 0.6);
+                float n3 = sin(Tex.x * 16.0 - speed * 1.5) * cos(Tex.y * 10.0 + speed * 0.9);
+                float density = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.5 + 0.5;
+                density *= smoothstep(0.0, 0.3, Tex.y) * smoothstep(1.0, 0.7, Tex.y);
+                vec3 colClouds = mix(vec3(0.9, 0.45, 0.2), vec3(0.18, 0.12, 0.22), Tex.y);
+                frag = vec4(colClouds, density * 0.38);
+                return;
+            }
+            vec2 uv = Tex * uTexCoordTransform.xy + uTexCoordTransform.zw;
+            vec4 texColor = uSolid==1 ? uColor : texture(uTex,uv); 
+            if (uSolid == 0 && uSheen > -5.0) {
+                float linePos = Tex.x + Tex.y;
+                float dist = abs(linePos - uSheen);
+                float width = 0.15;
+                float factor = smoothstep(width, 0.0, dist);
+                texColor.rgb += vec3(factor * 0.25);
+            }
+            if (uSolid == 0 && uFlickerTime > 0.0) {
+                if (uv.y < 0.45 && texColor.r > 0.48 && texColor.g > 0.38 && texColor.b < 0.35) {
+                    float freq = 2.0 + sin(uv.x * 200.0) * 1.0;
+                    float phase = uv.x * 500.0 + uv.y * 300.0;
+                    float noise = sin(uFlickerTime * freq + phase);
+                    float flicker = 0.75 + 0.35 * noise;
+                    if (flicker < 0.5) {
+                        flicker = 0.2;
+                    } else if (flicker > 0.95) {
+                        flicker = 1.25;
+                    }
+                    texColor.rgb *= flicker;
+                }
+            }
+            frag = texColor;
+        })";
     hudProgram = compileShader(vs, fs);
 
     float quad[] = { 0,0,0,1, 0,1,0,0, 1,1,1,0, 0,0,0,1, 1,1,1,0, 1,0,1,1 };
@@ -172,6 +219,7 @@ unsigned int MainMenu::LoadTextureFile(const char* path, int& w, int& h, std::ve
 
 void MainMenu::LoadAllTextures()
 {
+    stbi_set_flip_vertically_on_load(true);
     std::vector<unsigned char> dummy;
     backgroundTexture = LoadTextureFile("res/textures/BackGround_STB.png", bgTexWidth, bgTexHeight, dummy);
     playTexture       = LoadTextureFile("res/textures/Play_STB.png", playTexWidth, playTexHeight, playAlpha);
@@ -217,11 +265,39 @@ void MainMenu::RenderButtonImage(float cx, float cy, float maxW, unsigned int te
     RenderQuad(cx - dw * 0.5f, cy - dh * 0.5f, dw, dh, tex);
 }
 
-void MainMenu::RenderBackgroundImage(float fbW, float fbH)
+void MainMenu::RenderBackgroundImage(float fbW, float fbH, float timeVal)
 {
     if (!backgroundTexture || bgTexWidth <= 0) { RenderColoredQuad(0, 0, fbW, fbH, 0, 0, 0); return; }
-    // Stretch image to exactly fill the screen (may distort aspect ratio)
-    RenderQuad(0, 0, fbW, fbH, backgroundTexture);
+    glUseProgram(hudProgram);
+    glm::mat4 model = glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
+    model = glm::scale(model, glm::vec3(fbW, fbH, 1));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
+    glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+    glUniform4f(glGetUniformLocation(hudProgram, "uTexCoordTransform"), 1.0f, 1.0f, 0.0f, 0.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uSheen"), -10.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uFlickerTime"), timeVal);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 0);
+    glUniform1f(glGetUniformLocation(hudProgram, "uCloudTime"), 0.0f);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+    glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void MainMenu::RenderClouds(float fbW, float fbH, float timeVal)
+{
+    glUseProgram(hudProgram);
+    glm::mat4 model = glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
+    model = glm::scale(model, glm::vec3(fbW, fbH * 0.5f, 1));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
+    glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+    glUniform4f(glGetUniformLocation(hudProgram, "uTexCoordTransform"), 1.0f, 1.0f, 0.0f, 0.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uSheen"), -10.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uFlickerTime"), 0.0f);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 1);
+    glUniform1f(glGetUniformLocation(hudProgram, "uCloudTime"), timeVal);
+    glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 0);
 }
 
 void MainMenu::RenderQuad(float x, float y, float w, float h, unsigned int tex)
@@ -232,6 +308,28 @@ void MainMenu::RenderQuad(float x, float y, float w, float h, unsigned int tex)
     glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
     glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
     glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+    glUniform4f(glGetUniformLocation(hudProgram, "uTexCoordTransform"), 1.0f, 1.0f, 0.0f, 0.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uSheen"), -10.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uFlickerTime"), 0.0f);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 0);
+    glUniform1f(glGetUniformLocation(hudProgram, "uCloudTime"), 0.0f);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
+    glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void MainMenu::RenderQuadSubset(float x, float y, float w, float h, unsigned int tex, float sx, float sy, float sw, float sh, float sheenVal)
+{
+    glUseProgram(hudProgram);
+    glm::mat4 model = glm::translate(glm::mat4(1), glm::vec3(x, y, 0));
+    model = glm::scale(model, glm::vec3(w, h, 1));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
+    glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+    glUniform4f(glGetUniformLocation(hudProgram, "uTexCoordTransform"), sw, sh, sx, sy);
+    glUniform1f(glGetUniformLocation(hudProgram, "uSheen"), sheenVal);
+    glUniform1f(glGetUniformLocation(hudProgram, "uFlickerTime"), 0.0f);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 0);
+    glUniform1f(glGetUniformLocation(hudProgram, "uCloudTime"), 0.0f);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
     glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
 }
@@ -244,6 +342,11 @@ void MainMenu::RenderColoredQuad(float x, float y, float w, float h, float r, fl
     glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
     glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 1);
     glUniform4f(glGetUniformLocation(hudProgram, "uColor"), r, g, b, a);
+    glUniform4f(glGetUniformLocation(hudProgram, "uTexCoordTransform"), 1.0f, 1.0f, 0.0f, 0.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uSheen"), -10.0f);
+    glUniform1f(glGetUniformLocation(hudProgram, "uFlickerTime"), 0.0f);
+    glUniform1i(glGetUniformLocation(hudProgram, "uCloudLayer"), 0);
+    glUniform1f(glGetUniformLocation(hudProgram, "uCloudTime"), 0.0f);
     glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
@@ -257,6 +360,13 @@ bool MainMenu::PointInRect(float px, float py, float rx, float ry, float rw, flo
 // ======================================================================
 void MainMenu::ShowHowToPlay()
 {
+    double startTime = glfwGetTime();
+    double lastT = startTime;
+    float fadeAlpha = 1.0f;
+    float fadeOutAlpha = 0.0f;
+    bool isFadingOut = false;
+    float fadeDuration = 0.3f;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -266,15 +376,48 @@ void MainMenu::ShowHowToPlay()
         mx *= (float)fbW / wW; my *= (float)fbH / wH;
         bool click = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
+        double currentT = glfwGetTime();
+        float dt = (float)(currentT - lastT);
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+        lastT = currentT;
+
+        if (!isFadingOut)
+        {
+            if (fadeAlpha > 0.0f)
+            {
+                fadeAlpha -= dt / fadeDuration;
+                if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
+            }
+        }
+        else
+        {
+            fadeOutAlpha += dt / fadeDuration;
+            if (fadeOutAlpha >= 1.0f)
+            {
+                return;
+            }
+        }
+
         float bw = 200, bh = 50;
         float bx = (fbW - bw) * 0.5f, by = fbH - 120.f;
-        bool over = PointInRect((float)mx, (float)my, bx, by, bw, bh);
+
+        // Bobbing animation for BACK button
+        float bob = sin((float)currentT * 2.5f) * 5.0f;
+        float drawYBase = by + bob;
+
+        bool over = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
         static bool was = false;
-        if (click && !was && over) return;
+        if (click && !was && over && !isFadingOut) {
+            isFadingOut = true;
+        }
         was = click;
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) return;
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) {
+            isFadingOut = true;
+        }
 
         glClearColor(0,0,0,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
         glUseProgram(hudProgram);
         glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
@@ -302,13 +445,40 @@ void MainMenu::ShowHowToPlay()
         for (int i = 0; i < 8; i++)
             RenderText(lines[i], px + 60, py + 105 + i * 38, 0.65f, 0.65f, 0.65f, 1.3f);
 
-        RenderColoredQuad(bx, by, bw, bh, 0.1f, 0.1f, 0.1f);
-        float bt = 1.2f, bcol = 0.3f;
-        RenderColoredQuad(bx, by, bw, bt, bcol, bcol, bcol);
-        RenderColoredQuad(bx, by + bh - bt, bw, bt, bcol, bcol, bcol);
-        RenderColoredQuad(bx, by, bt, bh, bcol, bcol, bcol);
-        RenderColoredQuad(bx + bw - bt, by, bt, bh, bcol, bcol, bcol);
-        RenderTextCentered("BACK", bx + bw * 0.5f, by + (bh - 18) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f);
+        float s = 1.0f;
+        float yOff = 0.0f;
+        if (over)
+        {
+            if (click)
+            {
+                s = 0.92f;
+                yOff = 4.0f;
+            }
+            else
+            {
+                s = 1.08f;
+            }
+        }
+        
+        float drawW = bw * s;
+        float drawH = bh * s;
+        float drawX = bx + (bw - drawW) * 0.5f;
+        float drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
+
+        RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f);
+        float bt = 1.2f * s, bcol = 0.3f;
+        RenderColoredQuad(drawX, drawY, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY + drawH - bt, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderColoredQuad(drawX + drawW - bt, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderTextCentered("BACK", drawX + drawW * 0.5f, drawY + (drawH - 18.0f * s) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f * s);
+
+        // Draw fade overlay
+        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+        if (overlayAlpha > 0.0f)
+        {
+            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
+        }
 
         glfwSwapBuffers(window);
     }
@@ -323,6 +493,14 @@ MainMenu::Result MainMenu::Show(bool pause)
     static bool escWas = false;
     if (pause) escWas = true;
 
+    double startTime = glfwGetTime();
+    double lastT = startTime;
+    float fadeAlpha = 1.0f;
+    float fadeOutAlpha = 0.0f;
+    bool isFadingOut = false;
+    Result pendingChoice = Result::None;
+    float fadeDuration = 0.5f;
+
     while (!glfwWindowShouldClose(window) && choice == Result::None)
     {
         glfwPollEvents();
@@ -332,9 +510,33 @@ MainMenu::Result MainMenu::Show(bool pause)
         mx *= (float)fbW / wW; my *= (float)fbH / wH;
         bool click = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
-        if (pause) {
+        double currentT = glfwGetTime();
+        float dt = (float)(currentT - lastT);
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+        lastT = currentT;
+
+        if (!isFadingOut)
+        {
+            if (fadeAlpha > 0.0f)
+            {
+                fadeAlpha -= dt / fadeDuration;
+                if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
+            }
+        }
+        else
+        {
+            fadeOutAlpha += dt / fadeDuration;
+            if (fadeOutAlpha >= 1.0f)
+            {
+                fadeOutAlpha = 1.0f;
+                choice = pendingChoice;
+            }
+        }
+
+        if (pause && !isFadingOut) {
             bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-            if (esc && !escWas) choice = Result::Play;
+            if (esc && !escWas) { pendingChoice = Result::Play; isFadingOut = true; }
             escWas = esc;
         }
 
@@ -400,34 +602,186 @@ MainMenu::Result MainMenu::Show(bool pause)
         };
         float cx = fbW * 0.5f;
 
-        // Pixel-perfect hit detection
+        // Pixel-perfect hit detection (including bobbing)
         bool over[3];
+        float bob[3];
         for (int i = 0; i < 3; i++)
-            over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i], dw[i], dh[i], *al[i], tw[i], th[i]);
+        {
+            bob[i] = sin((float)currentT * 2.5f + i * 1.2f) * 5.0f;
+            over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
+        }
 
         static bool wasCl = false;
-        if (click && !wasCl) {
-            if (over[0]) choice = Result::Play;
-            if (over[1]) choice = Result::HowToPlay;
-            if (over[2]) choice = Result::Quit;
+        if (click && !wasCl && !isFadingOut) {
+            if (over[0]) { pendingChoice = Result::Play; isFadingOut = true; }
+            if (over[1]) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
+            if (over[2]) { pendingChoice = Result::Quit; isFadingOut = true; }
         }
         wasCl = click;
 
         // RENDER
         glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
         glUseProgram(hudProgram);
         glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
 
-        if (pause) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
-        else { RenderBackgroundImage((float)fbW, (float)fbH); }
+        if (pause) {
+            if (pauseBackgroundTexture != 0) {
+                RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
+            }
+            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
+        }
+        else {
+            RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
+            RenderClouds((float)fbW, (float)fbH, (float)currentT);
+
+            // 1. Cover up the delivery box above the logo by cloning the adjacent sky gradient
+            float coverW = fbW * 0.16f;
+            float coverH = fbH * 0.15f;
+            float coverX = fbW * 0.5f - coverW * 0.5f;
+            float coverY = fbH * 0.03f;
+            RenderQuadSubset(coverX, coverY, coverW, coverH, backgroundTexture, 0.2f, 0.80f, 0.16f, 0.15f);
+
+            // 2. Animate a premium metallic sheen/shine sweep across the main logo plate
+            float sheenCycle = fmod((float)currentT, 3.0f);
+            float sheenVal = -10.0f;
+            if (sheenCycle < 1.0f) {
+                sheenVal = sheenCycle * 2.0f; // sweep from 0.0 to 2.0 in 1 second
+            }
+            float logoW = fbW * 0.26f;
+            float logoH = fbH * 0.11f;
+            float logoX = fbW * 0.5f - logoW * 0.5f;
+            float logoY = fbH * 0.245f - logoH * 0.5f;
+            RenderQuadSubset(logoX, logoY, logoW, logoH, backgroundTexture, 0.37f, 0.695f, 0.26f, 0.11f, sheenVal);
+        }
 
         // Draw all 3 buttons
         for (int i = 0; i < 3; i++)
-            RenderButtonImage(cx, cy[i], dw[i], texID[i], tw[i], th[i]);
+        {
+            float s = 1.0f;
+            float yOff = 0.0f;
+            if (over[i])
+            {
+                if (click)
+                {
+                    s = 0.92f;
+                    yOff = 4.0f;
+                }
+                else
+                {
+                    s = 1.08f;
+                }
+            }
+            RenderButtonImage(cx, cy[i] + yOff + bob[i], dw[i] * s, texID[i], tw[i], th[i]);
+        }
+
+        // Draw fade overlay
+        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+        if (overlayAlpha > 0.0f)
+        {
+            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
+        }
 
         glfwSwapBuffers(window);
     }
     if (choice == Result::HowToPlay) { ShowHowToPlay(); return Show(pause); }
     return choice;
+}
+
+void MainMenu::RenderLoading(float progress, const char* message)
+{
+    // Clear screen
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    int fbW = width, fbH = height;
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+    glUseProgram(hudProgram);
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+    // Draw background dimmed to 70% black
+    RenderBackgroundImage((float)fbW, (float)fbH);
+    RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.7f);
+
+    // Draw a nice retro loading panel in the center
+    float pw = 600.0f;
+    float ph = 170.0f;
+    float px = (fbW - pw) * 0.5f;
+    float py = (fbH - ph) * 0.5f;
+    
+    // Panel base (dark charcoal brown)
+    RenderColoredQuad(px, py, pw, ph, 0.12f, 0.10f, 0.09f, 0.95f);
+    
+    // Double retro borders (matching the buttons!)
+    float bcol1_r = 0.35f, bcol1_g = 0.28f, bcol1_b = 0.22f;
+    float bcol2_r = 0.20f, bcol2_g = 0.16f, bcol2_b = 0.13f;
+    
+    // Outer border
+    float ob = 3.0f;
+    RenderColoredQuad(px - ob, py - ob, pw + ob*2, ob, bcol2_r, bcol2_g, bcol2_b);
+    RenderColoredQuad(px - ob, py + ph, pw + ob*2, ob, bcol2_r, bcol2_g, bcol2_b);
+    RenderColoredQuad(px - ob, py, ob, ph, bcol2_r, bcol2_g, bcol2_b);
+    RenderColoredQuad(px + pw, py, ob, ph, bcol2_r, bcol2_g, bcol2_b);
+
+    // Inner border
+    float ib = 1.5f;
+    float gap = 4.0f;
+    RenderColoredQuad(px + gap, py + gap, pw - gap*2, ib, bcol1_r, bcol1_g, bcol1_b);
+    RenderColoredQuad(px + gap, py + ph - gap - ib, pw - gap*2, ib, bcol1_r, bcol1_g, bcol1_b);
+    RenderColoredQuad(px + gap, py + gap, ib, ph - gap*2, bcol1_r, bcol1_g, bcol1_b);
+    RenderColoredQuad(px + pw - gap - ib, py + gap, ib, ph - gap*2, bcol1_r, bcol1_g, bcol1_b);
+
+    // Message (Warm Gold/Bronze)
+    RenderTextCentered(message, fbW * 0.5f, py + 30.0f, 0.8f, 0.65f, 0.45f, 1.4f);
+
+    // Percentage text
+    char pct[32];
+    sprintf(pct, "%d%%", (int)(progress * 100.0f));
+    RenderTextCentered(pct, fbW * 0.5f, py + 65.0f, 0.8f, 0.65f, 0.45f, 1.2f);
+
+    // Segmented progress bar
+    int maxSegments = 16;
+    int filledSegments = (int)(progress * maxSegments);
+    
+    float barW = pw * 0.8f;
+    float barH = 20.0f;
+    float segmentGap = 4.0f;
+    float totalGapsWidth = (maxSegments - 1) * segmentGap;
+    float segmentW = (barW - totalGapsWidth) / maxSegments;
+    
+    float barX = px + (pw - barW) * 0.5f;
+    float barY = py + 105.0f;
+    
+    // Draw segments
+    for (int i = 0; i < maxSegments; i++)
+    {
+        float segX = barX + i * (segmentW + segmentGap);
+        if (i < filledSegments)
+        {
+            // Filled segment: warm gold/bronze color (R=0.8f, G=0.55f, B=0.35f)
+            RenderColoredQuad(segX, barY, segmentW, barH, 0.8f, 0.55f, 0.35f, 1.0f);
+            
+            // Sub-borders inside the segment to make it look 3D/beveled!
+            RenderColoredQuad(segX, barY, segmentW, 1.5f, 0.95f, 0.75f, 0.55f, 1.0f); // top highlight
+            RenderColoredQuad(segX, barY + barH - 1.5f, segmentW, 1.5f, 0.5f, 0.35f, 0.2f, 1.0f); // bottom shadow
+        }
+        else
+        {
+            // Empty segment: dark background with a very subtle gold/bronze border
+            RenderColoredQuad(segX, barY, segmentW, barH, 0.08f, 0.06f, 0.05f, 1.0f);
+            
+            // Subtle border around empty segment
+            float bt = 1.0f;
+            RenderColoredQuad(segX, barY, segmentW, bt, 0.25f, 0.2f, 0.15f, 1.0f);
+            RenderColoredQuad(segX, barY + barH - bt, segmentW, bt, 0.25f, 0.2f, 0.15f, 1.0f);
+            RenderColoredQuad(segX, barY, bt, barH, 0.25f, 0.2f, 0.15f, 1.0f);
+            RenderColoredQuad(segX + segmentW - bt, barY, bt, barH, 0.25f, 0.2f, 0.15f, 1.0f);
+        }
+    }
+
+    glfwSwapBuffers(window);
 }
