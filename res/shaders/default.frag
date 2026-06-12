@@ -31,6 +31,7 @@ uniform vec3 uStreetLightPos[8];
 // Emissive lighting for glowing parts
 uniform bool uIsEmissive;
 uniform vec3 uEmissiveColor;
+uniform int uIsFacade;
 
 // Headlights spotlights uniforms
 uniform bool uHeadlightsLightOn;
@@ -330,6 +331,25 @@ void main()
 
             streetLight = min(streetLight, vec3(0.85));
             baseLight.rgb += streetLight;
+        }
+
+        // --- Facade window glow (night only) ---
+        if (uIsFacade == 1 && uStreetLightsOn == 1)
+        {
+            vec2 gridSize = vec2(32.0, 16.0);
+            vec2 uvGrid = texCoord * gridSize;
+            vec2 windowID = floor(uvGrid);
+            vec2 windowCell = fract(uvGrid);
+
+            if (windowCell.x > 0.28 && windowCell.x < 0.72 && windowCell.y > 0.25 && windowCell.y < 0.75)
+            {
+                float randVal = fract(sin(dot(windowID, vec2(12.9898, 78.233))) * 43758.5453);
+                if (randVal > 0.75) // 25% of windows lit
+                {
+                    vec3 glowColor = (fract(randVal * 7.0) > 0.4) ? vec3(1.0, 0.82, 0.45) : vec3(0.65, 0.8, 1.0);
+                    baseLight.rgb = mix(baseLight.rgb, glowColor * 1.5, 0.8);
+                }
+            }
         }
         
         FragColor = baseLight;

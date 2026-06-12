@@ -3,6 +3,8 @@
 #include "../scene/streetLamp.h"
 #include "../helpers/MainMenu.h"
 #include "../../engine/graphics/Frustum.h"
+#include "../scene/ParticleSystem.h"
+#include "../scene/PropsManager.h"
 
 #include <iostream>
 #include <algorithm>
@@ -267,6 +269,7 @@ int Game::Run()
         Shader skyShader("res/shaders/sky.vert", "res/shaders/sky.frag");
         Shader waterShader("res/shaders/water.vert", "res/shaders/water.frag");
         Shader lampShader("res/shaders/default.vert", "res/shaders/streetlamp.frag");
+        Shader particleShader("res/shaders/particle.vert", "res/shaders/particle.frag");
         glfwPollEvents();
 
         SetupOpenGL(shaderProgram);
@@ -309,6 +312,13 @@ int Game::Run()
         std::cout << "[INFO] Street lamps: " << lampPositions.size() << std::endl;
 
         Mesh lampMesh = CreateStreetLampMesh();
+
+        // --- Live City Elements Initialization ---
+        menu.RenderLoading(0.95f, "INITIALIZING PARTICLES & PROPS...");
+        ParticleSystem particleSystem(2500);
+        PropsManager propsManager;
+        propsManager.Initialize(lampPositions, city);
+        glfwPollEvents();
 
         // --- Shadow Map Shader & FBO Setup ---
         Shader shadowShader("res/shaders/shadow.vert", "res/shaders/shadow.frag");
@@ -426,6 +436,22 @@ int Game::Run()
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
             // CheckWaterRespawn(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
+            // --- Update Live City Elements ---
+            glm::vec3 carForward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+            glm::vec3 carRight = glm::vec3(std::cos(car.yaw), 0.0f, -std::sin(car.yaw));
+            glm::vec3 exhaustL = car.position - carForward * 0.90f - carRight * 0.15f + glm::vec3(0.0f, 0.05f, 0.0f);
+            glm::vec3 exhaustR = car.position - carForward * 0.90f + carRight * 0.15f + glm::vec3(0.0f, 0.05f, 0.0f);
+            std::vector<glm::vec3> tirePositions = {
+                car.position + carForward * 0.6f + carRight * 0.35f,
+                car.position + carForward * 0.6f - carRight * 0.35f,
+                car.position - carForward * 0.6f + carRight * 0.35f,
+                car.position - carForward * 0.6f - carRight * 0.35f
+            };
+            bool isDrifting = (std::abs(car.steering) > glm::radians(16.0f) && std::abs(car.speed) > 6.0f);
+            particleSystem.Update(dt, car.position, carForward * car.speed, braking, isDrifting,
+                                  exhaustL, exhaustR, tirePositions, lastGroundHeight);
+            propsManager.Update(dt, car.position, carForward * car.speed, kCarModelScale * 1.3f, city);
+
             UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car);
             UpdateHeadlights(shaderProgram, car, headlightsOn);
@@ -473,6 +499,7 @@ int Game::Run()
 
             city.Draw(shadowShader, camera, &lightFrustum);
             carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+            propsManager.Draw(shadowShader, camera);
 
             glDisable(GL_POLYGON_OFFSET_FILL);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -499,6 +526,7 @@ int Game::Run()
 
                 city.Draw(shadowShader, camera, &cameraFrustum);
                 carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+                propsManager.Draw(shadowShader, camera);
 
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
             }
@@ -615,7 +643,11 @@ int Game::Run()
 
             city.Draw(shaderProgram, camera, &cameraFrustum);
             carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+            propsManager.Draw(shaderProgram, camera);
             DrawOcean(waterShader, ocean, camera, currentFrame, skyTint, dayNight);
+
+            // Render transparent particles after all solid geometry
+            particleSystem.Draw(camera, particleShader);
 
             shaderProgram.Activate();
 
@@ -735,6 +767,7 @@ int Game::Run()
         waterShader.Delete();
         shadowShader.Delete();
         lampShader.Delete();
+        particleShader.Delete();
 
         glDeleteFramebuffers(1, &depthMapFBO);
         glDeleteTextures(1, &depthMap);

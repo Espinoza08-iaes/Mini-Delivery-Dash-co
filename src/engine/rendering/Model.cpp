@@ -430,6 +430,10 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
 
         glUniform1i(glGetUniformLocation(shader.ID, "uUseAlpha"), meshesUseAlpha[i] ? 1 : 0);
 
+        // Pass uIsFacade uniform
+        bool isFacade = (meshMaterialNames[i].find("Facade") != std::string::npos);
+        glUniform1i(glGetUniformLocation(shader.ID, "uIsFacade"), isFacade ? 1 : 0);
+
         // Emissive lights (headlights / brakelights)
         bool isEmissive = false;
         glm::vec3 emissiveColor(0.0f);
