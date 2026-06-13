@@ -57,7 +57,7 @@ namespace GameConstants
     constexpr float GROUND_SNAP_UP = 2.0f;
     constexpr float GROUND_CLEARANCE_TOLERANCE = 0.5f;
     constexpr float VOID_THRESHOLD_FORCE = -10.0f;
-    constexpr float VOID_THRESHOLD_RESPAWN = -2.5f; 
+    constexpr float VOID_THRESHOLD_RESPAWN = -3.5f; 
     
     // Respawn
     constexpr float RESPAWN_SEARCH_DISTANCE = 500.0f;
@@ -78,8 +78,8 @@ namespace GameConstants
     constexpr float OCEAN_FOG_END = 350.0f;
     
     // Shadow mapping
-    constexpr unsigned int SHADOW_MAP_WIDTH = 4096;
-    constexpr unsigned int SHADOW_MAP_HEIGHT = 4096;
+    constexpr unsigned int SHADOW_MAP_WIDTH = 2048;
+    constexpr unsigned int SHADOW_MAP_HEIGHT = 2048;
     constexpr float LIGHT_OFFSET_DISTANCE = 220.0f;
     constexpr float ORTHO_SIZE = 90.0f;
     constexpr float ORTHO_NEAR = 0.1f;
@@ -112,9 +112,9 @@ void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car
     // Apply random camera displacement if boosting
     if (isBoosting)
     {
-        float shakeX = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
-        float shakeY = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
-        float shakeZ = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
+        float shakeX = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
+        float shakeY = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
+        float shakeZ = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
         camera.Position += glm::vec3(shakeX, shakeY, shakeZ);
     }
     // Update projection matrix with current FOV
@@ -183,7 +183,28 @@ void Game::ResolveGroundCollision(CarState &car, City &city, float &carVerticalS
 // Respawns the car at the nearest safe road position if it falls below the void threshold.
 void Game::CheckWaterRespawn(CarState& car, City& city, float& carVerticalSpeed, bool& isOnGround, float& lastGroundHeight)
 {
-    // Water respawn disabled
+    using namespace GameConstants;
+    
+    // Check if the car has fallen into the void/water
+    if (car.position.y < VOID_THRESHOLD_RESPAWN)
+    {
+        std::cout << "[GAME] Car fell into void! Respawning..." << std::endl;
+        // Find the closest safe spawn point on the road
+        glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, RESPAWN_SEARCH_DISTANCE);
+        
+        // Reset car position, physics state, and orientation
+        car.position = safeSpawn + glm::vec3(0.0f, RESPAWN_HEIGHT_OFFSET, 0.0f);
+        car.speed = 0.0f;
+        car.steering = 0.0f;
+        car.yaw = 0.0f;
+        car.pitch = 0.0f;
+        car.roll = 0.0f;
+        carVerticalSpeed = 0.0f;
+        isOnGround = true;
+        lastGroundHeight = safeSpawn.y;
+        
+        std::cout << "[GAME] Respawned at: " << car.position.x << ", " << car.position.y << ", " << car.position.z << std::endl;
+    }
 }
 
 // Updates shader lighting and fog parameters based on the current day-night cycle.
@@ -424,7 +445,7 @@ int Game::Run()
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
             UpdateCar(window, car, dt, city);
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
-            // CheckWaterRespawn(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
+            CheckWaterRespawn(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
             UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car);
