@@ -25,12 +25,12 @@ glm::mat4 BuildCarMatrix(const CarState &car)
 void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
 {
     bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 0.0f);
-    const float acceleration = isBoosting ? 22.0f : 9.0f;
-    const float brakePower = 15.0f;
+    const float acceleration = isBoosting ? 25.0f : 9.0f;
+    const float brakePower = 16.0f;
     const float maxForwardSpeed = isBoosting ? 24.0f : 11.0f;
-    const float maxReverseSpeed = 3.5f;
+    const float maxReverseSpeed = 5.0f;
     const float friction = 5.0f;
-    const float steeringResponse = isBoosting ? 3.5f : 5.5f; // Stiffer steering during high-speed boost
+    const float steeringResponse = isBoosting ? 3.5f : 5.5f;
     const float steeringReturn = 9.0f;
     const float maxSteering = glm::radians(35.0f);
     const float turnRate = glm::radians(125.0f);
@@ -76,7 +76,7 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     }
     car.steering = glm::clamp(car.steering, -maxSteering, maxSteering);
 
-    // --- Rotation & Movement ---
+    // --- Rotation ---
     float turnFactor = 0.0f;
     if (std::abs(car.speed) > 0.01f)
     {
@@ -102,98 +102,125 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     glm::vec3 fullMove = forward * car.speed * dt;
     glm::vec3 nextPosition = car.position + fullMove;
 
-    float carCollisionRadius = kCarModelScale * 1.8f;
-    // Removed hard bounds clamping - rely on collision detection instead
+    // Collision detection with a 3-sphere system (center, front, rear) for better coverage, especially at higher speeds
+    const float carCollisionRadius = kCarModelScale * 1.3f;
+    const float frontOffset = kCarModelScale * 1.1f;
+    const float rearOffset = kCarModelScale * 1.1f;
 
-    if (city.CheckCollision(nextPosition, carCollisionRadius))
+    // System to check collisions at a given position using multiple spheres (center, front, rear)
+    auto collidesAt = [&](const glm::vec3 &pos) -> bool
     {
-        // Intentar deslizamiento en X
+        // Center sphere
+        if (city.CheckCollision(pos, carCollisionRadius))
+            return true;
+
+        // Front sphere
+        glm::vec3 frontPos = pos + forward * frontOffset;
+        if (city.CheckCollision(frontPos, carCollisionRadius))
+            return true;
+
+        // Back sphere
+        glm::vec3 rearPos = pos - forward * rearOffset;
+        if (city.CheckCollision(rearPos, carCollisionRadius))
+            return true;
+
+        return false;
+    };
+
+    if (collidesAt(nextPosition))
+    {
         glm::vec3 tryX = glm::vec3(nextPosition.x, prevPosition.y, prevPosition.z);
-        // Intentar deslizamiento en Z
         glm::vec3 tryZ = glm::vec3(prevPosition.x, prevPosition.y, nextPosition.z);
 
-        bool xOk = !city.CheckCollision(tryX, carCollisionRadius);
-        bool zOk = !city.CheckCollision(tryZ, carCollisionRadius);
+        bool xOk = !collidesAt(tryX);
+        bool zOk = !collidesAt(tryZ);
 
         if (xOk && !zOk)
             nextPosition = tryX;
         else if (zOk && !xOk)
             nextPosition = tryZ;
         else if (xOk && zOk)
-            nextPosition = tryX; // ambos libres: prioriza X
+            nextPosition = tryX;
         else
         {
-            // Colisión total — detener
             car.speed = 0.0f;
             nextPosition = prevPosition;
         }
     }
     car.position = nextPosition;
 
-    // --- Terrain heights and normals (for tilt and snap) ---
-    float d = 0.5f * (kCarModelScale / 0.28f); // Distancia de las ruedas proporcional a la escala del coche
-    glm::vec3 probePoints[4] = {
-        car.position + forward * d, // front
-        car.position - forward * d, // back
-        car.position + right * d,   // right
-        car.position - right * d    // left
+    // ========================================================================
+    // CAR TILT (PITCH AND ROLL)
+    // ========================================================================
+    const float wheelBase = 1.0f;
+    const float trackWidth = 0.7f;
+    const float tiltSmooth = 6.0f;
+    const float heightSmooth = 8.0f;
+
+    glm::vec3 fwd = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+
+    glm::vec3 frontPos = car.position + fwd * wheelBase;
+    glm::vec3 rearPos = car.position - fwd * wheelBase;
+    glm::vec3 leftPos = car.position + right * trackWidth;
+    glm::vec3 rightPos = car.position - right * trackWidth;
+
+    game::GroundSample sample;
+    auto sampleH = [&](const glm::vec3 &pos) -> float
+    {
+        if (city.GetGroundSample(pos, car.position.y, sample, 3.0f, 0.5f) && sample.found)
+            return sample.height;
+        return car.position.y - kGroundClearance;
     };
 
-    glm::vec3 normals[4] = {};
-    for (int i = 0; i < 4; ++i)
-    {
-        game::GroundSample s;
-        if (city.GetGroundSample(probePoints[i], car.position.y, s, 2.0f, 0.12f) && s.found)
-        {
-            normals[i] = s.normal;
-        }
-        else
-        {
-            normals[i] = glm::vec3(0, 1, 0);
-        }
-    }
+    float frontH = sampleH(frontPos);
+    float rearH = sampleH(rearPos);
+    float leftH = sampleH(leftPos);
+    float rightH = sampleH(rightPos);
 
-    // Corregir solo si la altura detectada no es una caída falsa.
-    game::GroundSample centerSample;
-    if (city.GetGroundSample(car.position, car.position.y, centerSample, 2.0f, 0.12f) && centerSample.found)
-    {
-        if (centerSample.height >= car.position.y - kMaxDownSnap)
-        {
-            car.position.y = std::max(car.position.y, centerSample.height + kGroundClearance);
-        }
-    }
+    // --- Pitch ---
+    float pitchDiff = frontH - rearH;
+    float targetPitch = -std::atan2(pitchDiff, wheelBase * 2.0f);
+    const float MAX_PITCH = glm::radians(20.0f);
+    targetPitch = glm::clamp(targetPitch, -MAX_PITCH, MAX_PITCH);
 
-    // Tilt: usar promedio de normales de las 4 ruedas
-    glm::vec3 avgNormal = glm::normalize(normals[0] + normals[1] + normals[2] + normals[3]);
-    float targetPitch = std::atan2(avgNormal.x, avgNormal.y);
-    float targetRoll = -std::atan2(avgNormal.z, avgNormal.y);
-    car.pitch = glm::mix(car.pitch, targetPitch, 15.0f * dt);
-    car.roll = glm::mix(car.roll, targetRoll, 15.0f * dt);
+    // --- Roll ---
+    float rollDiff = leftH - rightH;
+    float targetRoll = -std::atan2(rollDiff, trackWidth * 2.0f);
+    const float MAX_ROLL = glm::radians(6.0f);
+    targetRoll = glm::clamp(targetRoll, -MAX_ROLL, MAX_ROLL);
+
+    // --- Smooth ---
+    car.pitch = glm::mix(car.pitch, targetPitch, tiltSmooth * dt);
+    car.roll = glm::mix(car.roll, targetRoll, tiltSmooth * dt);
+
+    // --- Height ---
+    float avgHeight = (frontH + rearH + leftH + rightH) * 0.25f;
+    float desiredHeight = avgHeight + kGroundClearance;
+    car.position.y = glm::mix(car.position.y, desiredHeight, heightSmooth * dt);
 
     // --- Wheel spin ---
     car.wheelSpin += (car.speed * dt) / wheelRadius;
 }
-
 // --- Car jump and respawn ---
-    void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight)
+void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight)
+{
+    static bool zPressedLast = false;
+    static bool rPressedLast = false;
+
+    // --- Jump ---
+    bool zPressed = glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS;
+    if (zPressed && !zPressedLast && isOnGround)
     {
-        static bool zPressedLast = false;
-        static bool rPressedLast = false;
+        carVerticalSpeed = 3.2f; // Reduce vertical impulse to avoid overshooting geometry
+        isOnGround = false;
 
-        // --- Jump ---
-        bool zPressed = glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS;
-        if (zPressed && !zPressedLast && isOnGround)
-        {
-            carVerticalSpeed = 3.2f; // Reduce vertical impulse to avoid overshooting geometry
-            isOnGround = false;
+        glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+        car.position += forward * (jumpDistanceBoost * 0.45f); // Reduced horizontal boost
+    }
+    zPressedLast = zPressed;
 
-            glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-            car.position += forward * (jumpDistanceBoost * 0.45f); // Reduced horizontal boost
-        }
-        zPressedLast = zPressed;
-
-        // --- Respawn ---
-        bool rPressed = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
+    // --- Respawn ---
+    bool rPressed = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
     if (rPressed && !rPressedLast)
     {
         car.position = spawnPoint;

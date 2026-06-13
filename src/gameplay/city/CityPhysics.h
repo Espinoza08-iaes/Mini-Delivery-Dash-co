@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 
 namespace game
 {
@@ -37,9 +37,13 @@ namespace game
 
         // Samples the closest drivable road height at horizontal coordinate (x, z).
         float GetHeightAt(const Model& model, const glm::mat4& cityMatrix, float x, float z, float currentY, bool* outFound = nullptr, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
+        float GetHeightAt(float x, float z, float currentY, bool* outFound = nullptr, float snapDownMax = 8.0f, float snapUpMax = 0.12f) const;
 
         // Checks if the car's collision sphere intersects any obstacle triangle.
         bool CheckCollision(const glm::vec3& pos, float radius) const;
+
+        // Cambia la declaración
+        bool LineOfSight(const glm::vec3& from, const glm::vec3& to, float& outHitDistance) const;
 
         // Returns the closest road triangle center to the preferred spawn position.
         glm::vec3 GetBestRoadSpawn(const glm::vec3 &preferred, float maxDistance = 1000.0f) const;

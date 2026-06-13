@@ -14,7 +14,6 @@ in vec2 texCoord;
 // Imports the position in light space
 in vec4 vLightSpacePos;
 
-
 // Gets the Texture Units from the main function
 uniform sampler2D diffuse0;
 uniform sampler2D specular0;
@@ -71,10 +70,10 @@ float ShadowCalculation(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
     if (projCoords.z > 1.0)
         return 0.0;
         
-    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0005);
+    float bias = max(0.0015 * (1.0 - dot(normal, lightDir)), 0.0002);
     
-    // Generate pseudo-random angle per pixel to break up banding/patterns
-    float angle = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.28318530718;
+    // Generate pseudo-random angle based on world coordinates to prevent shimmering/noise moving with screen coordinates
+    float angle = fract(sin(dot(crntPos, vec3(12.9898, 78.233, 45.164))) * 43758.5453) * 6.28318530718;
     float s = sin(angle);
     float c = cos(angle);
     mat2 rotationMatrix = mat2(c, -s, s, c);
@@ -83,7 +82,7 @@ float ShadowCalculation(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
     vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
     
     // Penumbra search radius
-    float penumbraRadius = 1.5;
+    float penumbraRadius = 2.2;
     
     for(int i = 0; i < 8; ++i)
     {
@@ -92,10 +91,12 @@ float ShadowCalculation(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
     }
     litAmount /= 8.0;
     
-    return 1.0 - litAmount;
+    // Soften shadow max opacity (0.88 instead of 1.0) so it's not pitch black
+    return (1.0 - litAmount) * 0.88;
 }
 
 uniform sampler2D uCameraDepthMap;
+uniform bool uUseSSAO = true;
 
 float LinearizeDepth(float depth)
 {
@@ -199,7 +200,7 @@ vec3 calculateSpotLight(vec3 spotLightPos, vec3 spotLightDir, vec3 normal, vec3 
     float innerCone = 0.92f;
     float intensity = clamp((angle - outerCone) / (innerCone - outerCone), 0.0, 1.0);
 
-    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity * 0.22f;
+    return (baseColor * diffuse + vec3(specular)) * uHeadlightColor * inten * intensity;
 }
 
 vec3 calculateStreetLight(vec3 lampPos, vec3 normal, vec3 albedo)
@@ -262,9 +263,13 @@ vec4 direcLight()
     float shadow = ShadowCalculation(vLightSpacePos, normal, lightDirection);
 
     // Calculate ambient occlusion factor (suavizar de noche para evitar ruido en aceras)
-    float ao = CalculateSSAO();
-    if (uStreetLightsOn == 1)
-        ao = mix(ao, 1.0, 0.5);
+    float ao = 1.0;
+    if (uUseSSAO)
+    {
+        ao = CalculateSSAO();
+        if (uStreetLightsOn == 1)
+            ao = mix(ao, 1.0, 0.5);
+    }
     float ambientWithAO = ambient * ao;
 
     vec3 litColor = (texColor.rgb * (diffuse * (1.0 - shadow) + ambientWithAO) + vec3(spec * (1.0 - shadow))) * lightColor.rgb;
@@ -312,7 +317,7 @@ void main()
             
             baseLight.rgb += leftSpot + rightSpot;
         }
-        
+
         // --- Street light contribution (antes del fog) ---
         if (uStreetLightsOn == 1)
         {
@@ -326,14 +331,7 @@ void main()
             streetLight = min(streetLight, vec3(0.85));
             baseLight.rgb += streetLight;
         }
-
-        finalColor = baseLight;
+        
+        FragColor = baseLight;
     }
-
-    // Apply distance fog
-    float dist = length(camPos - crntPos);
-    float fogFactor = clamp((uFogEnd - dist) / (uFogEnd - uFogStart), 0.0, 1.0);
-    finalColor.rgb = mix(uFogColor, finalColor.rgb, fogFactor);
-
-    FragColor = finalColor;
 }

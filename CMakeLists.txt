@@ -40,23 +40,9 @@ if(WIN32)
         NO_DEFAULT_PATH REQUIRED
     )
 
-    find_library(SOIL2_LIBRARY
-        NAMES soil2 libsoil2 opengl32 libopengl32
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/SOIL2/lib"
-        NO_DEFAULT_PATH REQUIRED
-    )
-
-    find_library(GLEW_LIBRARY
-        NAMES glew32s glew32 libglew32
-        PATHS "${CMAKE_SOURCE_DIR}/third_party/GL/lib"
-        NO_DEFAULT_PATH REQUIRED
-    )
-
     target_link_libraries(MiniDeliveryDash PRIVATE
         ${GLFW_LIBRARY}
         ${ASSIMP_LIBRARY}
-        ${SOIL2_LIBRARY}
-        ${GLEW_LIBRARY}
         opengl32
         gdi32
         user32

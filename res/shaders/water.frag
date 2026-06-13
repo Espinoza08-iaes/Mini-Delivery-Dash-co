@@ -55,7 +55,7 @@ void main()
     // Fresnel term (reflectivity increases at shallow angles)
     float fresnel = dot(normal, viewDir);
     fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
-    fresnel = pow(fresnel, 5.0);
+    fresnel = pow(fresnel, 3.5);
     
     // specular reflections from sun/moon
     vec3 lightDir = normalize(lightPos);
@@ -68,8 +68,8 @@ void main()
     vec3 scatterColor = vec3(0.0, 0.45, 0.35) * scatter * lightColor.rgb * 0.4;
     
     // Base ocean color matching time of day tint
-    vec3 oceanBase = vec3(0.008f, 0.04f, 0.09f) * uSkyTint;
-    vec3 waterColor = mix(oceanBase, reflection, fresnel * 0.85 + 0.08);
+    vec3 oceanBase = vec3(0.01f, 0.06f, 0.12f) * uSkyTint;
+    vec3 waterColor = mix(oceanBase, reflection, fresnel * 0.90 + 0.10);
     waterColor += specular + scatterColor;
     
     // Distance fog

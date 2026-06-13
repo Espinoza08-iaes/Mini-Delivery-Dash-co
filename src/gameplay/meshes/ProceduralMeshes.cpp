@@ -8,14 +8,42 @@
 // ---------------------------------------------------------------------------
 Mesh CreateOceanMesh()
 {
-    const float halfSize = 4000.0f;
-    std::vector<Vertex> vertices = {
-        {{-halfSize, -4.5f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-        {{halfSize, -4.5f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-        {{halfSize, -4.5f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-halfSize, -4.5f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-    };
-    std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+    const int   GRID     = 80;
+    const float halfSize = 1200.0f;
+    const float Y        = -0.5f;
+    const float step     = (halfSize * 2.0f) / GRID;
+
+    std::vector<Vertex>  vertices;
+    std::vector<GLuint>  indices;
+    vertices.reserve((GRID + 1) * (GRID + 1));
+    indices.reserve(GRID * GRID * 6);
+
+    for (int z = 0; z <= GRID; ++z)
+    {
+        for (int x = 0; x <= GRID; ++x)
+        {
+            Vertex v;
+            v.position = glm::vec3(-halfSize + x * step, Y, -halfSize + z * step);
+            v.normal   = glm::vec3(0.0f, 1.0f, 0.0f);
+            v.color    = glm::vec3(1.0f, 1.0f, 1.0f);
+            v.texUV    = glm::vec2((float)x / GRID, (float)z / GRID);
+            vertices.push_back(v);
+        }
+    }
+
+    for (int z = 0; z < GRID; ++z)
+    {
+        for (int x = 0; x < GRID; ++x)
+        {
+            GLuint tl = z * (GRID + 1) + x;
+            GLuint tr = tl + 1;
+            GLuint bl = tl + (GRID + 1);
+            GLuint br = bl + 1;
+            indices.push_back(tl); indices.push_back(bl); indices.push_back(tr);
+            indices.push_back(tr); indices.push_back(bl); indices.push_back(br);
+        }
+    }
+
     std::vector<Texture> textures;
     textures.emplace_back("res/textures/sunflowers_puresky_4k.hdr", "diffuse", 0);
     return Mesh(vertices, indices, textures);

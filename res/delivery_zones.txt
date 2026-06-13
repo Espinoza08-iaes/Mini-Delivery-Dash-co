@@ -1,0 +1,10 @@
+# Delivery zones for Mini Delivery Dash
+# Format: x y z zone_name
+# Based on lamp positions and road locations
+
+-46.85 1.91 51.49 Central Plaza
+90.34 18.48 -34.03 East District
+-198.77 0.39 10.02 West Outpost
+-50.32 1.89 59.80 North Station
+77.22 16.32 -35.70 South Market
+-23.97 5.28 -35.41 Industrial Zone

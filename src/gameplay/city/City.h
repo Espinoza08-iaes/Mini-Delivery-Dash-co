@@ -4,10 +4,11 @@
 #include <memory>
 #include <string>
 #include <glm/glm.hpp>
-#include <vector>
 
-#include "../../engine/resources/Model.h"
+#include "../../engine/rendering/Model.h"
 #include "CityPhysics.h"
+
+class Frustum;
 
 class City
 {
@@ -35,7 +36,7 @@ public:
     bool CheckCollision(const glm::vec3& pos, float radius) const;
 
     // Dibuja la ciudad en el shader/camara actuales
-    void Draw(Shader &shader, Camera &camera);
+    void Draw(Shader &shader, Camera &camera, const Frustum* frustum = nullptr);
 
     // Devuelve la matriz mundo de la ciudad (escala + traslacion Y)
     glm::mat4 GetMatrix() const;
@@ -48,9 +49,14 @@ public:
 
     std::vector<glm::vec3> GetStreetLampPositions(float spacing = 18.0f) const;
     std::vector<glm::vec3> GetStreetLampPositionsFromFile(const char* filePath) const;
+    game::CityPhysics& GetPhysics() { return mPhysics; }
+    const game::CityPhysics& GetPhysics() const { return mPhysics; }
 
 private:
     void BuildVisualGapFillMesh();
+
+    void AlignModelToGround();
+    void AddGapFillForTriangle(const game::WorldTriangle& tri, std::vector<Vertex>& vertices, std::vector<GLuint>& indices) const;
 
     Model mModel;
     float mScale;
