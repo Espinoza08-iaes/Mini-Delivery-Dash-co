@@ -124,10 +124,15 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     // Render compass bar
     glm::vec3 objective = deliverySystem.GetObjectivePosition();
     bool isPickup = deliverySystem.HasWaitingOrder();
-    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, objective, car.position, isPickup);
     
-    // Render distance below compass
+    // No additional markers - only show current mission objective
+    std::vector<CompassMarker>* additionalMarkers = nullptr;
+    
+    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, objective, car.position, isPickup, additionalMarkers);
+    
+    // Render distance below compass (always to current objective)
     float distance = deliverySystem.GetDistanceToObjective(car);
+    
     char distanceText[64];
     snprintf(distanceText, sizeof(distanceText), "%.1f m", distance);
     RenderTextCentered(distanceText, fbW / 2.0f, 110.0f, 1.0f, 1.0f, 1.0f, 3.0f);
@@ -203,11 +208,17 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
         RenderDeliveryHUD(deliverySystem);
     }
     
+    // Show delivery message when near delivery pillar
+    if (ShouldShowDeliveryMessage(deliverySystem, car))
+    {
+        RenderTextCentered("Entregar con E o cancelar con Q", fbW / 2.0f, fbH / 2.0f + 50.0f, 1.0f, 1.0f, 1.0f, 2.5f);
+    }
+    
     // Re-enable depth test for 3D rendering
     glEnable(GL_DEPTH_TEST);
 }
 
-void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup)
+void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup, const std::vector<CompassMarker>* additionalMarkers)
 {
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
@@ -271,10 +282,55 @@ void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, c
         if (objX > centerX - barWidth / 2.0f + 15.0f && objX < centerX + barWidth / 2.0f - 15.0f)
         {
             float dotSize = 14.0f;
-            RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 0.0f, 0.8f, 0.0f, 1.0f);
+            
+            // Use green for delivery, yellow for pickup
+            if (isPickup)
+            {
+                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f); // Yellow for pickup
+            }
+            else
+            {
+                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 0.0f, 1.0f, 0.3f, 1.0f); // Green for delivery
+            }
             
             const char* marker = isPickup ? "P" : "D";
             RenderTextCentered(marker, objX, centerY + 6.0f, 1.0f, 1.0f, 1.0f, 1.5f);
+        }
+    }
+    
+    // Draw additional markers (with labels for pickup zones)
+    if (additionalMarkers != nullptr)
+    {
+        for (const auto& marker : *additionalMarkers)
+        {
+            glm::vec3 toMarker = marker.position - carPos;
+            toMarker.y = 0.0f;
+            float distToMarker = glm::length(toMarker);
+            
+            if (distToMarker > 0.01f)
+            {
+                toMarker = glm::normalize(toMarker);
+                
+                float angleToMarker = std::atan2(toMarker.x, toMarker.z);
+                float angleOffset = angleToMarker - carYaw;
+                
+                // Normalize to -PI to PI
+                while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
+                while (angleOffset < -3.14159f) angleOffset += 6.28318f;
+                
+                // Map angle to horizontal position
+                float markerX = centerX + angleOffset * (barWidth / 6.28318f);
+                
+                // Draw only if strictly within visual limits of the dark bar
+                if (markerX > centerX - barWidth / 2.0f + 15.0f && markerX < centerX + barWidth / 2.0f - 15.0f)
+                {
+                    float dotSize = 10.0f;
+                    RenderColoredQuad(markerX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f);
+                    
+                    // Draw label (P1, P2, etc.)
+                    RenderTextCentered(marker.label.c_str(), markerX, centerY + 12.0f, 1.0f, 0.8f, 0.0f, 1.2f);
+                }
+            }
         }
     }
 }
@@ -451,23 +507,35 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
 
 bool DeliveryHUD::ShouldShowMissionPanel(const DeliverySystem& deliverySystem, const CarState& car) const
 {
-    // Show mission panel when car is stopped AND touching the zone
+    // Show mission panel when car is near the pickup zone (not stopped, just near)
     if (!deliverySystem.HasWaitingOrder())
         return false;
     
     const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
     float distance = glm::length(car.position - order.originPosition);
-    float speedKmh = std::abs(car.speed) * 3.6f;
     
-    // Show only if very close (touching) and stopped
-    return (distance < 3.0f && speedKmh < 1.0f);
+    // Show if near pickup zone (touching distance)
+    return (distance < 2.0f);
 }
 
-bool DeliveryHUD::TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPressed) const
+bool DeliveryHUD::ShouldShowDeliveryMessage(const DeliverySystem& deliverySystem, const CarState& car) const
+{
+    // Show delivery message when car has picked up order and is near delivery zone
+    if (!deliverySystem.HasActiveOrder())
+        return false;
+    
+    const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
+    float distance = glm::length(car.position - order.destinationPosition);
+    
+    // Show if near delivery pillar (no need to be stopped)
+    return (distance < 2.0f);
+}
+
+bool DeliveryHUD::TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPressed, const CarState& car) const
 {
     if (qKeyPressed && deliverySystem.HasWaitingOrder())
     {
-        deliverySystem.RejectOrder();
+        deliverySystem.RejectOrder(car);
         return true;
     }
     return false;

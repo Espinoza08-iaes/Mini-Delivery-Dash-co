@@ -196,11 +196,19 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
 
 void DeliverySystem::Render(Shader& shader, Camera& camera)
 {
+    // Don't render if coordinates are invalid (no mission)
+    if (currentOrder.originPosition.x > 10000.0f || currentOrder.destinationPosition.x > 10000.0f)
+        return;
+    
     // Create zone marker mesh locally
     Mesh zoneMarkerMesh = CreateZoneMarkerMesh();
     
     // Get current time for animation
     float currentTime = static_cast<float>(glfwGetTime());
+    
+    // Determine zone color based on state
+    glm::vec3 pickupColor = glm::vec3(1.0f, 0.8f, 0.0f); // Yellow for pickup
+    glm::vec3 deliveryColor = glm::vec3(0.0f, 1.0f, 0.3f); // Green for delivery
     
     // Determine zone color based on state
     glm::vec3 zoneColor;
@@ -230,7 +238,7 @@ void DeliverySystem::Render(Shader& shader, Camera& camera)
         zoneMarkerMesh.Draw(zoneShader, camera, zoneModel);
         
         // Render "MISIÓN" text above the pillar
-        RenderZoneText(shader, camera, currentOrder.originPosition, "MISION", glm::vec3(0.0f, 1.0f, 0.3f));
+        RenderZoneText(shader, camera, currentOrder.originPosition, "MISION", pickupColor);
         
         // Render package at origin position with default shader
         shader.Activate();
@@ -253,7 +261,7 @@ void DeliverySystem::Render(Shader& shader, Camera& camera)
         zoneMarkerMesh.Draw(zoneShader, camera, zoneModel);
         
         // Render "ENTREGAR" text above the pillar
-        RenderZoneText(shader, camera, currentOrder.destinationPosition, "ENTREGAR", glm::vec3(0.0f, 0.7f, 1.0f));
+        RenderZoneText(shader, camera, currentOrder.destinationPosition, "ENTREGAR", deliveryColor);
         
         // Render package (animated or following car) with default shader
         shader.Activate();
@@ -303,71 +311,50 @@ void DeliverySystem::LoadDeliveryZones()
     std::ifstream file("res/delivery_zones.txt");
     if (!file.is_open())
     {
-        std::cerr << "Warning: Could not open res/delivery_zones.txt. Using default delivery zones." << std::endl;
-        
-        // Add more default delivery zones spread across the map
-        deliveryZones.push_back({glm::vec3(-50.0f, 0.0f, 50.0f), "Zone A"});
-        deliveryZones.push_back({glm::vec3(50.0f, 0.0f, 50.0f), "Zone B"});
-        deliveryZones.push_back({glm::vec3(-50.0f, 0.0f, -50.0f), "Zone C"});
-        deliveryZones.push_back({glm::vec3(50.0f, 0.0f, -50.0f), "Zone D"});
-        deliveryZones.push_back({glm::vec3(0.0f, 0.0f, 100.0f), "Zone E"});
-        deliveryZones.push_back({glm::vec3(0.0f, 0.0f, -100.0f), "Zone F"});
-        deliveryZones.push_back({glm::vec3(100.0f, 0.0f, 0.0f), "Zone G"});
-        deliveryZones.push_back({glm::vec3(-100.0f, 0.0f, 0.0f), "Zone H"});
-        deliveryZones.push_back({glm::vec3(80.0f, 0.0f, 80.0f), "Zone I"});
-        deliveryZones.push_back({glm::vec3(-80.0f, 0.0f, 80.0f), "Zone J"});
-        deliveryZones.push_back({glm::vec3(80.0f, 0.0f, -80.0f), "Zone K"});
-        deliveryZones.push_back({glm::vec3(-80.0f, 0.0f, -80.0f), "Zone L"});
+        std::cerr << "Error: Could not open res/delivery_zones.txt. No delivery zones loaded." << std::endl;
         return;
     }
     
     std::string line;
+    DeliveryZone* currentZone = nullptr;
+    
     while (std::getline(file, line))
     {
         if (line.empty() || line[0] == '#')
             continue;
         
         std::istringstream iss(line);
-        DeliveryZone zone;
+        std::string type;
         
-        // Expected format: x y z name
-        if (!(iss >> zone.position.x >> zone.position.y >> zone.position.z))
-            continue;
-        
-        // Read the rest as name
-        std::string remaining;
-        std::getline(iss, remaining);
-        zone.name = remaining;
-        
-        // Trim whitespace from name
-        size_t start = zone.name.find_first_not_of(" \t");
-        if (start != std::string::npos)
-            zone.name = zone.name.substr(start);
-        
-        deliveryZones.push_back(zone);
+        if (iss >> type)
+        {
+            if (type == "PICKUP")
+            {
+                DeliveryZone newZone;
+                iss >> newZone.position.x >> newZone.position.y >> newZone.position.z;
+                newZone.name = "Pickup Zone";
+                deliveryZones.push_back(newZone);
+                currentZone = &deliveryZones.back();
+            }
+            else if (type == "DELIVERY" && currentZone != nullptr)
+            {
+                glm::vec3 deliveryPos;
+                iss >> deliveryPos.x >> deliveryPos.y >> deliveryPos.z;
+                currentZone->deliveryPositions.push_back(deliveryPos);
+            }
+            else if (type == "END_PICKUP")
+            {
+                currentZone = nullptr;
+            }
+        }
     }
     
     file.close();
     
     if (deliveryZones.empty())
     {
-        std::cerr << "Warning: No delivery zones found in file. Using default zones." << std::endl;
-        deliveryZones.push_back({glm::vec3(-50.0f, 0.0f, 50.0f), "Zone A"});
-        deliveryZones.push_back({glm::vec3(50.0f, 0.0f, 50.0f), "Zone B"});
-        deliveryZones.push_back({glm::vec3(-50.0f, 0.0f, -50.0f), "Zone C"});
-        deliveryZones.push_back({glm::vec3(50.0f, 0.0f, -50.0f), "Zone D"});
+        std::cerr << "Error: No delivery zones found in file. Cannot start game." << std::endl;
     }
-}
-
-DeliveryZone DeliverySystem::GetRandomDeliveryZone() const
-{
-    if (deliveryZones.empty())
-    {
-        return DeliveryZone{glm::vec3(0.0f), "Default"};
-    }
-    
-    int index = std::rand() % deliveryZones.size();
-    return deliveryZones[index];
 }
 
 bool DeliverySystem::IsCarNearPoint(const glm::vec3& carPos, const glm::vec3& point, float threshold) const
@@ -390,8 +377,9 @@ Mesh DeliverySystem::CreateZoneMarkerMesh()
     const float outerRadius = 1.8f;
     const float height = 0.05f;
     const int numArrows = 12;
-    const float pillarHeight = 3.0f;
-    const float pillarWidth = 0.15f;
+    // Create a vertical pillar (6x larger: 2x current 3x)
+    const float pillarHeight = 18.0f;  // 6x larger
+    const float pillarWidth = 0.9f;   // 6x wider
     
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
@@ -554,22 +542,45 @@ float DeliverySystem::CalculateCollisionLoss() const
 void DeliverySystem::GenerateNewOrder()
 {
     if (deliveryZones.empty())
+    {
+        std::cerr << "[DELIVERY] Error: No delivery zones available. Cannot generate order." << std::endl;
         return;
+    }
     
-    // Choose origin
-    DeliveryZone originZone = GetRandomDeliveryZone();
-    DeliveryZone destZone;
-    
-    // Ensure origin and destination are different (avoid distance 0)
+    // Find a pickup zone that has delivery positions
+    int pickupIndex = -1;
     int attempts = 0;
-    do {
-        destZone = GetRandomDeliveryZone();
-        attempts++;
-    } while (glm::distance(originZone.position, destZone.position) < 10.0f && attempts < 10);
+    const int maxAttempts = 100;
     
-    currentOrder.originPosition = originZone.position;
-    currentOrder.destinationPosition = destZone.position;
+    while (pickupIndex == -1 && attempts < maxAttempts)
+    {
+        pickupIndex = std::rand() % deliveryZones.size();
+        if (!deliveryZones[pickupIndex].deliveryPositions.empty())
+        {
+            break;
+        }
+        pickupIndex = -1;
+        attempts++;
+    }
+    
+    if (pickupIndex == -1)
+    {
+        std::cerr << "[DELIVERY] Error: No pickup zone has delivery positions. Cannot generate order." << std::endl;
+        return;
+    }
+    
+    DeliveryZone& pickupZone = deliveryZones[pickupIndex];
+    
+    // Choose a random delivery zone from the pickup zone's exclusive delivery positions
+    int deliveryIndex = std::rand() % pickupZone.deliveryPositions.size();
+    glm::vec3 deliveryPosition = pickupZone.deliveryPositions[deliveryIndex];
+    
+    currentOrder.originPosition = pickupZone.position;
+    currentOrder.destinationPosition = deliveryPosition;
     currentOrder.state = OrderState::WAITING;
+    
+    // Store which pickup zone this order belongs to
+    currentOrderZoneIndex = pickupIndex;
     
     // Random difficulty (0-3 for 4 difficulty levels)
     int difficultyRoll = std::rand() % 4;
@@ -633,7 +644,7 @@ void DeliverySystem::GenerateNewOrder()
     std::cout << "[DELIVERY] New order generated. Distance: " << distance << "m, Reward: $" << currentOrder.reward << std::endl;
 }
 
-void DeliverySystem::RejectOrder()
+void DeliverySystem::RejectOrder(const CarState& car)
 {
     std::cout << "[DELIVERY] Order rejected. Generating new order..." << std::endl;
     GenerateNewOrder();
@@ -749,13 +760,18 @@ void DeliverySystem::RenderZoneText(Shader& shader, Camera& camera, const glm::v
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 16, (void*)0);
     
-    // Position text above the pillar
-    float textHeight = 3.5f;
+    // Position text above the pillar (adjusted for larger pillar)
+    float textHeight = 18.5f;
     glm::vec3 textPos = position + glm::vec3(0.0f, textHeight, 0.0f);
+    
+    // Make text rotate above the pillar
+    float currentTime = static_cast<float>(glfwGetTime());
+    float textRotationAngle = currentTime * 1.0f; // Rotate once per second
     
     // Make text always face the camera (billboard effect)
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, textPos);
+    model = glm::rotate(model, textRotationAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y axis
     model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f)); // Scale down the text
     
     // Use the default shader for text

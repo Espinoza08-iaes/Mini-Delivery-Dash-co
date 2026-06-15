@@ -16,12 +16,19 @@ public:
     
     void Render(const DeliverySystem& deliverySystem, const CarState& car, bool qKeyPressed);
     bool ShouldShowMissionPanel(const DeliverySystem& deliverySystem, const CarState& car) const;
-    bool TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPressed) const;
+    bool ShouldShowDeliveryMessage(const DeliverySystem& deliverySystem, const CarState& car) const;
+    bool TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPressed, const CarState& car) const;
+    
+    struct CompassMarker {
+        glm::vec3 position;
+        std::string label;
+        bool isPickup; // true for pickup, false for delivery
+    };
     
 private:
     void SetupGraphics();
     void SetupTextRendering();
-    void RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup);
+    void RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup, const std::vector<CompassMarker>* additionalMarkers = nullptr);
     void RenderMissionPanel(const DeliverySystem& deliverySystem);
     void RenderDeliveryHUD(const DeliverySystem& deliverySystem);
     void RenderHealthBar(float x, float y, float w, float h, float health);

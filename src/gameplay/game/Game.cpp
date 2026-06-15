@@ -472,7 +472,7 @@ int Game::Run()
             deliverySystem.Update(dt, car, eKeyPressed);
 
             // Handle mission rejection
-            deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed);
+           deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed, car);
 
             UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car);

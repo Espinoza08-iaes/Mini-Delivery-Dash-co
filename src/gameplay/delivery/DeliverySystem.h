@@ -14,6 +14,9 @@ struct DeliveryZone
 {
     glm::vec3 position;
     std::string name;
+    
+    // Hierarchical structure: each pickup zone can have multiple delivery zones
+    std::vector<glm::vec3> deliveryPositions;
 };
 
 class DeliverySystem
@@ -34,6 +37,7 @@ public:
     
     glm::vec3 GetObjectivePosition() const;
     float GetDistanceToObjective(const CarState& car) const;
+    const std::vector<DeliveryZone>& GetDeliveryZones() const { return deliveryZones; }
     
     float GetWalletBalance() const { return walletBalance; }
     void AddToWallet(float amount) { walletBalance += amount; }
@@ -42,7 +46,7 @@ public:
     float GetCollisionLoss() const { return CalculateCollisionLoss(); }
     float GetTotalLoss() const { return totalLoss; }
     int GetCollisionCount() const { return collisionCount; }
-    void RejectOrder();
+    void RejectOrder(const CarState& car);
     void OnWaterRespawn();
     
     // Frozen elapsed time for success screen
@@ -57,6 +61,9 @@ public:
     float finalLossTime;
     void CalculateDetailedRewards(float& base, float& bonus, float& penCol, float& penWat, float& penTime) const;
     
+    // Track which pickup zone the current order belongs to
+    int currentOrderZoneIndex;
+    
     // Getters for HUD access
     float GetInitialReward() const { return initialReward; }
     float GetTimeStar3() const { return timeStar3; }
@@ -68,7 +75,6 @@ public:
     
 private:
     void LoadDeliveryZones();
-    DeliveryZone GetRandomDeliveryZone() const;
     bool IsCarNearPoint(const glm::vec3& carPos, const glm::vec3& point, float threshold) const;
     bool IsCarSpeedLow(float speed, float maxSpeedKmh) const;
     Mesh CreateZoneMarkerMesh();
