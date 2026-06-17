@@ -268,11 +268,14 @@ int Game::Run()
 
     bool backToMenu = true;
 
+    // For the audio in menu and effects
     AudioEngine audioEngine;
 
     audioEngine.Initialize();
-
     audioEngine.LoadEngineSound("res/audio/motorAudio.wav");
+    audioEngine.LoadMenuMusic("res/audio/menuMusic.wav");
+
+    audioEngine.PlayMenuMusic();
 
     // Bucle principal (menú + juego)
     while (backToMenu && !glfwWindowShouldClose(window))
@@ -290,6 +293,7 @@ int Game::Run()
             backToMenu = false;
             break;
         }
+        audioEngine.StopMenuMusic();
 
         std::cout << "[INFO] Loading assets and compiling shaders... Please wait." << std::endl;
 
@@ -463,7 +467,7 @@ int Game::Run()
             HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight);
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
             UpdateCar(window, car, dt, city);
-            audioEngine.UpdateEngineRPM(car.speed,24.0f);
+            audioEngine.UpdateEngineRPM(car.speed,24.0f, dt);
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
             // Check water respawn and notify delivery system
@@ -733,6 +737,7 @@ int Game::Run()
                 if (pauseResult == MainMenu::Result::Quit)
                 {
                     audioEngine.StopEngine();
+                    audioEngine.PlayMenuMusic();
                     enJuego = false;
                 }
 
