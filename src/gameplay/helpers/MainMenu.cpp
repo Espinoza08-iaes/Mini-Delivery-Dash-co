@@ -92,6 +92,7 @@ MainMenu::MainMenu(GLFWwindow* w, int sw, int sh)
       howToPlayTexture(0), howToPlayTexWidth(0), howToPlayTexHeight(0),
       exitTexture(0), exitTexWidth(0), exitTexHeight(0),
       mainMenuTexture(0), mainMenuTexWidth(0), mainMenuTexHeight(0),
+      shopTexture(0), shopTexWidth(0), shopTexHeight(0),
       pauseBackgroundTexture(0)
 {
     SetupGraphics();
@@ -109,6 +110,7 @@ MainMenu::~MainMenu()
     if (howToPlayTexture)  glDeleteTextures(1, &howToPlayTexture);
     if (exitTexture)       glDeleteTextures(1, &exitTexture);
     if (mainMenuTexture)   glDeleteTextures(1, &mainMenuTexture);
+    if (shopTexture)       glDeleteTextures(1, &shopTexture);
     if (hudProgram)        glDeleteProgram(hudProgram);
     if (textProgram)       glDeleteProgram(textProgram);
 }
@@ -227,6 +229,7 @@ void MainMenu::LoadAllTextures()
     howToPlayTexture  = LoadTextureFile("res/textures/HowToPlay_STB.png", howToPlayTexWidth, howToPlayTexHeight, howToPlayAlpha);
     exitTexture       = LoadTextureFile("res/textures/Exit_STB.png", exitTexWidth, exitTexHeight, exitAlpha);
     mainMenuTexture   = LoadTextureFile("res/textures/Exit_STB.png", mainMenuTexWidth, mainMenuTexHeight, mainMenuAlpha);
+    shopTexture       = LoadTextureFile("res/textures/SHOP.png", shopTexWidth, shopTexHeight, shopAlpha);
 }
 
 // ======================================================================
@@ -490,7 +493,7 @@ void MainMenu::ShowHowToPlay()
 MainMenu::Result MainMenu::Show(bool pause)
 {
     Result choice = Result::None;
-    static bool escWas = false;
+    bool escWas = false;
     if (pause) escWas = true;
 
     double startTime = glfwGetTime();
@@ -516,174 +519,161 @@ MainMenu::Result MainMenu::Show(bool pause)
         if (dt > 0.1f) dt = 0.1f;
         lastT = currentT;
 
-        if (!isFadingOut)
+    if (!isFadingOut)
+    {
+        if (fadeAlpha > 0.0f)
         {
-            if (fadeAlpha > 0.0f)
-            {
-                fadeAlpha -= dt / fadeDuration;
-                if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
-            }
+            fadeAlpha -= dt / fadeDuration;
+            if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
         }
-        else
+    }
+    else
+    {
+        fadeOutAlpha += dt / fadeDuration;
+        if (fadeOutAlpha >= 1.0f)
         {
-            fadeOutAlpha += dt / fadeDuration;
-            if (fadeOutAlpha >= 1.0f)
-            {
-                fadeOutAlpha = 1.0f;
-                choice = pendingChoice;
-            }
+            fadeOutAlpha = 1.0f;
+            choice = pendingChoice;
         }
+    }
 
-        if (pause && !isFadingOut) {
-            bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-            if (esc && !escWas) { pendingChoice = Result::Play; isFadingOut = true; }
-            escWas = esc;
+    if (pause && !isFadingOut) {
+        bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+        if (esc && !escWas) { pendingChoice = Result::Play; isFadingOut = true; }
+        escWas = esc;
+    }
+
+    float ref = std::min((float)fbW, (float)fbH);
+
+    float btnMaxW = std::min(std::max(ref * 0.30f, 200.f), 500.f);
+
+    const std::vector<unsigned char>* al[4];
+    unsigned int texID[4]; int tw[4], th[4];
+    if (pause) {
+        texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
+        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
+        texID[2]=howToPlayTexture; tw[2]=howToPlayTexWidth;  th[2]=howToPlayTexHeight;  al[2]=&howToPlayAlpha;
+        texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
+    } else {
+        texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
+        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
+        texID[2]=howToPlayTexture; tw[2]=howToPlayTexWidth;  th[2]=howToPlayTexHeight;  al[2]=&howToPlayAlpha;
+        texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
+    }
+
+    float btnScale[4][2] = {
+        { 1.20f, 1.20f },
+        { 1.10f, 1.10f },
+        { 1.10f, 1.10f },
+        { 1.03f, 1.03f },
+    };
+
+    float dw[4], dh[4];
+    for (int i = 0; i < 4; i++)
+    {
+        float ws = btnScale[i][0];
+        float hs = btnScale[i][1];
+        float asp = (float)tw[i] / th[i];
+        dw[i] = btnMaxW * ws;
+        dh[i] = (btnMaxW / asp) * hs;
+    }
+
+    float sp = 10.0f;
+
+    float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
+
+    float startY = (fbH - totalH) * 0.7f;
+
+    float cy[4] = {
+        startY + dh[0] * 0.5f,                                              // top: PLAY/RESUME
+        startY + dh[0] + sp + dh[1] * 0.5f,                                 // 2nd: SHOP
+        startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,                   // 3rd: HOW TO PLAY
+        startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f       // 4th: EXIT/MAIN MENU
+    };
+    float cx = fbW * 0.5f;
+
+    bool over[4];
+    float bob[4];
+    for (int i = 0; i < 4; i++)
+    {
+        bob[i] = sin((float)currentT * 2.5f + i * 1.2f) * 5.0f;
+        over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
+    }
+
+    static bool wasCl = false;
+    if (click && !wasCl && !isFadingOut) {
+        if (over[0]) { pendingChoice = Result::Play; isFadingOut = true; }
+        else if (over[1]) { pendingChoice = Result::Shop; isFadingOut = true; }
+        else if (over[2]) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
+        else if (over[3]) { pendingChoice = Result::Quit; isFadingOut = true; }
+    }
+    wasCl = click;
+
+    // RENDER
+    glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+    glUseProgram(hudProgram);
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+    if (pause) {
+        if (pauseBackgroundTexture != 0) {
+            RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
         }
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
+    }
+    else {
+        RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
+        RenderClouds((float)fbW, (float)fbH, (float)currentT);
 
-        float ref = std::min((float)fbW, (float)fbH);
+        float coverW = fbW * 0.16f;
+        float coverH = fbH * 0.15f;
+        float coverX = fbW * 0.5f - coverW * 0.5f;
+        float coverY = fbH * 0.03f;
+        RenderQuadSubset(coverX, coverY, coverW, coverH, backgroundTexture, 0.2f, 0.80f, 0.16f, 0.15f);
 
-        // All buttons same width
-        float btnMaxW = std::min(std::max(ref * 0.30f, 200.f), 500.f);
-
-        // Pick textures
-        const std::vector<unsigned char>* al[3];
-        unsigned int texID[3]; int tw[3], th[3];
-        if (pause) {
-            texID[0]=resumeTexture;   tw[0]=resumeTexWidth;    th[0]=resumeTexHeight;    al[0]=&resumeAlpha;
-            texID[1]=howToPlayTexture; tw[1]=howToPlayTexWidth; th[1]=howToPlayTexHeight; al[1]=&howToPlayAlpha;
-            texID[2]=mainMenuTexture;  tw[2]=mainMenuTexWidth;  th[2]=mainMenuTexHeight;  al[2]=&mainMenuAlpha;
-        } else {
-            texID[0]=playTexture;      tw[0]=playTexWidth;      th[0]=playTexHeight;      al[0]=&playAlpha;
-            texID[1]=howToPlayTexture; tw[1]=howToPlayTexWidth; th[1]=howToPlayTexHeight; al[1]=&howToPlayAlpha;
-            texID[2]=exitTexture;      tw[2]=exitTexWidth;      th[2]=exitTexHeight;      al[2]=&exitAlpha;
+        float sheenCycle = fmod((float)currentT, 3.0f);
+        float sheenVal = -10.0f;
+        if (sheenCycle < 1.0f) {
+            sheenVal = sheenCycle * 2.0f;
         }
+        float logoW = fbW * 0.26f;
+        float logoH = fbH * 0.11f;
+        float logoX = fbW * 0.5f - logoW * 0.5f;
+        float logoY = fbH * 0.245f - logoH * 0.5f;
+        RenderQuadSubset(logoX, logoY, logoW, logoH, backgroundTexture, 0.37f, 0.695f, 0.26f, 0.11f, sheenVal);
+    }
 
-        // Per-button size multipliers { widthScale, heightScale }
-        float btnScale[3][2] = {
-            { 1.20f, 1.20f },  // Top button    (PLAY / RESUME)
-            { 1.30f, 1.30f },  // Middle button (HOW TO PLAY)
-            { 1.03f, 1.03f },  // Bottom button (EXIT / MAIN MENU)
-        };
-
-        float dw[3], dh[3];
-        for (int i = 0; i < 3; i++)
+    // Draw all 4 buttons
+    // Draw all 4 buttons
+    for (int i = 0; i < 4; i++)
+    {
+        float s = 1.0f;
+        float yOff = 0.0f;
+        if (over[i])
         {
-            float ws = btnScale[i][0];
-            float hs = btnScale[i][1];
-
-            if (tw[i] > 0 && th[i] > 0)
+            if (click)
             {
-                float asp = (float)tw[i] / th[i];
-                dw[i] = btnMaxW * ws;
-                dh[i] = (btnMaxW / asp) * hs;
+                s = 0.92f;
+                yOff = 4.0f;
             }
             else
             {
-                dw[i] = btnMaxW * ws;
-                dh[i] = btnMaxW * 0.2f * hs;
+                s = 1.08f;
             }
         }
 
-        // Spacing
-        float sp = 10.0f;
+        // Renderiza la textura de imagen para TODOS los botones (incluyendo SHOP)
+        RenderButtonImage(cx, cy[i] + yOff + bob[i], dw[i] * s, texID[i], tw[i], th[i]);
+    }
 
-        // Total height of all 3 buttons + 2 gaps
-        float totalH = dh[0] + dh[1] + dh[2] + sp * 2;
+    float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+    if (overlayAlpha > 0.0f)
+    {
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
+    }
 
-        // Center vertically
-        float startY = (fbH - totalH) * 0.7f;
-
-        // Button center Y positions
-        // Order: 0=PLAY/RESUME (top), 1=HOW TO PLAY (middle), 2=EXIT/MAIN MENU (bottom)
-        float cy[3] = {
-            startY + dh[0] * 0.5f,                                          // Top button
-            startY + dh[0] + sp + dh[1] * 0.5f,                             // Middle button
-            startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f                 // Bottom button
-        };
-        float cx = fbW * 0.5f;
-
-        // Pixel-perfect hit detection (including bobbing)
-        bool over[3];
-        float bob[3];
-        for (int i = 0; i < 3; i++)
-        {
-            bob[i] = sin((float)currentT * 2.5f + i * 1.2f) * 5.0f;
-            over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
-        }
-
-        static bool wasCl = false;
-        if (click && !wasCl && !isFadingOut) {
-            if (over[0]) { pendingChoice = Result::Play; isFadingOut = true; }
-            if (over[1]) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
-            if (over[2]) { pendingChoice = Result::Quit; isFadingOut = true; }
-        }
-        wasCl = click;
-
-        // RENDER
-        glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
-        glUseProgram(hudProgram);
-        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
-
-        if (pause) {
-            if (pauseBackgroundTexture != 0) {
-                RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
-            }
-            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
-        }
-        else {
-            RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
-            RenderClouds((float)fbW, (float)fbH, (float)currentT);
-
-            // 1. Cover up the delivery box above the logo by cloning the adjacent sky gradient
-            float coverW = fbW * 0.16f;
-            float coverH = fbH * 0.15f;
-            float coverX = fbW * 0.5f - coverW * 0.5f;
-            float coverY = fbH * 0.03f;
-            RenderQuadSubset(coverX, coverY, coverW, coverH, backgroundTexture, 0.2f, 0.80f, 0.16f, 0.15f);
-
-            // 2. Animate a premium metallic sheen/shine sweep across the main logo plate
-            float sheenCycle = fmod((float)currentT, 3.0f);
-            float sheenVal = -10.0f;
-            if (sheenCycle < 1.0f) {
-                sheenVal = sheenCycle * 2.0f; // sweep from 0.0 to 2.0 in 1 second
-            }
-            float logoW = fbW * 0.26f;
-            float logoH = fbH * 0.11f;
-            float logoX = fbW * 0.5f - logoW * 0.5f;
-            float logoY = fbH * 0.245f - logoH * 0.5f;
-            RenderQuadSubset(logoX, logoY, logoW, logoH, backgroundTexture, 0.37f, 0.695f, 0.26f, 0.11f, sheenVal);
-        }
-
-        // Draw all 3 buttons
-        for (int i = 0; i < 3; i++)
-        {
-            float s = 1.0f;
-            float yOff = 0.0f;
-            if (over[i])
-            {
-                if (click)
-                {
-                    s = 0.92f;
-                    yOff = 4.0f;
-                }
-                else
-                {
-                    s = 1.08f;
-                }
-            }
-            RenderButtonImage(cx, cy[i] + yOff + bob[i], dw[i] * s, texID[i], tw[i], th[i]);
-        }
-
-        // Draw fade overlay
-        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
-        if (overlayAlpha > 0.0f)
-        {
-            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
-        }
-
-        glfwSwapBuffers(window);
+    glfwSwapBuffers(window);
     }
     if (choice == Result::HowToPlay) { ShowHowToPlay(); return Show(pause); }
     return choice;
