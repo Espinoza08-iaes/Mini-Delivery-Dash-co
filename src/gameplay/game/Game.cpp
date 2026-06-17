@@ -4,6 +4,8 @@
 #include "../helpers/MainMenu.h"
 #include "../delivery/DeliverySystem.h"
 #include "../delivery/DeliveryHUD.h"
+#include "../shop/ShopUI.h"
+#include "../shop/ShopManager.h"
 #include "../../engine/graphics/Frustum.h"
 #include "../../engine/audio/AudioEngine.h"
 
@@ -35,6 +37,9 @@
 // ============================================================================
 // Game Configuration Constants
 // ============================================================================
+
+// Global pointer for GLFW callbacks (needed because GLFW callbacks must be static)
+static ShopUI* g_shopUI = nullptr;
 
 namespace GameConstants
 {
@@ -106,13 +111,15 @@ namespace GameConstants
 void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car)
 {
     using namespace GameConstants;
-    // Determine if boost is active based on input and speed
-    bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 1.0f);
+    // Check if turbo is unlocked
+    ShopManager* shop = ShopManager::GetInstance();
+    bool canUseTurbo = shop->IsAbilityUnlocked(AbilityType::Turbo);
+    bool isBoosting = canUseTurbo && (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 1.0f);
+    
     static float currentFov = CAMERA_FOV_NORMAL;
-    // Smoothly interpolate FOV between normal and boosting states
     float targetFov = isBoosting ? CAMERA_FOV_BOOSTING : CAMERA_FOV_NORMAL;
     currentFov = glm::mix(currentFov, targetFov, CAMERA_FOV_SMOOTHING);
-    // Apply random camera displacement if boosting
+    
     if (isBoosting)
     {
         float shakeX = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
@@ -120,7 +127,7 @@ void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car
         float shakeZ = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f) * SHAKE_MAGNITUDE;
         camera.Position += glm::vec3(shakeX, shakeY, shakeZ);
     }
-    // Update projection matrix with current FOV
+    
     camera.updateMatrix(currentFov, CAMERA_NEAR_PLANE, CAMERA_FAR_PLANE);
 }
 
@@ -194,6 +201,19 @@ void Game::CheckWaterRespawn(CarState &car, City &city, float &carVerticalSpeed,
     if (car.position.y < VOID_THRESHOLD_RESPAWN)
     {
         std::cout << "[GAME] Car fell into void! Respawning..." << std::endl;
+        
+        // Daño por caer al agua: 8% base
+        ShopManager* shop = ShopManager::GetInstance();
+        float durabilityMult = shop->GetUpgradeMultiplier(UpgradeType::FuelEfficiency);
+        float waterDamage = 8.0f / durabilityMult;
+        car.durability -= waterDamage;
+        std::cout << "[CAR] Caída al agua! -" << waterDamage << "% durabilidad" << std::endl;
+        
+        // Check if car died from water damage
+        if (car.durability <= 0.0f) {
+            car.isDead = true;
+        }
+        
         // Find the closest safe spawn point on the road
         glm::vec3 safeSpawn = city.GetBestRoadSpawn(car.position, RESPAWN_SEARCH_DISTANCE);
 
@@ -250,6 +270,24 @@ void Game::DrawOcean(Shader &waterShader, Mesh &ocean, Camera &camera, float cur
     // Set view-projection matrix and render the mesh
     camera.Matrix(waterShader, "camMatrix");
     ocean.Draw(waterShader, camera, glm::mat4(1.0f));
+}
+
+// ============================================================================
+// Shop System Callbacks
+// ============================================================================
+
+void Game::mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (g_shopUI && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+        g_shopUI->ProcessMouseClick(mouseX, mouseY);
+    }
+}
+
+void Game::cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (g_shopUI) {
+        g_shopUI->ProcessMouseMove(xpos, ypos);
+    }
 }
 
 // ======================================================================
@@ -353,6 +391,16 @@ int Game::Run()
         // --- Delivery HUD ---
         DeliveryHUD deliveryHUD(window, fbW, fbH);
 
+        // --- Shop System ---
+        ShopManager::GetInstance()->LoadShopData();
+        g_shopUI = new ShopUI(window);
+        glfwSetMouseButtonCallback(window, Game::mouse_button_callback);
+        glfwSetCursorPosCallback(window, Game::cursor_position_callback);
+        std::cout << "[INFO] Shop system initialized" << std::endl;
+        
+        // Set car state reference AFTER car is initialized
+        // Will be set in game loop
+
         // --- Shadow Map Shader & FBO Setup ---
         Shader shadowShader("res/shaders/shadow.vert", "res/shaders/shadow.frag");
         // En lugar de SHADOW_WIDTH, SHADOW_HEIGHT usa GameConstants::SHADOW_MAP_WIDTH, etc.
@@ -444,10 +492,14 @@ int Game::Run()
         float lastFrame = static_cast<float>(glfwGetTime());
         bool headlightsOn = false;
         bool lightsPressed = false;
+        bool shopKeyPressed = false;
 
         glfwSetWindowTitle(window, "Mini Delivery Dash");
 
         bool enJuego = true;
+        
+        // Set car state reference to shop UI
+        g_shopUI->SetCarState(&car);
 
         // Bucle del juego
         while (enJuego && !glfwWindowShouldClose(window))
@@ -460,11 +512,30 @@ int Game::Run()
             dayNight.Update(dt);
             UpdateGameplay(window, dayNight, headlightsOn, lightsPressed);
 
+            // --- Shop Input Handling ---
+            if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !shopKeyPressed) {
+                g_shopUI->Toggle();
+                shopKeyPressed = true;
+            }
+            if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
+                shopKeyPressed = false;
+            }
+            // Close shop with ESC when visible
+            if (g_shopUI->IsVisible() && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+                g_shopUI->Hide();
+            }
+            
+            // Auto-open shop if car is dead
+            if (car.isDead && !g_shopUI->IsVisible()) {
+                g_shopUI->Show();
+                std::cout << "[GAME] Carro descompuesto! Abriendo tienda..." << std::endl;
+            }
+
             bool braking = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && car.speed > 0.1f);
             bool accelerating = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS);
             float jumpDistanceBoost = accelerating ? 1.4f : 0.0f;
 
-            HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight);
+            HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight, &deliverySystem);
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
             UpdateCar(window, car, dt, city);
             audioEngine.UpdateEngineRPM(car.speed,24.0f, dt);
@@ -485,7 +556,7 @@ int Game::Run()
             deliverySystem.Update(dt, car, eKeyPressed);
 
             // Handle mission rejection
-            deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed);
+           deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed, car);
 
             UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car);
@@ -685,6 +756,9 @@ int Game::Run()
             // Render delivery HUD (2D overlay)
             deliveryHUD.Render(deliverySystem, car, qKeyPressed);
 
+            // Render shop UI (2D overlay)
+            g_shopUI->Render();
+
             shaderProgram.Activate();
 
             static float fpsTime = 0.0f;
@@ -715,7 +789,8 @@ int Game::Run()
             // ----- PAUSA CON ESC -----
             static bool escWasPressed = false;
             bool escPressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-            if (escPressed && !escWasPressed)
+            // Only pause if shop is not visible
+            if (escPressed && !escWasPressed && !g_shopUI->IsVisible())
             {
                 // Capture the current frame buffer contents into a texture to display behind the pause menu
                 GLuint pauseTex = 0;
@@ -811,9 +886,17 @@ int Game::Run()
         glDeleteTextures(1, &depthMap);
         glDeleteFramebuffers(1, &cameraDepthFBO);
         glDeleteTextures(1, &cameraDepthMap);
+        
+        // Shop cleanup
+        if (g_shopUI) {
+            ShopManager::GetInstance()->SaveShopData();
+            delete g_shopUI;
+            g_shopUI = nullptr;
+        }
     }
 
     // Limpieza final
+    ShopManager::Destroy();
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;

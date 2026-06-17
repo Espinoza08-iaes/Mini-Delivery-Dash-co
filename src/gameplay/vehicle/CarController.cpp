@@ -1,7 +1,10 @@
 #include "CarController.h"
+#include "../shop/ShopManager.h"
+#include "../delivery/DeliverySystem.h"
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -24,16 +27,51 @@ glm::mat4 BuildCarMatrix(const CarState &car)
 // ---------------------------------------------------------------------------
 void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
 {
-    bool isBoosting = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 0.0f);
-    const float acceleration = isBoosting ? 25.0f : 9.0f;
-    const float brakePower = 16.0f;
-    const float maxForwardSpeed = isBoosting ? 24.0f : 11.0f;
-    const float maxReverseSpeed = 5.0f;
-    const float friction = 5.0f;
-    const float steeringResponse = isBoosting ? 3.5f : 5.5f;
-    const float steeringReturn = 9.0f;
+    // Get shop upgrades
+    ShopManager* shop = ShopManager::GetInstance();
+    float speedMult = shop->GetUpgradeMultiplier(UpgradeType::Speed);
+    float accelMult = shop->GetUpgradeMultiplier(UpgradeType::Acceleration);
+    float handlingMult = shop->GetUpgradeMultiplier(UpgradeType::Handling);
+    float durabilityMult = shop->GetUpgradeMultiplier(UpgradeType::FuelEfficiency); // Usar FuelEfficiency para Durabilidad
+    
+    // Check if turbo ability is unlocked
+    bool canUseTurbo = shop->IsAbilityUnlocked(AbilityType::Turbo);
+    bool turboKeyPressed = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 0.0f);
+    bool isBoosting = canUseTurbo && turboKeyPressed;
+    
+    // Debug: Print when trying to use turbo without unlock
+    static bool lastTurboKeyPressed = false;
+    if (turboKeyPressed && !canUseTurbo && !lastTurboKeyPressed) {
+        std::cout << "[DEBUG] Turbo bloqueado - necesitas comprarlo primero!" << std::endl;
+    }
+    lastTurboKeyPressed = turboKeyPressed;
+    
+    // Si el carro está muerto, no puede moverse
+    if (car.isDead) {
+        car.speed = 0.0f;
+        car.steering = 0.0f;
+        return;
+    }
+    
+    // Base values (reduced for balance)
+    const float baseAcceleration = 6.0f;
+    const float baseBrakePower = 12.0f;
+    const float baseMaxForwardSpeed = 8.0f;
+    const float baseMaxReverseSpeed = 4.0f;
+    const float baseFriction = 4.0f;
+    const float baseSteeringResponse = 4.0f;
+    const float baseSteeringReturn = 8.0f;
+    
+    // Apply upgrades
+    const float acceleration = (isBoosting ? baseAcceleration * 2.5f : baseAcceleration) * accelMult;
+    const float brakePower = baseBrakePower;
+    const float maxForwardSpeed = (isBoosting ? baseMaxForwardSpeed * 2.2f : baseMaxForwardSpeed) * speedMult;
+    const float maxReverseSpeed = baseMaxReverseSpeed;
+    const float friction = baseFriction;
+    const float steeringResponse = (isBoosting ? baseSteeringResponse * 0.7f : baseSteeringResponse) * handlingMult;
+    const float steeringReturn = baseSteeringReturn;
     const float maxSteering = glm::radians(35.0f);
-    const float turnRate = glm::radians(125.0f);
+    const float turnRate = glm::radians(125.0f) * handlingMult;
     const float wheelRadius = 0.38f * kCarModelScale;
 
     // --- Throttle ---
@@ -143,8 +181,17 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
             nextPosition = tryX;
         else
         {
+            float impactSpeed = std::abs(car.speed);
             car.speed = 0.0f;
             nextPosition = prevPosition;
+            
+            if (impactSpeed > 4.0f)
+            {
+                float baseDamage = 4.0f + std::max(0.0f, std::floor((impactSpeed - 4.0f) / 4.0f));
+                float collisionDamage = baseDamage / durabilityMult;
+                car.durability -= collisionDamage;
+                std::cout << "[CAR] Colisión a " << impactSpeed << " m/s! Daño base: " << baseDamage << " → -" << collisionDamage << "% durabilidad" << std::endl;
+            }
         }
     }
     car.position = nextPosition;
@@ -200,24 +247,95 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
 
     // --- Wheel spin ---
     car.wheelSpin += (car.speed * dt) / wheelRadius;
+    
+    // --- Durability degradation ---
+    // Desgaste por conducir (muy lento)
+    if (std::abs(car.speed) > 0.1f) {
+        // Desgaste base: 0.5% por minuto conduciendo
+        // Con durabilidad Nv.5 (x2.0): 0.25% por minuto
+        float degradationRate = 0.5f / 60.0f; // 0.5% por minuto = 0.008% por segundo
+        float actualDegradation = degradationRate / durabilityMult; // Dividir para hacer que dure MÁS
+        car.durability -= actualDegradation * dt;
+    }
+    
+    // Clamp durability
+    car.durability = glm::clamp(car.durability, 0.0f, 100.0f);
+    
+    // Check if car is dead
+    if (car.durability <= 0.0f && !car.isDead) {
+        car.isDead = true;
+        car.speed = 0.0f;
+        std::cout << "[CAR] Carro descompuesto! Necesitas repararlo en la tienda." << std::endl;
+    }
 }
 // --- Car jump and respawn ---
-void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight)
+void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVerticalSpeed, bool &isOnGround, glm::vec3 spawnPoint, float jumpDistanceBoost, float &lastGroundHeight, DeliverySystem* deliverySystem)
 {
     static bool zPressedLast = false;
     static bool rPressedLast = false;
+    static bool oneKeyPressedLast = false;
 
-    // --- Jump ---
+    // Get shop abilities
+    ShopManager* shop = ShopManager::GetInstance();
+    bool canJump = shop->IsAbilityUnlocked(AbilityType::Jump);
+    bool canTeleport = shop->IsAbilityUnlocked(AbilityType::Teleport);
+
+    // --- Jump (only if ability is unlocked) ---
     bool zPressed = glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS;
+    bool wPressed = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
+    
     if (zPressed && !zPressedLast && isOnGround)
     {
-        carVerticalSpeed = 3.2f; // Reduce vertical impulse to avoid overshooting geometry
-        isOnGround = false;
-
-        glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
-        car.position += forward * (jumpDistanceBoost * 0.45f); // Reduced horizontal boost
+        if (canJump)
+        {
+            // Salto vertical
+            carVerticalSpeed = 3.5f;
+            isOnGround = false;
+            
+            // Si también presiona W, salto hacia adelante
+            if (wPressed)
+            {
+                glm::vec3 forward = glm::vec3(std::sin(car.yaw), 0.0f, std::cos(car.yaw));
+                car.position += forward * 1.5f;  // Impulso horizontal
+                std::cout << "[DEBUG] Salto hacia adelante activado!" << std::endl;
+            }
+            else
+            {
+                std::cout << "[DEBUG] Salto vertical activado!" << std::endl;
+            }
+        }
+        else
+        {
+            std::cout << "[DEBUG] Salto bloqueado - necesitas comprarlo primero!" << std::endl;
+        }
     }
     zPressedLast = zPressed;
+    
+    // --- Teleport (Tecla 1) - Solo funciona si NO hay misión activa ---
+    bool oneKeyPressed = glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS;
+    if (oneKeyPressed && !oneKeyPressedLast)
+    {
+        if (canTeleport)
+        {
+            // Solo funciona si hay una misión esperando (no activa)
+            if (deliverySystem && deliverySystem->HasWaitingOrder())
+            {
+                glm::vec3 pickupPos = deliverySystem->GetCurrentOrder().originPosition;
+                car.position = pickupPos + glm::vec3(0.0f, 2.0f, 0.0f); // Spawn arriba del pickup
+                car.speed = 0.0f;
+                std::cout << "[DEBUG] Teletransporte a pickup activado!" << std::endl;
+            }
+            else
+            {
+                std::cout << "[DEBUG] Teletransporte: No hay misión esperando o ya tienes una activa" << std::endl;
+            }
+        }
+        else
+        {
+            std::cout << "[DEBUG] Teletransporte bloqueado - necesitas comprarlo primero!" << std::endl;
+        }
+    }
+    oneKeyPressedLast = oneKeyPressed;
 
     // --- Respawn ---
     bool rPressed = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;

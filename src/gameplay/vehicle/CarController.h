@@ -7,6 +7,9 @@
 
 #include "../city/City.h"
 
+// Forward declaration
+class DeliverySystem;
+
 // Car const
 constexpr float kCarModelScale = 0.21875f;
 constexpr float kCarGroundYOffset = 0.0f;
@@ -26,6 +29,10 @@ struct CarState
 
     float pitch = 0.0f;
     float roll = 0.0f;
+    
+    // Durability system
+    float durability = 100.0f;  // 0-100%
+    bool isDead = false;
 };
 
 glm::mat4 BuildCarMatrix(const CarState& car);
@@ -43,6 +50,7 @@ void HandleCarJumpAndRespawn(
     bool& isOnGround,
     glm::vec3 spawnPoint,
     float jumpDistanceBoost,
-    float& lastGroundHeight);
+    float& lastGroundHeight,
+    DeliverySystem* deliverySystem);
 
 #endif
