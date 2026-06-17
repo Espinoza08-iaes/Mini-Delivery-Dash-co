@@ -15,6 +15,8 @@ public:
     ~DeliveryHUD();
     
     void Render(const DeliverySystem& deliverySystem, const CarState& car, bool qKeyPressed);
+    void RenderDurabilityBar(const CarState& car);
+    void RenderSpeedometer(const CarState& car, float maxSpeed);  // Nueva función
     bool ShouldShowMissionPanel(const DeliverySystem& deliverySystem, const CarState& car) const;
     bool ShouldShowDeliveryMessage(const DeliverySystem& deliverySystem, const CarState& car) const;
     bool TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPressed, const CarState& car) const;
@@ -35,6 +37,7 @@ private:
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.0f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.0f);
     void RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a = 1.0f);
+    void RenderArc(float centerX, float centerY, float radius, float startAngle, float endAngle, float r, float g, float b, float a = 1.0f, int segments = 30);  // Nueva función
     
     GLFWwindow* window;
     int width, height;

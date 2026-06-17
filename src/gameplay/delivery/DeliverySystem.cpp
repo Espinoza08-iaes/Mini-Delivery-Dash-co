@@ -7,6 +7,7 @@
 #include <cstring>
 #include <GLFW/glfw3.h>
 #include "../../engine/graphics/Mesh.h"
+#include "../shop/ShopManager.h"
 
 #define STB_EASY_FONT_IMPLEMENTATION
 #include "../../../third_party/stb/stb_easy_font.h"
@@ -148,16 +149,24 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             finalLossTime = penTime;
             finalElapsedTime = orderElapsedTime; // FIX BUG 5: Save frozen elapsed time
             
-            float finalReward = base + bonus - penCol - penWat - penTime;
+            // Apply PayPerDelivery upgrade multiplier from shop
+            ShopManager* shop = ShopManager::GetInstance();
+            float payMultiplier = shop->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
+            
+            float finalReward = (base + bonus - penCol - penWat - penTime) * payMultiplier;
             totalLoss = initialReward - finalReward;
             AddToWallet(finalReward);
+            
+            // Add money to shop system and save progress
+            shop->AddMoney(static_cast<int>(finalReward));
+            shop->SaveShopData();
             
             // Save final reward to display on screen
             currentOrder.reward = finalReward;
             currentOrder.state = OrderState::DELIVERED;
             orderElapsedTime = 0.0f; // FIX 2: Reset to use as timer for screen
             
-            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward << " Loss: $" << totalLoss << std::endl;
+            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward << " (x" << payMultiplier << ") Loss: $" << totalLoss << std::endl;
         }
         
         // Update fragile health based on speed for fragile packages only
@@ -600,9 +609,9 @@ void DeliverySystem::GenerateNewOrder()
     
     currentOrder.timeLimit = timeStar0;
     
-    // Base reward
-    initialReward = 50.0f + (distance * 0.5f);
-    if (currentOrder.difficulty == OrderDifficulty::HARD) initialReward *= 2.0f;
+    // Base reward (reduced for balance)
+    initialReward = 35.0f + (distance * 0.35f);
+    if (currentOrder.difficulty == OrderDifficulty::HARD) initialReward *= 1.8f;
     
     // Set reward and type based on difficulty
     switch (currentOrder.difficulty)
