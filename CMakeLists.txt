@@ -61,6 +61,7 @@ elseif(APPLE)
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
+        "-framework OpenAL"
     )
 
 else()

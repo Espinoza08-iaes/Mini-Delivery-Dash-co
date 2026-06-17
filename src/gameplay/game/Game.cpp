@@ -5,6 +5,7 @@
 #include "../delivery/DeliverySystem.h"
 #include "../delivery/DeliveryHUD.h"
 #include "../../engine/graphics/Frustum.h"
+#include "../../engine/audio/AudioEngine.h"
 
 #include <iostream>
 #include <algorithm>
@@ -267,6 +268,12 @@ int Game::Run()
 
     bool backToMenu = true;
 
+    AudioEngine audioEngine;
+
+    audioEngine.Initialize();
+
+    audioEngine.LoadEngineSound("res/audio/motorAudio.wav");
+
     // Bucle principal (menú + juego)
     while (backToMenu && !glfwWindowShouldClose(window))
     {
@@ -404,6 +411,7 @@ int Game::Run()
 
         // ----- JUEGO -----
         CarState car;
+        audioEngine.PlayEngine();
         float carVerticalSpeed = 0.0f;
         bool isOnGround = true;
         float lastGroundHeight = car.position.y;
@@ -455,6 +463,7 @@ int Game::Run()
             HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight);
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
             UpdateCar(window, car, dt, city);
+            audioEngine.UpdateEngineRPM(car.speed,24.0f);
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
             // Check water respawn and notify delivery system
@@ -723,6 +732,7 @@ int Game::Run()
 
                 if (pauseResult == MainMenu::Result::Quit)
                 {
+                    audioEngine.StopEngine();
                     enJuego = false;
                 }
 
@@ -785,6 +795,7 @@ int Game::Run()
         }
 
         // Limpieza de recursos al salir del gameplay
+        audioEngine.StopEngine();
         shaderProgram.Delete();
         skyShader.Delete();
         waterShader.Delete();
