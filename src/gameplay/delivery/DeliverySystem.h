@@ -72,6 +72,21 @@ public:
     
     // 3D Text rendering for zone markers
     void RenderZoneText(Shader& shader, Camera& camera, const glm::vec3& position, const char* text, const glm::vec3& color);
+
+    OrderState GetOrderState() const
+    {
+        return currentOrder.state;
+    }
+
+    float GetFragileHealth() const
+    {
+        return currentOrder.fragileHealth;
+    }
+
+    float GetTimeRemaining() const
+    {
+        return currentOrder.timeLimit - orderElapsedTime;
+    }
     
 private:
     void LoadDeliveryZones();

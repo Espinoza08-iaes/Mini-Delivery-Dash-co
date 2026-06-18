@@ -312,13 +312,18 @@ int Game::Run()
     audioEngine.Initialize();
     audioEngine.LoadEngineSound("res/audio/motorAudio.wav");
     audioEngine.LoadMenuMusic("res/audio/menuMusic.wav");
-
-    audioEngine.PlayMenuMusic();
-
+    audioEngine.LoadAmbientMusic("res/audio/ambientMusic.wav");
+    audioEngine.LoadDeliveryMusic("res/audio/deliveryMusic.wav");
+    
+    OrderState lastOrderState = OrderState::WAITING;
+    
     // Bucle principal (menú + juego)
     while (backToMenu && !glfwWindowShouldClose(window))
     {
 
+        audioEngine.PlayMenuMusic();
+
+        std::cout << "[AUDIO] Entering main menu\n";
         // Restaurar color de fondo a negro para el menú
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -332,7 +337,8 @@ int Game::Run()
             break;
         }
         audioEngine.StopMenuMusic();
-
+        audioEngine.PlayAmbientMusic();
+        lastOrderState = OrderState::FAILED;
         std::cout << "[INFO] Loading assets and compiling shaders... Please wait." << std::endl;
 
         // ----- PRECARGA DE RECURSOS -----
@@ -554,6 +560,57 @@ int Game::Run()
             bool eKeyPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
             bool qKeyPressed = (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
             deliverySystem.Update(dt, car, eKeyPressed);
+            OrderState currentState = deliverySystem.GetOrderState();
+
+            // Music change for delivery or waiting for order, depending on status.
+            if(currentState != lastOrderState)
+            {
+                switch(currentState)
+                {
+                    case OrderState::WAITING:
+                    {
+                        audioEngine.StopDeliveryMusic();
+                        audioEngine.PlayAmbientMusic();
+                        break;
+                    }
+                    case OrderState::PICKED_UP:
+                    {
+                        audioEngine.StopAmbientMusic();
+                        audioEngine.PlayDeliveryMusic();
+                        break;
+                    }
+                    case OrderState::DELIVERED:
+                    {
+                        audioEngine.StopDeliveryMusic();
+                        audioEngine.PlayAmbientMusic();
+                        break;
+                    }
+                    case OrderState::FAILED:
+                    {
+                        audioEngine.StopDeliveryMusic();
+                        audioEngine.PlayAmbientMusic();
+                        break;
+                    }
+                }
+                lastOrderState = currentState;
+            }
+
+            // Suspense for the order, depending on the time or condition of the box.
+            if(currentState == OrderState::PICKED_UP)
+            {
+                bool danger = false;
+
+                float timeRemaining = deliverySystem.GetTimeRemaining();
+
+                if(timeRemaining <= 10.0f)
+                    danger = true;
+                if(deliverySystem.GetFragileHealth() <= 20.0f)
+                    danger = true;
+                if(danger)
+                    audioEngine.SetDeliveryPitch(1.25f);
+                else
+                    audioEngine.SetDeliveryPitch(1.0f);
+            }
 
             // Handle mission rejection
            deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed, car);
@@ -812,7 +869,8 @@ int Game::Run()
                 if (pauseResult == MainMenu::Result::Quit)
                 {
                     audioEngine.StopEngine();
-                    audioEngine.PlayMenuMusic();
+                    audioEngine.StopDeliveryMusic();
+                    audioEngine.StopAmbientMusic();
                     enJuego = false;
                 }
 
@@ -876,6 +934,9 @@ int Game::Run()
 
         // Limpieza de recursos al salir del gameplay
         audioEngine.StopEngine();
+        audioEngine.StopAmbientMusic();
+        audioEngine.StopDeliveryMusic();
+        audioEngine.StopMenuMusic();
         shaderProgram.Delete();
         skyShader.Delete();
         waterShader.Delete();

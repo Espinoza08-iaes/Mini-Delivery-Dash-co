@@ -45,6 +45,8 @@ public:
     bool LoadDeliveryMusic(const std::string& filepath);
     void PlayDeliveryMusic();
     void StopDeliveryMusic();
+
+    void SetDeliveryPitch(float pitch);
     
     //========================================================
     // Ambient audio

@@ -213,6 +213,8 @@ bool AudioEngine::LoadMenuMusic(const std::string& filepath)
 
 void AudioEngine::PlayMenuMusic()
 {
+    alSourceStop(menuSource);
+    alSourceRewind(menuSource);
     alSourcePlay(menuSource);
 }
 
@@ -225,7 +227,7 @@ void AudioEngine::StopMenuMusic()
 // Delivery audio methods
 // ===============================================
 
-bool AudioEngine::LoadDeliveryMusic(const std::string& filepath)
+bool AudioEngine::LoadAmbientMusic(const std::string& filepath)
 {
     drwav wav;
 
@@ -270,12 +272,21 @@ bool AudioEngine::LoadDeliveryMusic(const std::string& filepath)
 
 void AudioEngine::PlayAmbientMusic()
 {
-    alSourcePlay(ambientSource);
+    ALint state;
+    alGetSourcei(ambientSource, AL_SOURCE_STATE, &state);
+
+    if(state != AL_PLAYING)
+        alSourcePlay(ambientSource);
 }
 
 void AudioEngine::StopAmbientMusic()
 {
     alSourceStop(ambientSource);
+}
+
+void AudioEngine::SetDeliveryPitch(float pitch)
+{
+    alSourcef(deliverySource, AL_PITCH, pitch);
 }
 
 // ===============================================
@@ -327,7 +338,11 @@ bool AudioEngine::LoadDeliveryMusic(const std::string& filepath)
 
 void AudioEngine::PlayDeliveryMusic()
 {
-    alSourcePlay(deliverySource);
+    ALint state;
+    alGetSourcei(deliverySource, AL_SOURCE_STATE, &state);
+
+    if(state != AL_PLAYING)
+        alSourcePlay(deliverySource);
 }
 
 void AudioEngine::StopDeliveryMusic()
