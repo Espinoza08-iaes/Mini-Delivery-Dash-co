@@ -1,4 +1,5 @@
 #include "AudioEngine.h"
+#include <cstdint>
 
 #define DR_WAV_IMPLEMENTATION
 #include "../../../third_party/audio/dr_wav.h"

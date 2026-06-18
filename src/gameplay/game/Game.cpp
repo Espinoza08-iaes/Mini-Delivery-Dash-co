@@ -304,6 +304,11 @@ int Game::Run()
     if (!InitializeWindow(window, fbW, fbH))
         return -1;
 
+    ShopManager::GetInstance()->LoadShopData();
+    g_shopUI = new ShopUI(window);
+    glfwSetMouseButtonCallback(window, Game::mouse_button_callback);
+    glfwSetCursorPosCallback(window, Game::cursor_position_callback);
+
     bool backToMenu = true;
 
     // For the audio in menu and effects
@@ -330,6 +335,44 @@ int Game::Run()
         // ----- MENÚ PRINCIPAL -----
         MainMenu menu(window, fbW, fbH);
         MainMenu::Result res = menu.Show();
+
+        if (res == MainMenu::Result::Shop)
+        {
+            g_shopUI->Show();
+            glfwWaitEventsTimeout(0.1);
+            static bool escWasShop = true; // ignore first ESC press
+            escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+            while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
+            {
+                glfwPollEvents();
+                double mx, my; glfwGetCursorPos(window, &mx, &my);
+                g_shopUI->ProcessMouseMove(mx, my);
+                if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+                    g_shopUI->ProcessMouseClick(mx, my);
+                
+                bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+                if (escNow && !escWasShop)
+                    g_shopUI->Hide();
+                escWasShop = escNow;
+                
+                glDisable(GL_DEPTH_TEST);
+                glDisable(GL_CULL_FACE);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                
+                int currentW, currentH;
+                glfwGetFramebufferSize(window, &currentW, &currentH);
+                glViewport(0, 0, currentW, currentH);
+                
+                glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                
+                g_shopUI->Render();
+                glfwSwapBuffers(window);
+            }
+            glEnable(GL_DEPTH_TEST);
+            continue;
+        }
 
         if (res == MainMenu::Result::Quit || glfwWindowShouldClose(window))
         {
@@ -498,7 +541,6 @@ int Game::Run()
         float lastFrame = static_cast<float>(glfwGetTime());
         bool headlightsOn = false;
         bool lightsPressed = false;
-        bool shopKeyPressed = false;
 
         glfwSetWindowTitle(window, "Mini Delivery Dash");
 
@@ -518,25 +560,6 @@ int Game::Run()
             dayNight.Update(dt);
             UpdateGameplay(window, dayNight, headlightsOn, lightsPressed);
 
-            // --- Shop Input Handling ---
-            if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !shopKeyPressed) {
-                g_shopUI->Toggle();
-                shopKeyPressed = true;
-            }
-            if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
-                shopKeyPressed = false;
-            }
-            // Close shop with ESC when visible
-            if (g_shopUI->IsVisible() && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-                g_shopUI->Hide();
-            }
-            
-            // Auto-open shop if car is dead
-            if (car.isDead && !g_shopUI->IsVisible()) {
-                g_shopUI->Show();
-                std::cout << "[GAME] Carro descompuesto! Abriendo tienda..." << std::endl;
-            }
-
             bool braking = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && car.speed > 0.1f);
             bool accelerating = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS);
             float jumpDistanceBoost = accelerating ? 1.4f : 0.0f;
@@ -555,6 +578,9 @@ int Game::Run()
                 // Car was respawned (teleported), notify delivery system
                 deliverySystem.OnWaterRespawn();
             }
+
+            // Update shop (ESC to close)
+            g_shopUI->Update();
 
             // Update delivery system with 'E' key state
             bool eKeyPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
@@ -863,6 +889,43 @@ int Game::Run()
                 MainMenu pauseMenu(window, fbW, fbH);
                 pauseMenu.SetPauseBackground(pauseTex);
                 MainMenu::Result pauseResult = pauseMenu.Show(true);
+
+                if (pauseResult == MainMenu::Result::Shop)
+                {
+                    g_shopUI->Show();
+                    glfwWaitEventsTimeout(0.1);
+                    static bool escWasShop = true; // ignore first ESC press
+                    escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+                    while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
+                    {
+                        glfwPollEvents();
+                        double mx, my; glfwGetCursorPos(window, &mx, &my);
+                        g_shopUI->ProcessMouseMove(mx, my);
+                        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+                            g_shopUI->ProcessMouseClick(mx, my);
+                        
+                        bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+                        if (escNow && !escWasShop)
+                            g_shopUI->Hide();
+                        escWasShop = escNow;
+                        
+                        glDisable(GL_DEPTH_TEST);
+                        glDisable(GL_CULL_FACE);
+                        glEnable(GL_BLEND);
+                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                        
+                        int currentW, currentH;
+                        glfwGetFramebufferSize(window, &currentW, &currentH);
+                        glViewport(0, 0, currentW, currentH);
+                        
+                        glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+                        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                        
+                        g_shopUI->Render();
+                        glfwSwapBuffers(window);
+                    }
+                    glEnable(GL_DEPTH_TEST);
+                }
 
                 glDeleteTextures(1, &pauseTex);
 

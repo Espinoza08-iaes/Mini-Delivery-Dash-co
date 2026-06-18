@@ -74,8 +74,9 @@ public:
     void Show();
     void Hide();
     void Toggle();
+    void Update();
     bool IsVisible() const { return isVisible; }
-    
+
     void Render();
     void ProcessMouseClick(double mouseX, double mouseY);
     void ProcessMouseMove(double mouseX, double mouseY);

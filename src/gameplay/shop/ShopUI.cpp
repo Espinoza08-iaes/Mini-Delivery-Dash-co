@@ -146,6 +146,12 @@ void ShopUI::Toggle() {
     }
 }
 
+void ShopUI::Update() {
+    if (isVisible && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        Hide();
+    }
+}
+
 void ShopUI::Render() {
     if (!isVisible) return;
     
@@ -156,8 +162,8 @@ void ShopUI::Render() {
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    // Background overlay
-    RenderColoredQuad(0, 0, fbW, fbH, 0.0f, 0.0f, 0.0f, 0.85f);
+     // Background overlay
+     RenderColoredQuad(0, 0, fbW, fbH, 0.0f, 0.0f, 0.0f, 0.6f);
     
     // Main shop panel
     float panelWidth = 900.0f;
@@ -165,16 +171,23 @@ void ShopUI::Render() {
     float panelX = fbW / 2.0f - panelWidth / 2.0f;
     float panelY = 50.0f;
     
-    RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.08f, 0.08f, 0.12f, 0.98f);
+     RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.20f, 0.18f, 0.15f, 0.98f);
     
-    // Border
-    RenderColoredQuad(panelX, panelY, panelWidth, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX, panelY + panelHeight - 3.0f, panelWidth, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX, panelY, 3.0f, panelHeight, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX + panelWidth - 3.0f, panelY, 3.0f, panelHeight, 1.0f, 0.6f, 0.0f, 1.0f);
+    float border = 3.0f;
+    RenderColoredQuad(panelX, panelY, panelWidth, border, 0.20f, 0.16f, 0.13f, 1.0f);
+    RenderColoredQuad(panelX, panelY + panelHeight - border, panelWidth, border, 0.20f, 0.16f, 0.13f, 1.0f);
+    RenderColoredQuad(panelX, panelY, border, panelHeight, 0.20f, 0.16f, 0.13f, 1.0f);
+    RenderColoredQuad(panelX + panelWidth - border, panelY, border, panelHeight, 0.20f, 0.16f, 0.13f, 1.0f);
+    
+    float innBorder = 1.5f;
+    float g = 4.0f;
+    RenderColoredQuad(panelX + g, panelY + g, panelWidth - g*2, innBorder, 0.35f, 0.28f, 0.22f, 1.0f);
+    RenderColoredQuad(panelX + g, panelY + panelHeight - g - innBorder, panelWidth - g*2, innBorder, 0.35f, 0.28f, 0.22f, 1.0f);
+    RenderColoredQuad(panelX + g, panelY + g, innBorder, panelHeight - g*2, 0.35f, 0.28f, 0.22f, 1.0f);
+    RenderColoredQuad(panelX + panelWidth - g - innBorder, panelY + g, innBorder, panelHeight - g*2, 0.35f, 0.28f, 0.22f, 1.0f);
     
     // Title background
-    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelWidth - 10.0f, 50.0f, 0.15f, 0.15f, 0.2f, 0.9f);
+    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelWidth - 10.0f, 50.0f, 0.15f, 0.12f, 0.10f, 0.95f);
     RenderTextCentered("UPGRADES SHOP", fbW / 2.0f, panelY + 40.0f, 1.0f, 0.8f, 0.0f, 3.0f);
     
     // Balance
