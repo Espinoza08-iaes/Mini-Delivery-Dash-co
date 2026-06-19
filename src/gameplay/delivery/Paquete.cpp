@@ -88,7 +88,7 @@ Mesh Paquete::CreatePackageMesh()
     
     // Load texture
     std::vector<Texture> textures;
-    textures.emplace_back("res/textures/paquete.jpg", "diffuse", 0);
+    textures.emplace_back("res/textures/Package_STB.jpg", "diffuse", 0);
     
     return Mesh(vertices, indices, textures);
 }

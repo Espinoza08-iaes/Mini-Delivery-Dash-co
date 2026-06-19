@@ -93,6 +93,8 @@ MainMenu::MainMenu(GLFWwindow* w, int sw, int sh)
       exitTexture(0), exitTexWidth(0), exitTexHeight(0),
       mainMenuTexture(0), mainMenuTexWidth(0), mainMenuTexHeight(0),
       shopTexture(0), shopTexWidth(0), shopTexHeight(0),
+      settingsTexture(0), settingsTexWidth(0), settingsTexHeight(0),
+      helpIconTexture(0), helpIconTexWidth(0), helpIconTexHeight(0),
       pauseBackgroundTexture(0)
 {
     SetupGraphics();
@@ -111,6 +113,8 @@ MainMenu::~MainMenu()
     if (exitTexture)       glDeleteTextures(1, &exitTexture);
     if (mainMenuTexture)   glDeleteTextures(1, &mainMenuTexture);
     if (shopTexture)       glDeleteTextures(1, &shopTexture);
+    if (settingsTexture)   glDeleteTextures(1, &settingsTexture);
+    if (helpIconTexture && helpIconTexture != howToPlayTexture) glDeleteTextures(1, &helpIconTexture);
     if (hudProgram)        glDeleteProgram(hudProgram);
     if (textProgram)       glDeleteProgram(textProgram);
 }
@@ -227,9 +231,14 @@ void MainMenu::LoadAllTextures()
     playTexture       = LoadTextureFile("res/textures/Play_STB.png", playTexWidth, playTexHeight, playAlpha);
     resumeTexture     = LoadTextureFile("res/textures/Resume_STB.png", resumeTexWidth, resumeTexHeight, resumeAlpha);
     howToPlayTexture  = LoadTextureFile("res/textures/HowToPlay_STB.png", howToPlayTexWidth, howToPlayTexHeight, howToPlayAlpha);
+    helpIconTexture   = howToPlayTexture;
+    helpIconTexWidth  = howToPlayTexWidth;
+    helpIconTexHeight = howToPlayTexHeight;
+    helpIconAlpha     = howToPlayAlpha;
+    settingsTexture   = LoadTextureFile("res/textures/Settings_STB.png", settingsTexWidth, settingsTexHeight, settingsAlpha);
     exitTexture       = LoadTextureFile("res/textures/Exit_STB.png", exitTexWidth, exitTexHeight, exitAlpha);
     mainMenuTexture   = LoadTextureFile("res/textures/Exit_STB.png", mainMenuTexWidth, mainMenuTexHeight, mainMenuAlpha);
-    shopTexture       = LoadTextureFile("res/textures/SHOP.png", shopTexWidth, shopTexHeight, shopAlpha);
+    shopTexture       = LoadTextureFile("res/textures/Shop_STB.png", shopTexWidth, shopTexHeight, shopAlpha);
 }
 
 // ======================================================================
@@ -552,12 +561,12 @@ MainMenu::Result MainMenu::Show(bool pause)
     if (pause) {
         texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
-        texID[2]=howToPlayTexture; tw[2]=howToPlayTexWidth;  th[2]=howToPlayTexHeight;  al[2]=&howToPlayAlpha;
+        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
         texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
     } else {
         texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
-        texID[2]=howToPlayTexture; tw[2]=howToPlayTexWidth;  th[2]=howToPlayTexHeight;  al[2]=&howToPlayAlpha;
+        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
         texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
     }
 
@@ -600,12 +609,19 @@ MainMenu::Result MainMenu::Show(bool pause)
         over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
     }
 
+    // "?" help icon, top-right corner (main menu only, not shown while paused)
+    float helpSize = std::min((float)fbW, (float)fbH) * 0.07f;
+    float helpCx = fbW - helpSize * 0.5f - fbW * 0.025f;
+    float helpCy = helpSize * 0.5f + fbH * 0.03f;
+    bool helpOver = !pause && IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpSize, helpSize, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
+
     static bool wasCl = false;
     if (click && !wasCl && !isFadingOut) {
         if (over[0]) { pendingChoice = Result::Play; isFadingOut = true; }
         else if (over[1]) { pendingChoice = Result::Shop; isFadingOut = true; }
-        else if (over[2]) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
+        else if (over[2]) { pendingChoice = Result::Settings; isFadingOut = true; }
         else if (over[3]) { pendingChoice = Result::Quit; isFadingOut = true; }
+        else if (helpOver) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
     }
     wasCl = click;
 
@@ -665,6 +681,14 @@ MainMenu::Result MainMenu::Show(bool pause)
 
         // Renderiza la textura de imagen para TODOS los botones (incluyendo SHOP)
         RenderButtonImage(cx, cy[i] + yOff + bob[i], dw[i] * s, texID[i], tw[i], th[i]);
+    }
+
+    // Draw "?" help icon in top-right corner
+    if (!pause && helpIconTexture)
+    {
+        float hs = 1.0f;
+        if (helpOver) hs = click ? 0.92f : 1.08f;
+        RenderButtonImage(helpCx, helpCy, helpSize * hs, helpIconTexture, helpIconTexWidth, helpIconTexHeight);
     }
 
     float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
