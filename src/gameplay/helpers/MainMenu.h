@@ -11,7 +11,7 @@ public:
     MainMenu(GLFWwindow* window, int screenWidth, int screenHeight);
     ~MainMenu();
 
-    enum class Result { Play, Quit, None, HowToPlay };
+    enum class Result { Play, Quit, None, HowToPlay, Shop };
 
     Result Show(bool showPause = false);
     void SetPauseBackground(unsigned int texture);
@@ -49,6 +49,10 @@ private:
     unsigned int howToPlayTexture = 0;
     int howToPlayTexWidth = 0, howToPlayTexHeight = 0;
     std::vector<unsigned char> howToPlayAlpha;
+
+    unsigned int shopTexture = 0;
+    int shopTexWidth = 0, shopTexHeight = 0;
+    std::vector<unsigned char> shopAlpha;
 
     unsigned int exitTexture = 0;
     int exitTexWidth = 0, exitTexHeight = 0;

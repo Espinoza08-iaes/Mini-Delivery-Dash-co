@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(MiniDeliveryDash LANGUAGES C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -18,6 +20,7 @@ target_include_directories(MiniDeliveryDash PRIVATE
     "${CMAKE_SOURCE_DIR}/src"
     "${CMAKE_SOURCE_DIR}/third_party"
     "${CMAKE_SOURCE_DIR}/third_party/glad/include"
+    "${CMAKE_SOURCE_DIR}/third_party/OpenAL/include"
 )
 
 set_target_properties(MiniDeliveryDash PROPERTIES
@@ -40,9 +43,16 @@ if(WIN32)
         NO_DEFAULT_PATH REQUIRED
     )
 
+    find_library(OPENAL_LIBRARY
+        NAMES OpenAL32 openal libOpenAL32
+        PATHS "${CMAKE_SOURCE_DIR}/third_party/OpenAL/lib"
+        NO_DEFAULT_PATH REQUIRED
+    )
+
     target_link_libraries(MiniDeliveryDash PRIVATE
         ${GLFW_LIBRARY}
         ${ASSIMP_LIBRARY}
+        ${OPENAL_LIBRARY}
         opengl32
         gdi32
         user32
@@ -61,6 +71,7 @@ elseif(APPLE)
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
+        "-framework OpenAL"
     )
 
 else()
