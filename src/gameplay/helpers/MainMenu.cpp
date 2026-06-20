@@ -169,11 +169,8 @@ void MainMenu::SetupGraphics()
                     float phase = uv.x * 500.0 + uv.y * 300.0;
                     float noise = sin(uFlickerTime * freq + phase);
                     float flicker = 0.75 + 0.35 * noise;
-                    if (flicker < 0.5) {
-                        flicker = 0.2;
-                    } else if (flicker > 0.95) {
-                        flicker = 1.25;
-                    }
+                    if (flicker < 0.5) flicker = 0.2;
+                    else if (flicker > 0.95) flicker = 1.25;
                     texColor.rgb *= flicker;
                 }
             }
@@ -279,8 +276,6 @@ void MainMenu::RenderButtonImage(float cx, float cy, float maxW, unsigned int te
     RenderQuad(cx - dw * 0.5f, cy - dh * 0.5f, dw, dh, tex);
 }
 
-// Igual que RenderButtonImage pero con ancho y alto exactos, ignorando el aspect
-// ratio real de la textura (garantiza rectángulos idénticos entre botones distintos).
 void MainMenu::RenderButtonImageFixed(float cx, float cy, float w, float h, unsigned int tex)
 {
     if (!tex) return;
@@ -406,37 +401,24 @@ void MainMenu::ShowHowToPlay()
 
         if (!isFadingOut)
         {
-            if (fadeAlpha > 0.0f)
-            {
-                fadeAlpha -= dt / fadeDuration;
-                if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
-            }
+            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
         }
         else
         {
             fadeOutAlpha += dt / fadeDuration;
-            if (fadeOutAlpha >= 1.0f)
-            {
-                return;
-            }
+            if (fadeOutAlpha >= 1.0f) return;
         }
 
         float bw = 200, bh = 50;
         float bx = (fbW - bw) * 0.5f, by = fbH - 120.f;
-
-        // Bobbing animation for BACK button
         float bob = sin((float)currentT * 2.5f) * 5.0f;
         float drawYBase = by + bob;
 
         bool over = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
         static bool was = false;
-        if (click && !was && over && !isFadingOut) {
-            isFadingOut = true;
-        }
+        if (click && !was && over && !isFadingOut) isFadingOut = true;
         was = click;
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) {
-            isFadingOut = true;
-        }
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) isFadingOut = true;
 
         glClearColor(0,0,0,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -467,25 +449,11 @@ void MainMenu::ShowHowToPlay()
         for (int i = 0; i < 8; i++)
             RenderText(lines[i], px + 60, py + 105 + i * 38, 0.65f, 0.65f, 0.65f, 1.3f);
 
-        float s = 1.0f;
-        float yOff = 0.0f;
-        if (over)
-        {
-            if (click)
-            {
-                s = 0.92f;
-                yOff = 4.0f;
-            }
-            else
-            {
-                s = 1.08f;
-            }
-        }
-        
-        float drawW = bw * s;
-        float drawH = bh * s;
-        float drawX = bx + (bw - drawW) * 0.5f;
-        float drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
+        float s = 1.0f, yOff = 0.0f;
+        if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
+
+        float drawW = bw * s, drawH = bh * s;
+        float drawX = bx + (bw - drawW) * 0.5f, drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
 
         RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f);
         float bt = 1.2f * s, bcol = 0.3f;
@@ -495,12 +463,8 @@ void MainMenu::ShowHowToPlay()
         RenderColoredQuad(drawX + drawW - bt, drawY, bt, drawH, bcol, bcol, bcol);
         RenderTextCentered("BACK", drawX + drawW * 0.5f, drawY + (drawH - 18.0f * s) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f * s);
 
-        // Draw fade overlay
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
-        if (overlayAlpha > 0.0f)
-        {
-            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
-        }
+        if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
 
         glfwSwapBuffers(window);
     }
@@ -523,6 +487,21 @@ MainMenu::Result MainMenu::Show(bool pause)
     Result pendingChoice = Result::None;
     float fadeDuration = 0.5f;
 
+    // Pre-assign texture arrays once before the loop
+    const std::vector<unsigned char>* al[4];
+    unsigned int texID[4]; int tw[4], th[4];
+    if (pause) {
+        texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
+        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
+        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
+        texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
+    } else {
+        texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
+        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
+        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
+        texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
+    }
+
     while (!glfwWindowShouldClose(window) && choice == Result::None)
     {
         glfwPollEvents();
@@ -538,165 +517,114 @@ MainMenu::Result MainMenu::Show(bool pause)
         if (dt > 0.1f) dt = 0.1f;
         lastT = currentT;
 
-    if (!isFadingOut)
-    {
-        if (fadeAlpha > 0.0f)
+        if (!isFadingOut)
         {
-            fadeAlpha -= dt / fadeDuration;
-            if (fadeAlpha < 0.0f) fadeAlpha = 0.0f;
+            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
         }
-    }
-    else
-    {
-        fadeOutAlpha += dt / fadeDuration;
-        if (fadeOutAlpha >= 1.0f)
+        else
         {
-            fadeOutAlpha = 1.0f;
-            choice = pendingChoice;
+            fadeOutAlpha += dt / fadeDuration;
+            if (fadeOutAlpha >= 1.0f) { fadeOutAlpha = 1.0f; choice = pendingChoice; }
         }
-    }
 
-    if (pause && !isFadingOut) {
-        bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-        if (esc && !escWas) { pendingChoice = Result::Play; isFadingOut = true; }
-        escWas = esc;
-    }
-
-    float ref = std::min((float)fbW, (float)fbH);
-
-    float btnMaxW = std::min(std::max(ref * 0.3f, 200.f), 400.f); // botones más grandes
-
-    const std::vector<unsigned char>* al[4];
-    unsigned int texID[4]; int tw[4], th[4];
-    if (pause) {
-        texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
-        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
-        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
-        texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
-    } else {
-        texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
-        texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
-        texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
-        texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
-    }
-
-    // Tamaño fijo idéntico para los 4 botones, sin depender del aspect ratio de cada
-    // textura (así no importa si las imágenes fuente no son perfectamente uniformes).
-    float btnW = btnMaxW;
-    float btnH = btnMaxW / 3.2f; // 3.2 = aspect ratio típico de estos botones (ancho/alto)
-
-    float dw[4], dh[4];
-    dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;    // PLAY
-    dw[1] = btnW * 1.15f;  dh[1] = btnH * 1.0f;   // SHOP
-    dw[2] = btnW * 1.15f;  dh[2] = btnH * 1.0f;   // SETTINGS
-    dw[3] = btnW * 0.85f;  dh[3] = btnH * 1.0f;   // EXIT
-
-    float sp = 10.0f;
-
-    float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
-
-    float startY = (fbH - totalH) * 0.5f;
-
-    float cy[4] = {
-        startY + dh[0] * 0.5f,                                              // top: PLAY/RESUME
-        startY + dh[0] + sp + dh[1] * 0.5f,                                 // 2nd: SHOP
-        startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,                    // 3rd: HOW TO PLAY
-        startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f        // 4th: EXIT/MAIN MENU
-    };
-    float cx = fbW * 0.13f; // centrado sobre el panel gris izquierdo (ajusta este % si el panel se mueve)
-
-    bool over[4];
-    float bob[4];
-    for (int i = 0; i < 4; i++)
-    {
-        bob[i] = 0.0f; // animación de flotación eliminada
-        over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
-    }
-
-    // "?" help icon, top-right corner (main menu only, not shown while paused)
-    float helpSize = std::min((float)fbW, (float)fbH) * 0.07f;
-    float helpCx = fbW - helpSize * 0.5f - fbW * 0.025f;
-    float helpCy = helpSize * 0.5f + fbH * 0.03f;
-    bool helpOver = !pause && IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpSize, helpSize, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
-
-    static bool wasCl = false;
-    if (click && !wasCl && !isFadingOut) {
-        if (over[0]) { pendingChoice = Result::Play; isFadingOut = true; }
-        else if (over[1]) { pendingChoice = Result::Shop; isFadingOut = true; }
-        else if (over[2]) { pendingChoice = Result::Settings; isFadingOut = true; }
-        else if (over[3]) { pendingChoice = Result::Quit; isFadingOut = true; }
-        else if (helpOver) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
-    }
-    wasCl = click;
-
-    // RENDER
-    glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
-    glUseProgram(hudProgram);
-    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
-
-    if (pause) {
-        if (pauseBackgroundTexture != 0) {
-            RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
+        if (pause && !isFadingOut) {
+            bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+            if (esc && !escWas) { pendingChoice = Result::Play; isFadingOut = true; }
+            escWas = esc;
         }
-        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
 
-        if (pauseDecorTexture != 0)
+        float ref = std::min((float)fbW, (float)fbH);
+        float btnMaxW = std::min(std::max(ref * 0.3f, 200.f), 400.f);
+
+        float btnW = btnMaxW;
+        float btnH = btnMaxW / 3.2f;
+
+        float dw[4], dh[4];
+        dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;
+        dw[1] = btnW * 1.15f; dh[1] = btnH * 1.0f;
+        dw[2] = btnW * 1.15f; dh[2] = btnH * 1.0f;
+        dw[3] = btnW * 0.85f; dh[3] = btnH * 1.0f;
+
+        float sp = 10.0f;
+        float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
+        float startY = (fbH - totalH) * 0.5f;
+
+        float cy[4] = {
+            startY + dh[0] * 0.5f,
+            startY + dh[0] + sp + dh[1] * 0.5f,
+            startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,
+            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f
+        };
+        float cx = fbW * 0.13f;
+
+        bool over[4];
+        for (int i = 0; i < 4; i++)
+            over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i], dw[i], dh[i], *al[i], tw[i], th[i]);
+
+        // "?" help icon — glued to top-right corner regardless of size
+        float helpSize = 230.0f;
+
+        float helpDisplayW = helpSize;
+        float helpDisplayH = helpSize;
+        if (helpIconTexWidth > 0 && helpIconTexHeight > 0)
         {
-            RenderQuad(0, 0, (float)fbW, (float)fbH, pauseDecorTexture);
+            float helpAsp = (float)helpIconTexWidth / (float)helpIconTexHeight;
+            helpDisplayH = helpSize / helpAsp;
         }
 
-        // El logo "PAUSE MENU" ya viene integrado en BackGround_STB.png, no se necesita parche extra.
-    }
-    else {
-        RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
-        RenderClouds((float)fbW, (float)fbH, (float)currentT);
+        float helpRight = fbW - 20.0f;
+        float helpTop = 85.0f;
+        float helpCx = helpRight - helpDisplayW * 0.5f;
+        float helpCy = helpTop + helpDisplayH * 0.5f;
 
-        // (parche "cover" eliminado: el logo/banner ya viene integrado en LoL.png)
+        bool helpOver = !pause && IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpDisplayW, helpDisplayH, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
 
-        // (parche del logo con efecto "sheen" eliminado: el logo ya viene integrado en LoL.png,
-        //  pegar un recorte de la misma imagen encima duplicaba/cortaba el texto)
-    }
+        static bool wasCl = false;
+        if (click && !wasCl && !isFadingOut) {
+            if (over[0])      { pendingChoice = Result::Play;      isFadingOut = true; }
+            else if (over[1]) { pendingChoice = Result::Shop;      isFadingOut = true; }
+            else if (over[2]) { pendingChoice = Result::Settings;  isFadingOut = true; }
+            else if (over[3]) { pendingChoice = Result::Quit;      isFadingOut = true; }
+            else if (helpOver) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
+        }
+        wasCl = click;
 
-    // Draw all 4 buttons
-    // Draw all 4 buttons
-    for (int i = 0; i < 4; i++)
-    {
-        float s = 1.0f;
-        float yOff = 0.0f;
-        if (over[i])
+        // RENDER
+        glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+        glUseProgram(hudProgram);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+        if (pause) {
+            if (pauseBackgroundTexture != 0) RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
+            RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
+            if (pauseDecorTexture != 0) RenderQuad(0, 0, (float)fbW, (float)fbH, pauseDecorTexture);
+        }
+        else {
+            RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
+            RenderClouds((float)fbW, (float)fbH, (float)currentT);
+        }
+
+        for (int i = 0; i < 4; i++)
         {
-            if (click)
-            {
-                s = 0.92f;
-                yOff = 4.0f;
-            }
-            else
-            {
-                s = 1.08f;
-            }
+            float s = 1.0f, yOff = 0.0f;
+            if (over[i]) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
+            RenderButtonImageFixed(cx, cy[i] + yOff, dw[i] * s, dh[i] * s, texID[i]);
         }
 
-        // Renderiza la textura de imagen para TODOS los botones (incluyendo SHOP)
-        RenderButtonImageFixed(cx, cy[i] + yOff + bob[i], dw[i] * s, dh[i] * s, texID[i]);
-    }
+        if (!pause && helpIconTexture)
+        {
+            float hs = 1.0f;
+            if (helpOver) hs = click ? 0.92f : 1.08f;
+            RenderQuad(helpCx - helpDisplayW * 0.5f * hs, helpCy - helpDisplayH * 0.5f * hs,
+                    helpDisplayW * hs, helpDisplayH * hs, helpIconTexture);
+        }
 
-    // Draw "?" help icon in top-right corner
-    if (!pause && helpIconTexture)
-    {
-        float hs = 1.0f;
-        if (helpOver) hs = click ? 0.92f : 1.08f;
-        RenderButtonImage(helpCx, helpCy, helpSize * hs, helpIconTexture, helpIconTexWidth, helpIconTexHeight);
-    }
+        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+        if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
 
-    float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
-    if (overlayAlpha > 0.0f)
-    {
-        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
-    }
-
-    glfwSwapBuffers(window);
+        glfwSwapBuffers(window);
     }
     if (choice == Result::HowToPlay) { ShowHowToPlay(); return Show(pause); }
     return choice;
@@ -704,23 +632,17 @@ MainMenu::Result MainMenu::Show(bool pause)
 
 void MainMenu::RenderLoading(float progress, const char* message)
 {
-    // Use static variables to maintain state between calls for smooth animation
     static float displayedProgress = 0.0f;
     static double animStartTime = glfwGetTime();
-
-    // Smoothly interpolate displayed progress toward real progress (easing)
     float catchUpSpeed = 3.5f;
-    float rawDt = (float)(glfwGetTime() - animStartTime);
     displayedProgress += (progress - displayedProgress) * catchUpSpeed * 0.016f;
-    if (displayedProgress < progress) displayedProgress = progress; // never lag behind
+    if (displayedProgress < progress) displayedProgress = progress;
     if (displayedProgress > 1.0f) displayedProgress = 1.0f;
 
     float p = displayedProgress;
     double time = glfwGetTime();
-
     int fbW = width, fbH = height;
 
-    // Clear
     glClearColor(0.04f, 0.04f, 0.06f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
@@ -731,170 +653,96 @@ void MainMenu::RenderLoading(float progress, const char* message)
     glUseProgram(hudProgram);
     glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
 
-    // ============================================================
-    // Animated background particles (subtle, elegant)
-    // ============================================================
     float particleAlpha = 0.12f;
     for (int i = 0; i < 30; i++)
     {
-        float seed = (float)i * 137.508f; // golden angle
+        float seed = (float)i * 137.508f;
         float phase = sin((float)time * 0.7f + seed) * 0.5f + 0.5f;
         float px = fmod(seed * 0.618f, 1.0f) * fbW;
-        float py = (fmod(seed * 0.382f + (float)time * 0.03f, 1.0f)) * fbH;
+        float py = fmod(seed * 0.382f + (float)time * 0.03f, 1.0f) * fbH;
         float size = 2.0f + phase * 3.0f;
         float alpha = particleAlpha * (0.3f + phase * 0.7f);
         RenderColoredQuad(px, py, size, size, 1.0f, 1.0f, 1.0f, alpha);
     }
 
-    // ============================================================
-    // Main panel with glass morphism effect
-    // ============================================================
-    float pw = 580.0f;
-    float ph = 185.0f;
-    float centerX = fbW * 0.5f;
-    float centerY = fbH * 0.5f;
-    float px = centerX - pw * 0.5f;
-    float py = centerY - ph * 0.5f;
+    float pw = 580.0f, ph = 185.0f;
+    float centerX = fbW * 0.5f, centerY = fbH * 0.5f;
+    float px = centerX - pw * 0.5f, py = centerY - ph * 0.5f;
 
-    // Outer glow (subtle)
     float glowSize = 8.0f;
-    RenderColoredQuad(px - glowSize, py - glowSize, pw + glowSize * 2, ph + glowSize * 2,
-                      0.25f, 0.25f, 0.30f, 0.5f);
-
-    // Dark glass panel with slight transparency
+    RenderColoredQuad(px - glowSize, py - glowSize, pw + glowSize * 2, ph + glowSize * 2, 0.25f, 0.25f, 0.30f, 0.5f);
     RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.92f);
 
-    // Top accent line (animated subtle gradient via two quads)
     float accentHeight = 2.5f;
-    float accentProgress = p; // fills left to right
-    RenderColoredQuad(px, py, pw * accentProgress, accentHeight, 0.75f, 0.75f, 0.82f, 0.9f);
-    RenderColoredQuad(px + pw * accentProgress, py, pw * (1.0f - accentProgress), accentHeight,
-                      0.15f, 0.15f, 0.18f, 0.4f);
+    RenderColoredQuad(px, py, pw * p, accentHeight, 0.75f, 0.75f, 0.82f, 0.9f);
+    RenderColoredQuad(px + pw * p, py, pw * (1.0f - p), accentHeight, 0.15f, 0.15f, 0.18f, 0.4f);
 
-    // Thin border with animated corners
-    float borderThick = 1.2f;
-    float cornerLen = 40.0f;
-    float cornerAlpha = 0.6f;
-    float borderAlpha = 0.25f;
-
-    // Border lines (semi-transparent white)
+    float borderThick = 1.2f, cornerLen = 40.0f, cornerAlpha = 0.6f, borderAlpha = 0.25f;
     RenderColoredQuad(px, py, pw, borderThick, 1.0f, 1.0f, 1.0f, borderAlpha);
     RenderColoredQuad(px, py + ph - borderThick, pw, borderThick, 1.0f, 1.0f, 1.0f, borderAlpha);
     RenderColoredQuad(px, py, borderThick, ph, 1.0f, 1.0f, 1.0f, borderAlpha);
     RenderColoredQuad(px + pw - borderThick, py, borderThick, ph, 1.0f, 1.0f, 1.0f, borderAlpha);
 
-    // Corner accents (bright white)
-    // Top-left
     RenderColoredQuad(px, py, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
     RenderColoredQuad(px, py, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
-    // Top-right
     RenderColoredQuad(px + pw - cornerLen, py, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
     RenderColoredQuad(px + pw - borderThick * 1.5f, py, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
-    // Bottom-left
     RenderColoredQuad(px, py + ph - borderThick * 1.5f, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
     RenderColoredQuad(px, py + ph - cornerLen, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
-    // Bottom-right
     RenderColoredQuad(px + pw - cornerLen, py + ph - borderThick * 1.5f, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
     RenderColoredQuad(px + pw - borderThick * 1.5f, py + ph - cornerLen, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
 
-    // ============================================================
-    // Rotating dots animation (3 dots)
-    // ============================================================
     float dotY = py + 42.0f;
-    float dotCenterX = centerX;
     for (int i = 0; i < 3; i++)
     {
-        float dotPhase = (float)time * 3.0f + i * 2.094f; // 120° apart
+        float dotPhase = (float)time * 3.0f + i * 2.094f;
         float dotAlpha = 0.3f + sin(dotPhase) * 0.4f;
-        float dotX = dotCenterX + (i - 1) * 16.0f;
+        float dotX = centerX + (i - 1) * 16.0f;
         RenderColoredQuad(dotX - 2.5f, dotY - 2.5f, 5.0f, 5.0f, 1.0f, 1.0f, 1.0f, dotAlpha);
     }
 
-    // ============================================================
-    // Message text
-    // ============================================================
     float msgY = py + 62.0f;
     RenderTextCentered(message, centerX, msgY, 0.82f, 0.82f, 0.85f, 1.25f);
 
-    // ============================================================
-    // Animated progress bar
-    // ============================================================
-    float barW = pw * 0.72f;
-    float barH = 5.0f;
-    float barX = centerX - barW * 0.5f;
-    float barY = py + 100.0f;
-
-    // Bar background (dark track)
+    float barW = pw * 0.72f, barH = 5.0f;
+    float barX = centerX - barW * 0.5f, barY = py + 100.0f;
     RenderColoredQuad(barX, barY, barW, barH, 0.18f, 0.18f, 0.20f, 1.0f);
 
-    // Bar fill (white gradient via two quads)
     float fillW = barW * p;
     if (fillW > 0.0f)
     {
-        // Main fill
         RenderColoredQuad(barX, barY, fillW, barH, 0.85f, 0.85f, 0.88f, 1.0f);
-        // Bright leading edge
         float edgeW = std::min(3.0f, fillW);
         RenderColoredQuad(barX + fillW - edgeW, barY, edgeW, barH, 1.0f, 1.0f, 1.0f, 0.9f);
-        // Glow under the bar
         RenderColoredQuad(barX, barY + barH, fillW, 2.0f, 0.65f, 0.65f, 0.70f, 0.25f);
     }
 
-    // ============================================================
-    // Percentage text with subtle pulse
-    // ============================================================
     float pctPulse = 1.0f + sin((float)time * 2.5f) * 0.02f;
-    char pct[16];
-    sprintf(pct, "%d%%", (int)(p * 100.0f));
+    char pct[16]; sprintf(pct, "%d%%", (int)(p * 100.0f));
     float pctY = barY + 28.0f;
     RenderTextCentered(pct, centerX, pctY, 0.55f, 0.55f, 0.58f, 1.05f * pctPulse);
 
-    // ============================================================
-    // Subtle separator line below percentage
-    // ============================================================
-    float sepY = pctY + 24.0f;
-    float sepW = pw * 0.3f;
+    float sepY = pctY + 24.0f, sepW = pw * 0.3f;
     RenderColoredQuad(centerX - sepW * 0.5f, sepY, sepW, 0.8f, 0.35f, 0.35f, 0.38f, 0.35f);
 
-    // ============================================================
-    // Glowing orb following the progress
-    // ============================================================
-    float orbX = barX + fillW;
-    float orbY = barY + barH * 0.5f;
-    float orbRadius = 8.0f;
+    float orbX = barX + fillW, orbY = barY + barH * 0.5f, orbRadius = 8.0f;
     int orbSegments = 16;
     for (int i = 0; i < orbSegments; i++)
     {
         float angle1 = (float)i / orbSegments * 6.28318f;
         float angle2 = (float)(i + 1) / orbSegments * 6.28318f;
-        float r1 = orbRadius * 0.85f;
-        float r2 = orbRadius;
-
-        // Approximate circle with small quads
-        float cx1 = orbX + cos(angle1) * r1;
-        float cy1 = orbY + sin(angle1) * r1;
-        float cx2 = orbX + cos(angle2) * r2;
-        float cy2 = orbY + sin(angle2) * r2;
-        float cx0 = orbX;
-        float cy0 = orbY;
-
-        // Small colored quad approximating a circle segment
-        float segW = 3.0f;
-        float segH = 3.0f;
+        float r1 = orbRadius * 0.85f, r2 = orbRadius;
+        float cx1 = orbX + cos(angle1) * r1, cy1 = orbY + sin(angle1) * r1;
         float segAlpha = 0.7f + sin((float)time * 4.0f + (float)i) * 0.3f;
-        RenderColoredQuad(cx1 - segW * 0.5f, cy1 - segH * 0.5f, segW, segH, 1.0f, 1.0f, 1.0f, segAlpha * 0.6f);
+        RenderColoredQuad(cx1 - 1.5f, cy1 - 1.5f, 3.0f, 3.0f, 1.0f, 1.0f, 1.0f, segAlpha * 0.6f);
     }
-
-    // Inner bright dot
     RenderColoredQuad(orbX - 3.0f, orbY - 3.0f, 6.0f, 6.0f, 1.0f, 1.0f, 1.0f, 0.9f);
 
-    // Outer glow ring
     float ringAlpha = 0.25f + sin((float)time * 3.0f) * 0.1f;
     for (int i = 0; i < 12; i++)
     {
         float angle = (float)i / 12.0f * 6.28318f;
-        float rx = orbX + cos(angle) * orbRadius * 1.6f;
-        float ry = orbY + sin(angle) * orbRadius * 1.6f;
+        float rx = orbX + cos(angle) * orbRadius * 1.6f, ry = orbY + sin(angle) * orbRadius * 1.6f;
         RenderColoredQuad(rx - 2.0f, ry - 2.0f, 4.0f, 4.0f, 1.0f, 1.0f, 1.0f, ringAlpha);
     }
 
