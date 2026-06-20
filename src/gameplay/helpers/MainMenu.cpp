@@ -433,25 +433,45 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
         }
         RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.30f);
 
-        float pw = fbW * 0.75f, ph = fbH * 0.60f;
+        float pw = 840.0f, ph = 560.0f;
         float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
-        RenderColoredQuad(px, py, pw, ph, 0.05f, 0.05f, 0.05f, 0.95f);
-        float bd = 2, bc = 0.25f;
-        RenderColoredQuad(px - bd, py - bd, pw + bd * 2, bd, bc, bc, bc);
-        RenderColoredQuad(px - bd, py + ph, pw + bd * 2, bd, bc, bc, bc);
-        RenderColoredQuad(px - bd, py, bd, ph, bc, bc, bc);
-        RenderColoredQuad(px + pw, py, bd, ph, bc, bc, bc);
 
-        RenderTextCentered("HOW TO PLAY", px + pw * 0.5f, py + 30, 0.85f, 0.85f, 0.85f, 1.8f);
-        RenderColoredQuad(px + 40, py + 70, pw - 80, 1, 0.3f, 0.3f, 0.3f);
+        // Drop shadow
+        RenderColoredQuad(px - 8, py - 8, pw + 16, ph + 16, 0.0f, 0.0f, 0.0f, 0.3f);
+        
+        // Border
+        RenderColoredQuad(px - 2, py - 2, pw + 4, ph + 4, 0.3f, 0.3f, 0.35f, 0.9f);
+        
+        // Main Background (Dark sleek grey)
+        RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.95f);
 
-        const char* lines[] = {
-            "W / S       - Accelerate / Brake", "A / D       - Steer Left / Right",
-            "Z           - Jump", "R           - Respawn", "L           - Toggle Headlights",
-            "SHIFT       - Nitro Boost", "ESC         - Pause Menu", "RIGHT CLICK - Orbit Camera",
-        };
-        for (int i = 0; i < 8; i++)
-            RenderText(lines[i], px + 60, py + 105 + i * 38, 0.65f, 0.65f, 0.65f, 1.3f);
+        // Header Section
+        RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
+        RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f); // Orange separator line
+        RenderTextCentered("HOW TO PLAY", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 1.6f);
+
+        // Content - Two Columns
+        float col1 = px + 60;
+        float col2 = px + pw * 0.5f + 40;
+        float startY = py + 120;
+        float stepY = 45;
+
+        // Driving Controls
+        RenderText("DRIVING", col1, startY, 0.9f, 0.6f, 0.1f, 1.2f);
+        RenderText("W / S      - Accelerate / Brake", col1, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("A / D      - Steer Left / Right", col1, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("SHIFT      - Nitro Boost", col1, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.1f);
+
+        // Action Controls
+        RenderText("ACTIONS", col2, startY, 0.9f, 0.6f, 0.1f, 1.2f);
+        RenderText("Z          - Jump", col2, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("R          - Respawn Car", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("L          - Toggle Headlights", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.1f);
+
+        // System Controls
+        RenderText("SYSTEM", col1, startY + stepY * 5, 0.9f, 0.6f, 0.1f, 1.2f);
+        RenderText("ESC        - Pause Menu", col1, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.1f);
 
         float s = 1.0f, yOff = 0.0f;
         if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }

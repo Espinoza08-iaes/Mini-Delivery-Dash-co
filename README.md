@@ -94,6 +94,9 @@ Follow these step-by-step instructions to compile and play the game on your loca
 ### Main Menu
 ![Main Menu](docs/main_menu.png)
 
+### How To Play
+![How To Play](docs/how_to_play.png)
+
 ### In-Game Delivery
 ![In-Game Placeholder](https://via.placeholder.com/800x450.png?text=Add+Gameplay+Screenshot+Here)
 
