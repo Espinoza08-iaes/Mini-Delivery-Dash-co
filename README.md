@@ -89,8 +89,6 @@ Follow these step-by-step instructions to compile and play the game on your loca
 
 ## Screenshots
 
-*(Replace the placeholder links below with actual images of your game)*
-
 ### Main Menu
 ![Main Menu](docs/main_menu.png)
 
