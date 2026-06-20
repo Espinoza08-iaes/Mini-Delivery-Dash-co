@@ -99,7 +99,7 @@ Follow these step-by-step instructions to compile and play the game on your loca
 ![In-Game Placeholder](https://via.placeholder.com/800x450.png?text=Add+Gameplay+Screenshot+Here)
 
 ### Shop Interface
-![Shop Interface Placeholder](https://via.placeholder.com/800x450.png?text=Add+Shop+UI+Screenshot+Here)
+![Shop Interface](docs/shop_ui.png)
 
 ---
 *Developed for the Graphics Programming (Programación Gráfica) Course.*
