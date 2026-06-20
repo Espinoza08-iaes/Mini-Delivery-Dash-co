@@ -540,10 +540,18 @@ MainMenu::Result MainMenu::Show(bool pause)
         float btnH = btnMaxW / 3.2f;
 
         float dw[4], dh[4];
-        dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;
-        dw[1] = btnW * 1.15f; dh[1] = btnH * 1.0f;
-        dw[2] = btnW * 1.15f; dh[2] = btnH * 1.0f;
-        dw[3] = btnW * 0.85f; dh[3] = btnH * 1.0f;
+        if (pause) {
+            float uniformW = btnW * 1.1f;
+            dw[0] = uniformW; dh[0] = btnH * 1.0f;
+            dw[1] = uniformW; dh[1] = btnH * 1.0f;
+            dw[2] = uniformW; dh[2] = btnH * 1.0f;
+            dw[3] = uniformW; dh[3] = btnH * 1.0f;
+        } else {
+            dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;
+            dw[1] = btnW * 1.15f; dh[1] = btnH * 1.0f;
+            dw[2] = btnW * 1.15f; dh[2] = btnH * 1.0f;
+            dw[3] = btnW * 0.85f; dh[3] = btnH * 1.0f;
+        }
 
         float sp = 10.0f;
         float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
