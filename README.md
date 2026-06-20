@@ -92,7 +92,7 @@ Follow these step-by-step instructions to compile and play the game on your loca
 *(Replace the placeholder links below with actual images of your game)*
 
 ### Main Menu
-![Main Menu Placeholder](https://via.placeholder.com/800x450.png?text=Add+Main+Menu+Screenshot+Here)
+![Main Menu](docs/main_menu.png)
 
 ### In-Game Delivery
 ![In-Game Placeholder](https://via.placeholder.com/800x450.png?text=Add+Gameplay+Screenshot+Here)
