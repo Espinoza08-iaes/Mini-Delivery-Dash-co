@@ -6,8 +6,11 @@
 
 #define STB_EASY_FONT_IMPLEMENTATION
 #include "../../../third_party/stb/stb_easy_font.h"
+#include "../../../third_party/stb/stb_image.h"
 
-// Shader compilation helper
+// ======================================================================
+// SHADER COMPILATION
+// ======================================================================
 static unsigned int compileShader(const char* vsSrc, const char* fsSrc)
 {
     unsigned int vs = glCreateShader(GL_VERTEX_SHADER);
@@ -26,7 +29,9 @@ static unsigned int compileShader(const char* vsSrc, const char* fsSrc)
     return prog;
 }
 
-// Convert quads to triangles helper
+// ======================================================================
+// QUAD TO TRIANGLES
+// ======================================================================
 static void convertQuadsToTrianglesClean(float* quads, int num, float* tris)
 {
     for (int i = 0; i < num; i++)
@@ -39,7 +44,6 @@ static void convertQuadsToTrianglesClean(float* quads, int num, float* tris)
     }
 }
 
-// Get text width helper
 static float GetTextWidth(const char* text, float scale)
 {
     float buf[60000];
@@ -54,13 +58,19 @@ static float GetTextWidth(const char* text, float scale)
     return (mx - mn) * scale;
 }
 
+// ======================================================================
+// CONSTRUCTOR / DESTRUCTOR
+// ======================================================================
 DeliveryHUD::DeliveryHUD(GLFWwindow* w, int sw, int sh)
     : window(w), width(sw), height(sh),
       quadVAO(0), quadVBO(0), hudProgram(0),
-      textVAO(0), textVBO(0), textProgram(0)
+      textVAO(0), textVBO(0), textProgram(0),
+      dashboardTexture(0), dashboardTexW(0), dashboardTexH(0),
+      panelsTexture(0), panelsTexW(0), panelsTexH(0)
 {
     SetupGraphics();
     SetupTextRendering();
+    LoadTextures();
 }
 
 DeliveryHUD::~DeliveryHUD()
@@ -69,8 +79,52 @@ DeliveryHUD::~DeliveryHUD()
     glDeleteVertexArrays(1, &textVAO); glDeleteBuffers(1, &textVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
     if (textProgram) glDeleteProgram(textProgram);
+    if (dashboardTexture) glDeleteTextures(1, &dashboardTexture);
+    if (panelsTexture) glDeleteTextures(1, &panelsTexture);
 }
 
+// ======================================================================
+// TEXTURE LOADING
+// ======================================================================
+void DeliveryHUD::LoadTextures()
+{
+    stbi_set_flip_vertically_on_load(true);
+    
+    int comp;
+    unsigned char* data = stbi_load("res/textures/DashBoard_STB.png", &dashboardTexW, &dashboardTexH, &comp, 4);
+    if (data)
+    {
+        glGenTextures(1, &dashboardTexture);
+        glBindTexture(GL_TEXTURE_2D, dashboardTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, dashboardTexW, dashboardTexH, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        stbi_image_free(data);
+        std::cout << "[HUD] Loaded DashBoard_STB.png (" << dashboardTexW << "x" << dashboardTexH << ")" << std::endl;
+    }
+    else { std::cerr << "[HUD] Failed to load DashBoard_STB.png" << std::endl; }
+    
+    data = stbi_load("res/textures/WhilePlayingPanels_STB.png", &panelsTexW, &panelsTexH, &comp, 4);
+    if (data)
+    {
+        glGenTextures(1, &panelsTexture);
+        glBindTexture(GL_TEXTURE_2D, panelsTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, panelsTexW, panelsTexH, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        stbi_image_free(data);
+        std::cout << "[HUD] Loaded WhilePlayingPanels_STB.png (" << panelsTexW << "x" << panelsTexH << ")" << std::endl;
+    }
+    else { std::cerr << "[HUD] Failed to load WhilePlayingPanels_STB.png" << std::endl; }
+}
+
+// ======================================================================
+// SETUP
+// ======================================================================
 void DeliveryHUD::SetupGraphics()
 {
     const char* vs = R"(#version 330 core
@@ -103,106 +157,111 @@ void DeliveryHUD::SetupTextRendering()
     glGenVertexArrays(1, &textVAO); glGenBuffers(1, &textVBO);
 }
 
+// ======================================================================
+// RENDER (MAIN ENTRY POINT)
+// ======================================================================
 void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& car, bool qKeyPressed)
 {
-    // Only render if there's an active order or waiting order or just delivered
-    if (!deliverySystem.HasWaitingOrder() && !deliverySystem.HasActiveOrder() && deliverySystem.GetCurrentOrder().state != OrderState::DELIVERED)
-    {
-        // Aun así, renderizar la barra de durabilidad
-        RenderDurabilityBar(car);
-        return;
-    }
-    
-    // --- MAGIC FOR 2D UI ---
-    glDisable(GL_DEPTH_TEST); // Disable 3D depth so UI draws on top of everything
-    glEnable(GL_BLEND);       // Enable Alpha channel for transparency
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    // Render wallet balance at top right
-    char walletText[64];
-    snprintf(walletText, sizeof(walletText), "Dinero: $%.0f", deliverySystem.GetWalletBalance());
-    RenderText(walletText, fbW - 250.0f, 30.0f, 1.0f, 0.8f, 0.0f, 3.0f);
+    // ============================================================
+    // BOTTOM CENTER: Speedometer inside DashBoard_STB.png
+    // ============================================================
+    ShopManager* shop = ShopManager::GetInstance();
+    float speedMult = shop->GetUpgradeMultiplier(UpgradeType::Speed);
+    float baseMaxSpeed = 8.0f;
+    float turboMaxSpeed = baseMaxSpeed * 2.2f * speedMult;
+    RenderSpeedometer(car, turboMaxSpeed);
     
-    // Render compass bar
+    // ============================================================
+    // TOP RIGHT: Single panel (Health + Earnings)
+    // ============================================================
+    RenderDurabilityBar(car);
+    
+    // Earnings text (inside the same panel, positioned for bottom half)
+    char earningsText[64];
+    snprintf(earningsText, sizeof(earningsText), "$%.0f", deliverySystem.GetWalletBalance());
+    RenderText(earningsText, fbW - 180.0f, 68.0f, 0.85f, 0.70f, 0.35f, 1.5f);
+    
+    // ============================================================
+    // Only render delivery HUD if there's an active order
+    // ============================================================
+    if (!deliverySystem.HasWaitingOrder() && !deliverySystem.HasActiveOrder() 
+        && deliverySystem.GetCurrentOrder().state != OrderState::DELIVERED)
+    {
+        glEnable(GL_DEPTH_TEST);
+        return;
+    }
+    
+    // Compass bar
     glm::vec3 objective = deliverySystem.GetObjectivePosition();
     bool isPickup = deliverySystem.HasWaitingOrder();
+    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, objective, car.position, isPickup, nullptr);
     
-    // No additional markers - only show current mission objective
-    std::vector<CompassMarker>* additionalMarkers = nullptr;
-    
-    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, objective, car.position, isPickup, additionalMarkers);
-    
-    // Render distance below compass (always to current objective)
+    // Distance text below compass
     float distance = deliverySystem.GetDistanceToObjective(car);
-    
     char distanceText[64];
     snprintf(distanceText, sizeof(distanceText), "%.1f m", distance);
-    RenderTextCentered(distanceText, fbW / 2.0f, 110.0f, 1.0f, 1.0f, 1.0f, 3.0f);
+    RenderTextCentered(distanceText, fbW / 2.0f, 110.0f, 1.0f, 1.0f, 1.0f, 2.0f);
     
-    // Render success screen if delivered
+    // Success screen
     if (deliverySystem.GetCurrentOrder().state == OrderState::DELIVERED)
     {
         const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
         
-        // Green classic background and larger panel
         RenderColoredQuad(fbW / 2.0f - 350.0f, fbH / 2.0f - 250.0f, 700.0f, 500.0f, 0.1f, 0.4f, 0.1f, 0.95f);
-        
-        RenderTextCentered("¡ENTREGA EXITOSA!", fbW / 2.0f, fbH / 2.0f - 200.0f, 0.2f, 1.0f, 0.2f, 3.0f);
+        RenderTextCentered("DELIVERY SUCCESSFUL!", fbW / 2.0f, fbH / 2.0f - 200.0f, 0.2f, 1.0f, 0.2f, 2.5f);
         
         float yOffset = fbH / 2.0f - 130.0f;
         char buf[128];
         
-        // Convert Enum to Text
-        const char* diffStr = (deliverySystem.GetCurrentOrder().difficulty == OrderDifficulty::EASY) ? "Facil" : 
-                              (deliverySystem.GetCurrentOrder().difficulty == OrderDifficulty::MEDIUM) ? "Medio" : "Dificil";
+        const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "Easy" : 
+                              (order.difficulty == OrderDifficulty::MEDIUM) ? "Medium" : "Hard";
+        const char* typeStr = (order.type == OrderType::STANDARD) ? "Standard" : 
+                              (order.type == OrderType::FRAGILE) ? "Fragile" : "Special";
         
-        const char* typeStr = (deliverySystem.GetCurrentOrder().type == OrderType::STANDARD) ? "Estandar" : 
-                              (deliverySystem.GetCurrentOrder().type == OrderType::FRAGILE) ? "Fragil" : "Especial";
-        
-        snprintf(buf, sizeof(buf), "Dificultad: %s  |  Tipo: %s", diffStr, typeStr);
+        snprintf(buf, sizeof(buf), "Difficulty: %s  |  Type: %s", diffStr, typeStr);
         RenderTextCentered(buf, fbW / 2.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
         yOffset += 30.0f;
         
-        snprintf(buf, sizeof(buf), "Tiempo de Entrega: %.1f seg", deliverySystem.finalElapsedTime);
+        snprintf(buf, sizeof(buf), "Delivery Time: %.1f sec", deliverySystem.finalElapsedTime);
         RenderTextCentered(buf, fbW / 2.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
         yOffset += 50.0f;
         
-        // Breakdown
-        snprintf(buf, sizeof(buf), "Pago Base: $%.0f", deliverySystem.GetInitialReward());
+        snprintf(buf, sizeof(buf), "Base Pay: $%.0f", deliverySystem.GetInitialReward());
         RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
         yOffset += 35.0f;
         
         if (deliverySystem.finalBonusAmount > 0.0f) {
-            snprintf(buf, sizeof(buf), "+ Bono Estrellas: $%.0f", deliverySystem.finalBonusAmount);
+            snprintf(buf, sizeof(buf), "+ Star Bonus: $%.0f", deliverySystem.finalBonusAmount);
             RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.8f, 0.0f, 1.5f);
             yOffset += 35.0f;
         }
         if (deliverySystem.finalLossCollision > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Choques: $%.0f", deliverySystem.finalLossCollision);
+            snprintf(buf, sizeof(buf), "- Collisions: $%.0f", deliverySystem.finalLossCollision);
             RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.3f, 0.3f, 1.5f);
             yOffset += 35.0f;
         }
         if (deliverySystem.finalLossWater > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Caidas al Agua: $%.0f", deliverySystem.finalLossWater);
+            snprintf(buf, sizeof(buf), "- Water Falls: $%.0f", deliverySystem.finalLossWater);
             RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 0.3f, 0.7f, 1.0f, 1.5f);
             yOffset += 35.0f;
         }
         if (deliverySystem.finalLossTime > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Tardanza: $%.0f", deliverySystem.finalLossTime);
+            snprintf(buf, sizeof(buf), "- Late Penalty: $%.0f", deliverySystem.finalLossTime);
             RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.5f, 0.2f, 1.5f);
             yOffset += 35.0f;
         }
         
-        // Total final
         yOffset += 20.0f;
-        snprintf(buf, sizeof(buf), "GANANCIA TOTAL: $%.0f", deliverySystem.GetCurrentOrder().reward);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.2f, 1.0f, 0.2f, 2.5f);
-        
-        // Instruction to dismiss
-        RenderTextCentered("[E] Aceptar", fbW / 2.0f, fbH / 2.0f + 200.0f, 0.8f, 0.8f, 0.8f, 1.8f);
+        snprintf(buf, sizeof(buf), "TOTAL EARNINGS: $%.0f", order.reward);
+        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.2f, 1.0f, 0.2f, 2.2f);
+        RenderTextCentered("[E] Accept", fbW / 2.0f, fbH / 2.0f + 200.0f, 0.8f, 0.8f, 0.8f, 1.6f);
     }
     else if (deliverySystem.HasWaitingOrder() && ShouldShowMissionPanel(deliverySystem, car))
     {
@@ -213,69 +272,144 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
         RenderDeliveryHUD(deliverySystem);
     }
     
-    // Render delivery message when near delivery pillar
     if (ShouldShowDeliveryMessage(deliverySystem, car))
     {
-        RenderTextCentered("Entregar con E o cancelar con Q", fbW / 2.0f, fbH / 2.0f + 50.0f, 1.0f, 1.0f, 1.0f, 2.5f);
+        RenderTextCentered("Deliver with E or Cancel with Q", fbW / 2.0f, fbH / 2.0f + 50.0f, 1.0f, 1.0f, 1.0f, 2.0f);
     }
     
-    // Render durability bar (top right)
-    RenderDurabilityBar(car);
-    
-    // Render speedometer (bottom left) - always visible
-    int fbW2, fbH2;
-    glfwGetFramebufferSize(window, &fbW2, &fbH2);
-    ShopManager* shop = ShopManager::GetInstance();
-    float speedMult = shop->GetUpgradeMultiplier(UpgradeType::Speed);
-    float baseMaxSpeed = 8.0f;
-    float turboMaxSpeed = baseMaxSpeed * 2.2f * speedMult;
-    RenderSpeedometer(car, turboMaxSpeed);
-    
-    // Re-enable depth test for 3D rendering
     glEnable(GL_DEPTH_TEST);
 }
 
+// ======================================================================
+// SPEEDOMETER (Bottom Center — inside DashBoard_STB.png)
+// ======================================================================
+void DeliveryHUD::RenderSpeedometer(const CarState& car, float maxSpeed)
+{
+    int fbW, fbH;
+    glfwGetFramebufferSize(window, &fbW, &fbH);
+    
+    float dashboardW = 220.0f;
+    float dashboardH = 65.0f;
+    float centerX = fbW * 0.5f;
+    float centerY = fbH - dashboardH * 0.5f - 10.0f;
+    
+    // Draw the dashboard image
+    if (dashboardTexture != 0)
+    {
+        RenderQuad(centerX - dashboardW * 0.5f, centerY - dashboardH * 0.5f, dashboardW, dashboardH, dashboardTexture);
+    }
+    else
+    {
+        RenderBezelPanel(centerX - dashboardW * 0.5f, centerY - dashboardH * 0.5f, dashboardW, dashboardH, 4.0f);
+    }
+    
+    // Speed text centered inside the dashboard
+    float currentSpeed = std::abs(car.speed);
+    char speedText[32];
+    snprintf(speedText, sizeof(speedText), "%.0f", currentSpeed);
+    RenderTextCentered(speedText, centerX, centerY + 3.0f, 1.0f, 1.0f, 1.0f, 3.0f);
+    
+    // "km/h" small text below speed
+    RenderTextCentered("KM/H", centerX, centerY - 20.0f, 0.7f, 0.7f, 0.7f, 1.2f);
+}
+
+// ======================================================================
+// DURABILITY + EARNINGS PANEL (Top Right)
+// ======================================================================
+void DeliveryHUD::RenderDurabilityBar(const CarState& car)
+{
+    int fbW, fbH;
+    glfwGetFramebufferSize(window, &fbW, &fbH);
+    
+    float panelW = 260.0f;
+    float panelH = 90.0f;
+    float panelX = fbW - panelW - 10.0f;
+    float panelY = 10.0f;
+    
+    // Draw the single panel image (covers both health and earnings)
+    if (panelsTexture != 0)
+    {
+        RenderQuad(panelX, panelY, panelW, panelH, panelsTexture);
+    }
+    else
+    {
+        RenderBezelPanel(panelX, panelY, panelW, panelH, 3.0f);
+    }
+    
+    // ---- HEALTH SECTION ----
+    RenderText("HEALTH", panelX + 14.0f, panelY + 20.0f, 0.85f, 0.70f, 0.35f, 1.3f);
+    
+    float barX = panelX + 85.0f;
+    float barY = panelY + 20.0f;
+    float barW = 130.0f;
+    float barH = 12.0f;
+    
+    // Bar background
+    RenderColoredQuad(barX, barY, barW, barH, 0.15f, 0.15f, 0.15f, 0.8f);
+    
+    // Health fill
+    float healthRatio = car.durability / 100.0f;
+    float healthW = barW * healthRatio;
+    float dr, dg, db;
+    if (car.durability > 60.0f)      { dr = 0.0f; dg = 0.8f; db = 0.0f; }
+    else if (car.durability > 30.0f) { dr = 1.0f; dg = 0.8f; db = 0.0f; }
+    else                              { dr = 1.0f; dg = 0.2f; db = 0.0f; }
+    
+    RenderColoredQuad(barX, barY, healthW, barH, dr, dg, db, 0.95f);
+    
+    // Health percentage
+    char healthText[16];
+    snprintf(healthText, sizeof(healthText), "%.0f%%", car.durability);
+    RenderText(healthText, barX + barW + 6.0f, barY - 1.0f, 1.0f, 1.0f, 1.0f, 1.1f);
+    
+    // Warning text
+    if (car.isDead) {
+        RenderText("WRECKED!", panelX + 14.0f, panelY + 38.0f, 1.0f, 0.0f, 0.0f, 1.2f);
+    } else if (car.durability < 20.0f) {
+        RenderText("CRITICAL", panelX + 14.0f, panelY + 38.0f, 1.0f, 0.3f, 0.0f, 1.0f);
+    }
+    
+    // ---- EARNINGS SECTION ----
+    // Label
+    RenderText("EARNINGS", panelX + 14.0f, panelY + 58.0f, 0.85f, 0.70f, 0.35f, 1.3f);
+    
+    // Value is rendered in Render() function since it needs deliverySystem
+}
+
+// ======================================================================
+// COMPASS BAR
+// ======================================================================
 void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup, const std::vector<CompassMarker>* additionalMarkers)
 {
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    // Draw compass bar background with Kingdom Come style
     float barWidth = 600.0f;
     float barHeight = 40.0f;
     
-    // Main background - lighter, cleaner color
-    RenderColoredQuad(centerX - barWidth / 2.0f, centerY - barHeight / 2.0f, barWidth, barHeight, 0.15f, 0.15f, 0.2f, 0.95f);
+    RenderBezelPanel(centerX - barWidth / 2.0f - 4.0f, centerY - barHeight / 2.0f - 4.0f, barWidth + 8.0f, barHeight + 8.0f, 3.0f);
     
-    // Top and bottom borders
-    RenderColoredQuad(centerX - barWidth / 2.0f, centerY - barHeight / 2.0f, barWidth, 2.0f, 0.4f, 0.4f, 0.5f, 1.0f);
-    RenderColoredQuad(centerX - barWidth / 2.0f, centerY + barHeight / 2.0f - 2.0f, barWidth, 2.0f, 0.4f, 0.4f, 0.5f, 1.0f);
+    // Center indicator
+    RenderColoredQuad(centerX - 2.5f, centerY - barHeight / 2.0f - 5.0f, 5.0f, barHeight + 10.0f, 0.85f, 0.7f, 0.35f, 1.0f);
     
-    // Center indicator (car direction) - more visible
-    RenderColoredQuad(centerX - 3.0f, centerY - barHeight / 2.0f - 5.0f, 6.0f, barHeight + 10.0f, 1.0f, 0.85f, 0.0f, 1.0f);
-    
-    // Draw cardinal marks that move based on car rotation
-    const char* cardinals[] = {"N", "E", "S", "O"};
-    float cardinalAngles[] = {0.0f, 1.5708f, 3.14159f, 4.71239f}; // N, E, S, O in radians
+    // Cardinal marks
+    const char* cardinals[] = {"N", "E", "S", "W"};
+    float cardinalAngles[] = {0.0f, 1.5708f, 3.14159f, 4.71239f};
     
     for (int i = 0; i < 4; i++)
     {
         float angleOffset = cardinalAngles[i] - carYaw;
-        // Normalize to -PI to PI
         while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
         while (angleOffset < -3.14159f) angleOffset += 6.28318f;
         
-        // Map angle to horizontal position
         float xPos = centerX + angleOffset * (barWidth / 6.28318f);
-        
-        // Only render if within bar bounds
         if (xPos > centerX - barWidth / 2.0f + 20.0f && xPos < centerX + barWidth / 2.0f - 20.0f)
         {
-            RenderTextCentered(cardinals[i], xPos, centerY + 5.0f, 0.7f, 0.7f, 0.7f, 1.8f);
+            RenderTextCentered(cardinals[i], xPos, centerY + 5.0f, 0.7f, 0.7f, 0.7f, 1.5f);
         }
     }
     
-    // Calculate angle to objective
+    // Objective marker
     glm::vec3 toObjective = objective - carPos;
     toObjective.y = 0.0f;
     float distToObj = glm::length(toObjective);
@@ -283,75 +417,29 @@ void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, c
     if (distToObj > 0.01f)
     {
         toObjective = glm::normalize(toObjective);
-        
-        // Depending on camera system, may need negative Z
-        float angleToObjective = std::atan2(toObjective.x, toObjective.z);
-        float angleOffset = angleToObjective - carYaw;
-        
-        // Normalize to -PI to PI
+        float angleToObj = std::atan2(toObjective.x, toObjective.z);
+        float angleOffset = angleToObj - carYaw;
         while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
         while (angleOffset < -3.14159f) angleOffset += 6.28318f;
         
-        // Map angle to horizontal position
         float objX = centerX + angleOffset * (barWidth / 6.28318f);
         
-        // Draw only if strictly within visual limits of the dark bar
         if (objX > centerX - barWidth / 2.0f + 15.0f && objX < centerX + barWidth / 2.0f - 15.0f)
         {
             float dotSize = 14.0f;
-            
-            // Use green for delivery, yellow for pickup
             if (isPickup)
-            {
-                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f); // Yellow for pickup
-            }
+                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f);
             else
-            {
-                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 0.0f, 1.0f, 0.3f, 1.0f); // Green for delivery
-            }
+                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 0.0f, 1.0f, 0.3f, 1.0f);
             
-            const char* marker = isPickup ? "P" : "D";
-            RenderTextCentered(marker, objX, centerY + 6.0f, 1.0f, 1.0f, 1.0f, 1.5f);
-        }
-    }
-    
-    // Draw additional markers (with labels for pickup zones)
-    if (additionalMarkers != nullptr)
-    {
-        for (const auto& marker : *additionalMarkers)
-        {
-            glm::vec3 toMarker = marker.position - carPos;
-            toMarker.y = 0.0f;
-            float distToMarker = glm::length(toMarker);
-            
-            if (distToMarker > 0.01f)
-            {
-                toMarker = glm::normalize(toMarker);
-                
-                float angleToMarker = std::atan2(toMarker.x, toMarker.z);
-                float angleOffset = angleToMarker - carYaw;
-                
-                // Normalize to -PI to PI
-                while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
-                while (angleOffset < -3.14159f) angleOffset += 6.28318f;
-                
-                // Map angle to horizontal position
-                float markerX = centerX + angleOffset * (barWidth / 6.28318f);
-                
-                // Draw only if strictly within visual limits of the dark bar
-                if (markerX > centerX - barWidth / 2.0f + 15.0f && markerX < centerX + barWidth / 2.0f - 15.0f)
-                {
-                    float dotSize = 10.0f;
-                    RenderColoredQuad(markerX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f);
-                    
-                    // Draw label (P1, P2, etc.)
-                    RenderTextCentered(marker.label.c_str(), markerX, centerY + 12.0f, 1.0f, 0.8f, 0.0f, 1.2f);
-                }
-            }
+            RenderTextCentered(isPickup ? "P" : "D", objX, centerY + 6.0f, 1.0f, 1.0f, 1.0f, 1.3f);
         }
     }
 }
 
+// ======================================================================
+// MISSION PANEL
+// ======================================================================
 void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
 {
     int fbW, fbH;
@@ -359,75 +447,50 @@ void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
     
     const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
     
-    // Draw panel background with rounded corners effect
-    float panelWidth = 450.0f;
-    float panelHeight = 400.0f;
-    float panelX = fbW / 2.0f - panelWidth / 2.0f;
-    float panelY = fbH / 2.0f - panelHeight / 2.0f;
+    float panelW = 450.0f, panelH = 380.0f;
+    float panelX = fbW / 2.0f - panelW / 2.0f;
+    float panelY = fbH / 2.0f - panelH / 2.0f;
     
-    // Main panel background
-    RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.05f, 0.05f, 0.1f, 0.98f);
+    RenderColoredQuad(panelX, panelY, panelW, panelH, 0.05f, 0.05f, 0.1f, 0.98f);
+    RenderColoredQuad(panelX, panelY, panelW, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
+    RenderColoredQuad(panelX, panelY + panelH - 3.0f, panelW, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
+    RenderColoredQuad(panelX, panelY, 3.0f, panelH, 1.0f, 0.6f, 0.0f, 1.0f);
+    RenderColoredQuad(panelX + panelW - 3.0f, panelY, 3.0f, panelH, 1.0f, 0.6f, 0.0f, 1.0f);
     
-    // Border
-    RenderColoredQuad(panelX, panelY, panelWidth, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f); // Top
-    RenderColoredQuad(panelX, panelY + panelHeight - 3.0f, panelWidth, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f); // Bottom
-    RenderColoredQuad(panelX, panelY, 3.0f, panelHeight, 1.0f, 0.6f, 0.0f, 1.0f); // Left
-    RenderColoredQuad(panelX + panelWidth - 3.0f, panelY, 3.0f, panelHeight, 1.0f, 0.6f, 0.0f, 1.0f); // Right
+    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelW - 10.0f, 40.0f, 0.15f, 0.15f, 0.2f, 0.9f);
+    RenderTextCentered("INSPECT MISSION", fbW / 2.0f, panelY + 35.0f, 1.0f, 0.8f, 0.0f, 2.2f);
     
-    // Title with background
-    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelWidth - 10.0f, 40.0f, 0.15f, 0.15f, 0.2f, 0.9f);
-    RenderTextCentered("INSPECCIONAR MISION", fbW / 2.0f, panelY + 35.0f, 1.0f, 0.8f, 0.0f, 2.5f);
+    const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGILE" : "STANDARD";
+    char buf[128];
+    snprintf(buf, sizeof(buf), "Type: %s", typeStr);
+    RenderText(buf, panelX + 20.0f, panelY + 70.0f, 1.0f, 1.0f, 1.0f, 1.8f);
     
-    // Order type
-    const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGIL" : "ESTANDAR";
-    char typeText[128];
-    snprintf(typeText, sizeof(typeText), "Tipo: %s", typeStr);
-    RenderText(typeText, panelX + 20.0f, panelY + 70.0f, 1.0f, 1.0f, 1.0f, 2.0f);
+    const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "EASY" : 
+                          (order.difficulty == OrderDifficulty::MEDIUM) ? "MEDIUM" : "HARD";
+    snprintf(buf, sizeof(buf), "Difficulty: %s", diffStr);
+    RenderText(buf, panelX + 20.0f, panelY + 105.0f, 1.0f, 1.0f, 1.0f, 1.8f);
     
-    // Difficulty
-    const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "FACIL" : 
-                          (order.difficulty == OrderDifficulty::MEDIUM) ? "MEDIO" : 
-                          (order.difficulty == OrderDifficulty::HARD) ? "DIFICIL" : "ESPECIAL";
-    char diffText[128];
-    snprintf(diffText, sizeof(diffText), "Dificultad: %s", diffStr);
-    RenderText(diffText, panelX + 20.0f, panelY + 110.0f, 1.0f, 1.0f, 1.0f, 2.0f);
+    snprintf(buf, sizeof(buf), "Time: %.0f sec", order.timeLimit);
+    RenderText(buf, panelX + 20.0f, panelY + 140.0f, 1.0f, 1.0f, 1.0f, 1.8f);
     
-    // Time limit
-    char timeText[128];
-    snprintf(timeText, sizeof(timeText), "Tiempo: %.0f seg", order.timeLimit);
-    RenderText(timeText, panelX + 20.0f, panelY + 150.0f, 1.0f, 1.0f, 1.0f, 2.0f);
+    float yOffset = panelY + 180.0f;
+    char star3[64], star2[64], star1[64];
+    snprintf(star3, sizeof(star3), "*** Gold:   < %.1f sec", deliverySystem.GetTimeStar3());
+    snprintf(star2, sizeof(star2), "**  Silver:  < %.1f sec", deliverySystem.GetTimeStar2());
+    snprintf(star1, sizeof(star1), "*   Bronze: < %.1f sec", deliverySystem.GetTimeStar1());
+    RenderText(star3, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 1.2f); yOffset += 25.0f;
+    RenderText(star2, panelX + 20.0f, yOffset, 0.8f, 0.8f, 0.8f, 1.2f); yOffset += 25.0f;
+    RenderText(star1, panelX + 20.0f, yOffset, 0.8f, 0.5f, 0.2f, 1.2f); yOffset += 30.0f;
     
-    // Star times
-    char star3Buf[64], star2Buf[64], star1Buf[64];
-    snprintf(star3Buf, sizeof(star3Buf), "*** Oro:    < %.1f seg", deliverySystem.GetTimeStar3());
-    snprintf(star2Buf, sizeof(star2Buf), "** Plata:  < %.1f seg", deliverySystem.GetTimeStar2());
-    snprintf(star1Buf, sizeof(star1Buf), "* Bronce: < %.1f seg", deliverySystem.GetTimeStar1());
+    snprintf(buf, sizeof(buf), "Max Reward: $%.0f", order.reward);
+    RenderText(buf, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 2.0f);
     
-    float yOffset = panelY + 190.0f;
-    RenderText(star3Buf, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 1.2f); yOffset += 25.0f; // Yellow
-    RenderText(star2Buf, panelX + 20.0f, yOffset, 0.8f, 0.8f, 0.8f, 1.2f); yOffset += 25.0f; // Gray
-    RenderText(star1Buf, panelX + 20.0f, yOffset, 0.8f, 0.5f, 0.2f, 1.2f); yOffset += 25.0f; // Orange
-    
-    // Distance
-    float distance = glm::length(order.destinationPosition - order.originPosition);
-    char distText[128];
-    snprintf(distText, sizeof(distText), "Distancia: %.0f m", distance);
-    RenderText(distText, panelX + 20.0f, yOffset, 1.0f, 1.0f, 1.0f, 2.0f); yOffset += 40.0f;
-    
-    // Max reward
-    char rewardText[128];
-    snprintf(rewardText, sizeof(rewardText), "Ganancia max: $%.0f", order.reward);
-    RenderText(rewardText, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 2.2f); yOffset += 40.0f;
-    
-    // Potential loss info
-    char lossText[128];
-    snprintf(lossText, sizeof(lossText), "Perdida max: -%.0f%%", order.reward * 0.3f);
-    RenderText(lossText, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 2.0f);
-    
-    // Instructions (below the panel)
-    RenderTextCentered("[E] Aceptar  [Q] Rechazar", fbW / 2.0f, panelY + panelHeight + 20.0f, 0.8f, 0.8f, 0.8f, 1.6f);
+    RenderTextCentered("[E] Accept  [Q] Reject", fbW / 2.0f, panelY + panelH + 20.0f, 0.8f, 0.8f, 0.8f, 1.4f);
 }
 
+// ======================================================================
+// DELIVERY HUD (Active Order)
+// ======================================================================
 void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
 {
     int fbW, fbH;
@@ -435,116 +498,64 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
     
     const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
     
-    // Position HUD in upper left corner
     float hudX = 20.0f;
     float hudY = 80.0f;
     
-    // Timer in MM:SS format
-    float remainingTime = order.timeLimit - deliverySystem.GetElapsedTime();
-    if (remainingTime < 0.0f) remainingTime = 0.0f;
+    char buf[128];
+    snprintf(buf, sizeof(buf), "Time: %.1f / %.1f sec", deliverySystem.GetElapsedTime(), deliverySystem.currentTargetTime);
+    RenderText(buf, hudX, hudY, 1.0f, 1.0f, 1.0f, 1.8f);
     
-    // Time and Stars display
-    char timeMsg[128];
-    snprintf(timeMsg, sizeof(timeMsg), "Tiempo: %.1fs / %.1fs", deliverySystem.GetElapsedTime(), deliverySystem.currentTargetTime);
-    RenderText(timeMsg, hudX, hudY, 1.0f, 1.0f, 1.0f, 2.0f);
+    const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGILE" : "STANDARD";
+    const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "EASY" : 
+                          (order.difficulty == OrderDifficulty::MEDIUM) ? "MEDIUM" : "HARD";
+    snprintf(buf, sizeof(buf), "%s (%s)", typeStr, diffStr);
+    RenderText(buf, hudX, hudY + 40.0f, 1.0f, 1.0f, 1.0f, 1.8f);
     
-    // Type and difficulty
-    const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGIL" : "ESTANDAR";
-    const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "FACIL" : 
-                          (order.difficulty == OrderDifficulty::MEDIUM) ? "MEDIO" : 
-                          (order.difficulty == OrderDifficulty::HARD) ? "DIFICIL" : "ESPECIAL";
-    char typeDiffText[128];
-    snprintf(typeDiffText, sizeof(typeDiffText), "%s (%s)", typeStr, diffStr);
-    RenderText(typeDiffText, hudX, hudY + 50.0f, 1.0f, 1.0f, 1.0f, 2.2f);
-    
-    // Health bar
-    float health = order.fragileHealth;
-    float barX = hudX;
-    float barY = hudY + 90.0f;
-    float barW = 200.0f;
-    float barH = 25.0f;
-    
-    // Background
-    RenderColoredQuad(barX, barY, barW, barH, 0.2f, 0.2f, 0.2f, 0.9f);
-    
-    // Health fill
-    float healthWidth = barW * (health / 100.0f);
-    float hr = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 1.0f : 1.0f;
-    float hg = (health > 50.0f) ? 0.8f : (health > 25.0f) ? 0.8f : 0.2f;
-    float hb = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 0.0f : 0.2f;
-    RenderColoredQuad(barX, barY, healthWidth, barH, hr, hg, hb, 0.95f);
-    
-    // Health percentage text
-    char healthText[64];
-    snprintf(healthText, sizeof(healthText), "%.0f%%", health);
-    RenderText(healthText, barX + barW + 15.0f, barY + 5.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    
-    // Show potential loss if health is below 100%
-    if (health < 100.0f)
+    // Health bar for fragile orders
+    if (order.type == OrderType::FRAGILE)
     {
-        float healthLost = 100.0f - health;
-        char lossText[128];
-        snprintf(lossText, sizeof(lossText), "-%.0f%%", healthLost);
-        RenderText(lossText, barX + barW + 15.0f, barY + 30.0f, 1.0f, 0.8f, 0.0f, 1.8f);
+        float health = order.fragileHealth;
+        float barX = hudX, barY = hudY + 75.0f, barW = 180.0f, barH = 20.0f;
+        RenderColoredQuad(barX, barY, barW, barH, 0.2f, 0.2f, 0.2f, 0.9f);
+        
+        float hw = barW * (health / 100.0f);
+        float hr = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 1.0f : 1.0f;
+        float hg = (health > 50.0f) ? 0.8f : (health > 25.0f) ? 0.8f : 0.2f;
+        float hb = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 0.0f : 0.2f;
+        RenderColoredQuad(barX, barY, hw, barH, hr, hg, hb, 0.95f);
+        
+        snprintf(buf, sizeof(buf), "%.0f%%", health);
+        RenderText(buf, barX + barW + 10.0f, barY + 2.0f, 1.0f, 1.0f, 1.0f, 1.5f);
     }
     
-    // Current/Estimated Gain
     float estimatedGain = deliverySystem.GetEstimatedReward();
-    char gainText[128];
-    snprintf(gainText, sizeof(gainText), "Ganancia: $%.0f", estimatedGain);
-    RenderText(gainText, hudX, hudY + 130.0f, 0.0f, 0.9f, 0.0f, 2.5f);
+    snprintf(buf, sizeof(buf), "Earnings: $%.0f", estimatedGain);
+    RenderText(buf, hudX, hudY + 110.0f, 0.0f, 0.9f, 0.0f, 2.0f);
     
-    // Loss by Damage
     float collisionLoss = deliverySystem.GetCollisionLoss();
-    float starsY = hudY + 170.0f;
     if (collisionLoss > 0.0f)
     {
-        char lossText[128];
-        snprintf(lossText, sizeof(lossText), "Perdida: -$%.0f", collisionLoss);
-        RenderText(lossText, hudX, hudY + 170.0f, 1.0f, 0.2f, 0.2f, 2.5f);
-        starsY += 40.0f;
-    }
-    else
-    {
-        starsY = hudY + 170.0f;
-    }
-    
-    // Visual stars (below gain/loss)
-    RenderText("Calidad:", hudX, starsY, 1.0f, 1.0f, 1.0f, 1.5f);
-    for(int i = 0; i < 3; i++) {
-        if (i < deliverySystem.currentStars) {
-            // Active star (Yellow, bright)
-            RenderText("*", hudX + 100.0f + (i * 30.0f), starsY + 5.0f, 1.0f, 0.9f, 0.0f, 3.0f);
-        } else {
-            // Lost star (Gray, dim)
-            RenderText("*", hudX + 100.0f + (i * 30.0f), starsY + 5.0f, 0.3f, 0.3f, 0.3f, 3.0f);
-        }
+        snprintf(buf, sizeof(buf), "Loss: -$%.0f", collisionLoss);
+        RenderText(buf, hudX, hudY + 145.0f, 1.0f, 0.2f, 0.2f, 1.8f);
     }
 }
 
+// ======================================================================
+// HELPERS
+// ======================================================================
 bool DeliveryHUD::ShouldShowMissionPanel(const DeliverySystem& deliverySystem, const CarState& car) const
 {
-    // Show mission panel when car is near the pickup zone (not stopped, just near)
-    if (!deliverySystem.HasWaitingOrder())
-        return false;
-    
+    if (!deliverySystem.HasWaitingOrder()) return false;
     const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
     float distance = glm::length(car.position - order.originPosition);
-    
-    // Show if near pickup zone (touching distance)
     return (distance < 2.0f);
 }
 
 bool DeliveryHUD::ShouldShowDeliveryMessage(const DeliverySystem& deliverySystem, const CarState& car) const
 {
-    // Show delivery message when car has picked up order and is near delivery zone
-    if (!deliverySystem.HasActiveOrder())
-        return false;
-    
+    if (!deliverySystem.HasActiveOrder()) return false;
     const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
     float distance = glm::length(car.position - order.destinationPosition);
-    
-    // Show if near delivery pillar (no need to be stopped)
     return (distance < 2.0f);
 }
 
@@ -560,17 +571,17 @@ bool DeliveryHUD::TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPres
 
 void DeliveryHUD::RenderHealthBar(float x, float y, float w, float h, float health)
 {
-    // Background
     RenderColoredQuad(x, y, w, h, 0.2f, 0.2f, 0.2f, 0.8f);
-    
-    // Health fill
-    float healthWidth = w * (health / 100.0f);
+    float hw = w * (health / 100.0f);
     float hr = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 1.0f : 1.0f;
     float hg = (health > 50.0f) ? 0.8f : (health > 25.0f) ? 0.8f : 0.2f;
     float hb = (health > 50.0f) ? 0.0f : (health > 25.0f) ? 0.0f : 0.2f;
-    RenderColoredQuad(x, y, healthWidth, h, hr, hg, hb, 0.9f);
+    RenderColoredQuad(x, y, hw, h, hr, hg, hb, 0.9f);
 }
 
+// ======================================================================
+// LOW-LEVEL RENDERING
+// ======================================================================
 void DeliveryHUD::RenderText(const char* text, float x, float y, float r, float g, float b, float scale)
 {
     static float qb[60000]; int n = stb_easy_font_print(0, 0, (char*)text, NULL, qb, sizeof(qb));
@@ -610,191 +621,66 @@ void DeliveryHUD::RenderColoredQuad(float x, float y, float w, float h, float r,
     glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
-void DeliveryHUD::RenderDurabilityBar(const CarState& car)
+void DeliveryHUD::RenderBezelPanel(float x, float y, float w, float h, float borderPx)
 {
-    int fbW, fbH;
-    glfwGetFramebufferSize(window, &fbW, &fbH);
-    
-    float barX = fbW - 230.0f;
-    float barY = 80.0f;
-    float barW = 200.0f;
-    float barH = 25.0f;
-    
-    // Background
-    RenderColoredQuad(barX, barY, barW, barH, 0.2f, 0.2f, 0.2f, 0.9f);
-    
-    // Durability fill
-    float durabilityWidth = barW * (car.durability / 100.0f);
-    float dr, dg, db;
-    
-    if (car.durability > 60.0f) {
-        dr = 0.0f; dg = 0.8f; db = 0.0f; // Verde
-    } else if (car.durability > 30.0f) {
-        dr = 1.0f; dg = 0.8f; db = 0.0f; // Amarillo
-    } else {
-        dr = 1.0f; dg = 0.2f; db = 0.0f; // Rojo
-    }
-    
-    RenderColoredQuad(barX, barY, durabilityWidth, barH, dr, dg, db, 0.95f);
-    
-    // Label
-    RenderText("VIDA:", barX - 60.0f, barY + 5.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    
-    // Percentage
-    char durText[16];
-    snprintf(durText, sizeof(durText), "%.0f%%", car.durability);
-    RenderText(durText, barX + barW + 10.0f, barY + 5.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    
-    // Warning if low or dead
-    if (car.isDead) {
-        RenderText("DESCOMPUESTO!", barX, barY + 35.0f, 1.0f, 0.0f, 0.0f, 1.8f);
-    } else if (car.durability < 20.0f) {
-        RenderText("CRITICO", barX + 20.0f, barY + 35.0f, 1.0f, 0.3f, 0.0f, 1.5f);
-    }
+    RenderColoredQuad(x, y, w, h, 0.62f, 0.62f, 0.65f, 0.95f);
+    RenderColoredQuad(x + borderPx * 0.4f, y + borderPx * 0.4f, w - borderPx * 0.8f, h - borderPx * 0.8f, 0.08f, 0.08f, 0.08f, 1.0f);
+    RenderColoredQuad(x + borderPx, y + borderPx, w - borderPx * 2.0f, h - borderPx * 2.0f, 0.04f, 0.04f, 0.045f, 0.92f);
+}
+
+void DeliveryHUD::RenderQuad(float x, float y, float w, float h, unsigned int texture)
+{
+    glUseProgram(hudProgram);
+    int fbW, fbH; glfwGetFramebufferSize(window, &fbW, &fbH);
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+    glm::mat4 model = glm::translate(glm::mat4(1), glm::vec3(x, y, 0));
+    model = glm::scale(model, glm::vec3(w, h, 1));
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
+    glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void DeliveryHUD::RenderArc(float centerX, float centerY, float radius, float startAngle, float endAngle, float r, float g, float b, float a, int segments)
 {
-    // Render arc using triangles
     glUseProgram(hudProgram);
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
     
-    std::vector<float> vertices;
+    std::vector<float> verts;
     for (int i = 0; i <= segments; i++)
     {
         float angle = startAngle + (endAngle - startAngle) * (float)i / (float)segments;
-        float x = centerX + std::cos(angle) * radius;
-        float y = centerY - std::sin(angle) * radius;
-        vertices.push_back(x);
-        vertices.push_back(y);
+        verts.push_back(centerX + std::cos(angle) * radius);
+        verts.push_back(centerY - std::sin(angle) * radius);
     }
     
-    // Create thick line by drawing quads
     const float thickness = 3.0f;
-    for (size_t i = 0; i < vertices.size() - 2; i += 2)
+    for (size_t i = 0; i < verts.size() - 2; i += 2)
     {
-        float x1 = vertices[i];
-        float y1 = vertices[i + 1];
-        float x2 = vertices[i + 2];
-        float y2 = vertices[i + 3];
+        float x1 = verts[i], y1 = verts[i+1], x2 = verts[i+2], y2 = verts[i+3];
+        float dx = x2 - x1, dy = y2 - y1;
+        float len = std::sqrt(dx*dx + dy*dy);
+        if (len < 0.001f) continue;
+        dx /= len; dy /= len;
+        float px = -dy * thickness * 0.5f, py = dx * thickness * 0.5f;
         
-        // Calculate perpendicular
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float len = std::sqrt(dx * dx + dy * dy);
-        if (len > 0.001f)
-        {
-            dx /= len;
-            dy /= len;
-            
-            float px = -dy * thickness * 0.5f;
-            float py = dx * thickness * 0.5f;
-            
-            // Draw quad
-            float quadVerts[] = {
-                x1 + px, y1 + py,
-                x1 - px, y1 - py,
-                x2 - px, y2 - py,
-                x1 + px, y1 + py,
-                x2 - px, y2 - py,
-                x2 + px, y2 + py
-            };
-            
-            glm::mat4 model = glm::mat4(1.0f);
-            glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
-            glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
-            glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 1);
-            glUniform4f(glGetUniformLocation(hudProgram, "uColor"), r, g, b, a);
-            
-            glBindVertexArray(textVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_DYNAMIC_DRAW);
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, (void*)0);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-        }
+        float qv[] = { x1+px,y1+py, x1-px,y1-py, x2-px,y2-py, x1+px,y1+py, x2-px,y2-py, x2+px,y2+py };
+        glm::mat4 model = glm::mat4(1.0f);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+        glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 1);
+        glUniform4f(glGetUniformLocation(hudProgram, "uColor"), r, g, b, a);
+        glBindVertexArray(textVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(qv), qv, GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, (void*)0);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
     }
-}
-
-void DeliveryHUD::RenderSpeedometer(const CarState& car, float maxSpeed)
-{
-    int fbW, fbH;
-    glfwGetFramebufferSize(window, &fbW, &fbH);
-    
-    // Position in bottom left corner
-    float centerX = 150.0f;
-    float centerY = fbH - 200.0f;
-    float radius = 95.0f;
-    
-    // Background panel
-    float panelW = 310.0f;
-    float panelH = 230.0f;
-    RenderColoredQuad(centerX - panelW * 0.5f, centerY - panelH * 0.5f, panelW, panelH, 0.1f, 0.1f, 0.15f, 0.85f);
-    
-    // Draw semicircle background (180 degrees, from right to left)
-    const float PI = 3.14159265f;
-    float startAngle = 0.0f;  // Right
-    float endAngle = PI;      // Left (semicircle)
-    
-    // Background arc
-    RenderArc(centerX, centerY, radius, startAngle, endAngle, 0.2f, 0.2f, 0.25f, 0.9f, 50);
-    
-    // Speed marks and labels
-    int numMarks = 9;  // 0 to maxSpeed in 8 intervals
-    for (int i = 0; i <= numMarks - 1; i++)
-    {
-        float t = (float)i / (float)(numMarks - 1);
-        float angle = startAngle + (endAngle - startAngle) * t;
-        
-        // Small tick mark
-        float innerR = radius - 5.0f;
-        float outerR = radius + 5.0f;
-        float x1 = centerX + std::cos(angle) * innerR;
-        float y1 = centerY - std::sin(angle) * innerR;
-        float x2 = centerX + std::cos(angle) * outerR;
-        float y2 = centerY - std::sin(angle) * outerR;
-        
-        // Draw tick as small quad
-        RenderColoredQuad(x1 - 1.0f, y1 - 1.0f, 2.0f, std::sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1)), 0.6f, 0.6f, 0.6f, 0.9f);
-        
-        // Speed label
-        float speedValue = maxSpeed * t;
-        char label[8];
-        snprintf(label, sizeof(label), "%.0f", speedValue);
-        float labelR = radius + 25.0f;
-        float labelX = centerX + std::cos(angle) * labelR;
-        float labelY = centerY - std::sin(angle) * labelR;
-        RenderTextCentered(label, labelX, labelY + 3.0f, 0.7f, 0.7f, 0.7f, 1.2f);
-    }
-    
-    // Current speed needle
-    float currentSpeed = std::abs(car.speed);
-    float speedRatio = glm::clamp(currentSpeed / maxSpeed, 0.0f, 1.0f);
-    float needleAngle = startAngle + (endAngle - startAngle) * speedRatio;
-    
-    // Needle line
-    float needleLength = radius - 10.0f;
-    float needleX = centerX + std::cos(needleAngle) * needleLength;
-    float needleY = centerY - std::sin(needleAngle) * needleLength;
-    
-    // Draw needle as colored arc segment or line
-    RenderArc(centerX, centerY, needleLength, needleAngle - 0.02f, needleAngle + 0.02f, 1.0f, 0.2f, 0.2f, 1.0f, 10);
-    
-    // Center dot
-    RenderColoredQuad(centerX - 4.0f, centerY - 4.0f, 8.0f, 8.0f, 1.0f, 0.2f, 0.2f, 1.0f);
-    
-    // Speed text display (digital)
-    char speedText[32];
-    snprintf(speedText, sizeof(speedText), "%.1f", currentSpeed);
-    RenderTextCentered(speedText, centerX, centerY + 30.0f, 1.0f, 1.0f, 1.0f, 2.5f);
-    
-    // "SPEED" label
-    RenderTextCentered("SPEED", centerX, centerY + 55.0f, 0.8f, 0.8f, 0.8f, 1.5f);
-    
-    // Max speed indicator (small text at top)
-    char maxText[32];
-    snprintf(maxText, sizeof(maxText), "MAX: %.0f", maxSpeed);
-    RenderTextCentered(maxText, centerX, centerY - radius - 15.0f, 0.5f, 0.8f, 1.0f, 1.2f);
 }
