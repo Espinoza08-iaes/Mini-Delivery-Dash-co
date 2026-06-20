@@ -448,30 +448,30 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
         // Header Section
         RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
         RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f); // Orange separator line
-        RenderTextCentered("HOW TO PLAY", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 1.6f);
+        RenderTextCentered("HOW TO PLAY", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
 
         // Content - Two Columns
         float col1 = px + 60;
         float col2 = px + pw * 0.5f + 40;
         float startY = py + 120;
-        float stepY = 45;
+        float stepY = 55;
 
         // Driving Controls
-        RenderText("DRIVING", col1, startY, 0.9f, 0.6f, 0.1f, 1.2f);
-        RenderText("W / S      - Accelerate / Brake", col1, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.1f);
-        RenderText("A / D      - Steer Left / Right", col1, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.1f);
-        RenderText("SHIFT      - Nitro Boost", col1, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("DRIVING", col1, startY, 0.9f, 0.6f, 0.1f, 1.5f);
+        RenderText("W / S      - Accelerate / Brake", col1, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("A / D      - Steer Left / Right", col1, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("SHIFT      - Nitro Boost", col1, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
 
         // Action Controls
-        RenderText("ACTIONS", col2, startY, 0.9f, 0.6f, 0.1f, 1.2f);
-        RenderText("Z          - Jump", col2, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.1f);
-        RenderText("R          - Respawn Car", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.1f);
-        RenderText("L          - Toggle Headlights", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("ACTIONS", col2, startY, 0.9f, 0.6f, 0.1f, 1.5f);
+        RenderText("Z          - Jump", col2, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("R          - Respawn Car", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("L          - Toggle Headlights", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
 
         // System Controls
-        RenderText("SYSTEM", col1, startY + stepY * 5, 0.9f, 0.6f, 0.1f, 1.2f);
-        RenderText("ESC        - Pause Menu", col1, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.1f);
-        RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.1f);
+        RenderText("SYSTEM", col1, startY + stepY * 5, 0.9f, 0.6f, 0.1f, 1.5f);
+        RenderText("ESC        - Pause Menu", col1, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.3f);
 
         float s = 1.0f, yOff = 0.0f;
         if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
