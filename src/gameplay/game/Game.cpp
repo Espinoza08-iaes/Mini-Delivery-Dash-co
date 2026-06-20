@@ -322,11 +322,14 @@ int Game::Run()
     
     OrderState lastOrderState = OrderState::WAITING;
     
+    bool returnFromShop = false;
     // Bucle principal (menú + juego)
     while (backToMenu && !glfwWindowShouldClose(window))
     {
-
-        audioEngine.PlayMenuMusic();
+        if (!returnFromShop) {
+            audioEngine.PlayMenuMusic();
+        }
+        returnFromShop = false;
 
         std::cout << "[AUDIO] Entering main menu\n";
         // Restaurar color de fondo a negro para el menú
@@ -338,9 +341,10 @@ int Game::Run()
 
         if (res == MainMenu::Result::Shop)
         {
+            GLuint shopBgTex = menu.GetCapturedBackground();
+            g_shopUI->SetBackgroundTexture(shopBgTex);
             g_shopUI->Show();
-            glfwWaitEventsTimeout(0.1);
-            static bool escWasShop = true; // ignore first ESC press
+            static bool escWasShop = true;
             escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
             while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
             {
@@ -364,14 +368,19 @@ int Game::Run()
                 glfwGetFramebufferSize(window, &currentW, &currentH);
                 glViewport(0, 0, currentW, currentH);
                 
-                glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 
                 g_shopUI->Render();
                 glfwSwapBuffers(window);
             }
             glEnable(GL_DEPTH_TEST);
-            continue;
+            
+            g_shopUI->SetBackgroundTexture(0);
+            glDeleteTextures(1, &shopBgTex);
+            
+            // Go back to menu.Show() without recreating menu (avoids black screen)
+            res = menu.Show();
         }
 
         if (res == MainMenu::Result::Quit || glfwWindowShouldClose(window))

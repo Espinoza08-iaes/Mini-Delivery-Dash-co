@@ -14,6 +14,7 @@ public:
     enum class Result { Play, Quit, None, HowToPlay, Shop, Settings };
 
     Result Show(bool showPause = false);
+    unsigned int GetCapturedBackground() const { return capturedBg; }
     void SetPauseBackground(unsigned int texture);
     void RenderLoading(float progress, const char* message);
 
@@ -32,6 +33,7 @@ private:
     unsigned int textProgram = 0;
 
     // Background texture (main menu and HowToPlay)
+    unsigned int capturedBg = 0;
     unsigned int backgroundTexture = 0;
     int bgTexWidth = 0;
     int bgTexHeight = 0;
@@ -97,7 +99,7 @@ private:
     bool PointInRect(float px, float py, float rx, float ry, float rw, float rh);
 
     // Sub‑menu
-    void ShowHowToPlay();
+    void ShowHowToPlay(unsigned int bgTex = 0);
 };
 
 #endif

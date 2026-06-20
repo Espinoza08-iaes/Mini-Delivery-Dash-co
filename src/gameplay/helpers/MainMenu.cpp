@@ -375,7 +375,7 @@ bool MainMenu::PointInRect(float px, float py, float rx, float ry, float rw, flo
 // ======================================================================
 // HOW TO PLAY
 // ======================================================================
-void MainMenu::ShowHowToPlay()
+void MainMenu::ShowHowToPlay(unsigned int bgTex)
 {
     double startTime = glfwGetTime();
     double lastT = startTime;
@@ -426,8 +426,12 @@ void MainMenu::ShowHowToPlay()
         glUseProgram(hudProgram);
         glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
 
-        RenderBackgroundImage((float)fbW, (float)fbH);
-        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.65f);
+        if (bgTex) {
+            RenderQuad(0, 0, (float)fbW, (float)fbH, bgTex);
+        } else {
+            RenderBackgroundImage((float)fbW, (float)fbH);
+        }
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.30f);
 
         float pw = fbW * 0.75f, ph = fbH * 0.60f;
         float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
@@ -590,10 +594,10 @@ MainMenu::Result MainMenu::Show(bool pause)
         static bool wasCl = false;
         if (click && !wasCl && !isFadingOut) {
             if (over[0])      { pendingChoice = Result::Play;      isFadingOut = true; }
-            else if (over[1]) { pendingChoice = Result::Shop;      isFadingOut = true; }
+            else if (over[1]) { choice = Result::Shop; click = false; }
             else if (over[2]) { pendingChoice = Result::Settings;  isFadingOut = true; }
             else if (over[3]) { pendingChoice = Result::Quit;      isFadingOut = true; }
-            else if (helpOver) { pendingChoice = Result::HowToPlay; isFadingOut = true; }
+            else if (helpOver) { choice = Result::HowToPlay; click = false; }
         }
         wasCl = click;
 
@@ -632,9 +636,63 @@ MainMenu::Result MainMenu::Show(bool pause)
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
         if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
 
+        if (choice == Result::Shop || choice == Result::HowToPlay) {
+            // Capture the back buffer and create a BLURRED version for the fade effect
+            unsigned char* pixels = new unsigned char[fbW * fbH * 3];
+            glReadBuffer(GL_BACK);
+            glReadPixels(0, 0, fbW, fbH, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+            
+            // Downsample to 1/6th resolution with averaging for blur effect
+            int smallW = fbW / 6;
+            int smallH = fbH / 6;
+            if (smallW < 1) smallW = 1;
+            if (smallH < 1) smallH = 1;
+            unsigned char* blurred = new unsigned char[smallW * smallH * 3];
+            for (int y = 0; y < smallH; y++) {
+                for (int x = 0; x < smallW; x++) {
+                    int r = 0, g = 0, b = 0, count = 0;
+                    for (int dy = 0; dy < 6; dy++) {
+                        for (int dx = 0; dx < 6; dx++) {
+                            int srcX = x * 6 + dx;
+                            int srcY = y * 6 + dy;
+                            if (srcX < fbW && srcY < fbH) {
+                                int idx = (srcY * fbW + srcX) * 3;
+                                r += pixels[idx];
+                                g += pixels[idx + 1];
+                                b += pixels[idx + 2];
+                                count++;
+                            }
+                        }
+                    }
+                    int dstIdx = (y * smallW + x) * 3;
+                    blurred[dstIdx]     = (unsigned char)(r / count);
+                    blurred[dstIdx + 1] = (unsigned char)(g / count);
+                    blurred[dstIdx + 2] = (unsigned char)(b / count);
+                }
+            }
+            delete[] pixels;
+            
+            glGenTextures(1, &capturedBg);
+            glBindTexture(GL_TEXTURE_2D, capturedBg);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, smallW, smallH, 0, GL_RGB, GL_UNSIGNED_BYTE, blurred);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            delete[] blurred;
+            
+            std::cout << "[CAPTURE] Blurred texture " << smallW << "x" << smallH << " texID=" << capturedBg << std::endl;
+            
+            if (choice == Result::HowToPlay) {
+                ShowHowToPlay(capturedBg);
+                glDeleteTextures(1, &capturedBg);
+                capturedBg = 0;
+                choice = Result::None; // continue main menu loop
+            }
+        }
+
         glfwSwapBuffers(window);
     }
-    if (choice == Result::HowToPlay) { ShowHowToPlay(); return Show(pause); }
     return choice;
 }
 

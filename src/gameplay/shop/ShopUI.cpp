@@ -178,8 +178,9 @@ void ShopUI::BuildButtons()
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
     float panelWidth  = 980.0f;
+    float panelHeight = 620.0f;
     float panelX = fbW * 0.5f - panelWidth * 0.5f;
-    float panelY = 40.0f;
+    float panelY = (fbH - panelHeight) * 0.5f;
     
     // UPGRADES (left column)
     float upgradeStartY = panelY + 160.0f;
@@ -260,13 +261,25 @@ void ShopUI::Render()
     // =====================================================
     // MAIN PANEL
     // =====================================================
-    // Semi-transparent dark overlay so game is visible behind shop
-    RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f, 0.65f);
+    if (backgroundTexture) {
+        // Render the captured menu background
+        glUseProgram(hudProgram);
+        glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3((float)fbW, (float)fbH, 1.0f));
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "model"), 1, GL_FALSE, &model[0][0]);
+        glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 0);
+        glUniform1i(glGetUniformLocation(hudProgram, "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+        glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    // Semi-transparent dark overlay for the fade effect
+    RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f, 0.30f);
 
     float panelWidth  = 980.0f;
     float panelHeight = 620.0f;
     float panelX = fbW * 0.5f - panelWidth * 0.5f;
-    float panelY = 40.0f;
+    float panelY = (fbH - panelHeight) * 0.5f;
 
     // shadow
     RenderColoredQuad(panelX + 8.0f, panelY + 8.0f, panelWidth, panelHeight, 0.0f, 0.0f, 0.0f, 0.35f);
