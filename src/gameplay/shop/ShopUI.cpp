@@ -1,15 +1,18 @@
 #include "ShopUI.h"
+#include "../shop/ShopManager.h"
 #include "../vehicle/CarController.h"
 #include <iostream>
-#include <sstream>
 #include <cstring>
 #include <cmath>
 
-// NO definir STB_EASY_FONT_IMPLEMENTATION aquí - ya está definido en DeliveryHUD.cpp
+#define STB_EASY_FONT_IMPLEMENTATION
 #include "../../../third_party/stb/stb_easy_font.h"
 
-// Shader compilation helper
-static unsigned int compileShader(const char* vsSrc, const char* fsSrc) {
+// ======================================================================
+// SHADER COMPILATION
+// ======================================================================
+static unsigned int compileShader(const char* vsSrc, const char* fsSrc)
+{
     unsigned int vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vsSrc, NULL); glCompileShader(vs);
     int ok; glGetShaderiv(vs, GL_COMPILE_STATUS, &ok);
@@ -26,9 +29,13 @@ static unsigned int compileShader(const char* vsSrc, const char* fsSrc) {
     return prog;
 }
 
-// Convert quads to triangles
-static void convertQuadsToTrianglesClean(float* quads, int num, float* tris) {
-    for (int i = 0; i < num; i++) {
+// ======================================================================
+// QUAD TO TRIANGLES
+// ======================================================================
+static void convertQuadsToTrianglesClean(float* quads, int num, float* tris)
+{
+    for (int i = 0; i < num; i++)
+    {
         float* q = quads + i * 16;
         memcpy(tris + i * 24 + 0,  q,      12 * sizeof(float));
         memcpy(tris + i * 24 + 12, q,       4 * sizeof(float));
@@ -37,36 +44,46 @@ static void convertQuadsToTrianglesClean(float* quads, int num, float* tris) {
     }
 }
 
-// Get text width
-static float GetTextWidth(const char* text, float scale) {
+static float GetTextWidth(const char* text, float scale)
+{
     float buf[60000];
     int n = stb_easy_font_print(0, 0, (char*)text, NULL, buf, sizeof(buf));
     if (n <= 0) return 0;
     float mn = buf[0], mx = buf[0];
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         float* q = buf + i * 16;
         for (int j = 0; j < 4; j++) { float x = q[j * 4]; if (x < mn) mn = x; if (x > mx) mx = x; }
     }
     return (mx - mn) * scale;
 }
 
-ShopUI::ShopUI(GLFWwindow* w) 
-    : window(w), isVisible(false), carState(nullptr), repairButton(nullptr), quadVAO(0), quadVBO(0), textVAO(0), textVBO(0), hudProgram(0), textProgram(0) {
-    shopManager = ShopManager::GetInstance();
+// ======================================================================
+// CONSTRUCTOR / DESTRUCTOR
+// ======================================================================
+ShopUI::ShopUI(GLFWwindow* w)
+    : window(w), shopManager(ShopManager::GetInstance()), carState(nullptr), isVisible(false),
+      repairButton(nullptr),
+      quadVAO(0), quadVBO(0), hudProgram(0),
+      textVAO(0), textVBO(0), textProgram(0)
+{
     SetupGraphics();
     SetupTextRendering();
-    BuildButtons();
 }
 
-ShopUI::~ShopUI() {
+ShopUI::~ShopUI()
+{
     glDeleteVertexArrays(1, &quadVAO); glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &textVAO); glDeleteBuffers(1, &textVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
     if (textProgram) glDeleteProgram(textProgram);
-    delete repairButton;
 }
 
-void ShopUI::SetupGraphics() {
+// ======================================================================
+// SETUP
+// ======================================================================
+void ShopUI::SetupGraphics()
+{
     const char* vs = R"(#version 330 core
         layout(location=0) in vec2 aPos; layout(location=1) in vec2 aTex;
         out vec2 Tex; uniform mat4 proj, model;
@@ -86,7 +103,8 @@ void ShopUI::SetupGraphics() {
     glBindVertexArray(0);
 }
 
-void ShopUI::SetupTextRendering() {
+void ShopUI::SetupTextRendering()
+{
     const char* vs = R"(#version 330 core
         layout(location=0) in vec2 aPos; uniform mat4 proj, model;
         void main(){ gl_Position = proj * model * vec4(aPos,0,1); })";
@@ -96,306 +114,321 @@ void ShopUI::SetupTextRendering() {
     glGenVertexArrays(1, &textVAO); glGenBuffers(1, &textVBO);
 }
 
-void ShopUI::BuildButtons() {
+// ======================================================================
+// PUBLIC API
+// ======================================================================
+void ShopUI::Show() { isVisible = true; }
+void ShopUI::Hide() { isVisible = false; }
+void ShopUI::Toggle() { isVisible = !isVisible; }
+
+void ShopUI::Update()
+{
+    if (carState && glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+    {
+        static bool pWasPressed = false;
+        if (!pWasPressed) Toggle();
+        pWasPressed = true;
+    }
+    else { /* reset */ }
+}
+
+void ShopUI::ProcessMouseMove(double x, double y)
+{
+    for (auto& btn : buttons)
+        btn.isHovered = btn.Contains(x, y);
+}
+
+void ShopUI::ProcessMouseClick(double x, double y)
+{
+    if (!isVisible) return;
+
+    for (auto& btn : buttons)
+    {
+        if (btn.Contains(x, y))
+        {
+            if (btn.isRepair)
+            {
+                // Repair: restore durability
+                if (carState && shopManager->GetBalance() >= 50)
+                {
+                    shopManager->AddMoney(-50);
+                    carState->durability = 100.0f;
+                }
+            }
+            else if (btn.isUpgrade)
+            {
+                shopManager->PurchaseUpgrade(btn.upgradeType);
+            }
+            else
+            {
+                shopManager->PurchaseAbility(btn.abilityType);
+            }
+        }
+    }
+}
+
+// ======================================================================
+// BUILD BUTTONS
+// ======================================================================
+void ShopUI::BuildButtons()
+{
     buttons.clear();
-    delete repairButton;
-    repairButton = nullptr;
     
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    float startX = fbW / 2.0f - 400.0f;
-    float startY = 180.0f;
-    float btnWidth = 350.0f;
-    float btnHeight = 60.0f;
-    float spacing = 70.0f;
+    float panelWidth  = 980.0f;
+    float panelX = fbW * 0.5f - panelWidth * 0.5f;
+    float panelY = 40.0f;
     
-    // Upgrades
-    buttons.push_back(Button(startX, startY, btnWidth, btnHeight, UpgradeType::Speed));
-    buttons.push_back(Button(startX, startY + spacing, btnWidth, btnHeight, UpgradeType::PayPerDelivery));
-    buttons.push_back(Button(startX, startY + spacing * 2, btnWidth, btnHeight, UpgradeType::Acceleration));
-    buttons.push_back(Button(startX, startY + spacing * 3, btnWidth, btnHeight, UpgradeType::Handling));
-    buttons.push_back(Button(startX, startY + spacing * 4, btnWidth, btnHeight, UpgradeType::FuelEfficiency));
+    // UPGRADES (left column)
+    float upgradeStartY = panelY + 160.0f;
+    float upgradeX = panelX + 40.0f;
+    float upgradeW = 420.0f;
+    float upgradeH = 70.0f;
+    float upgradeSpacing = 12.0f;
     
-    // Abilities (right column)
-    float rightX = fbW / 2.0f + 50.0f;
-    buttons.push_back(Button(rightX, startY, btnWidth, btnHeight, AbilityType::Turbo));
-    buttons.push_back(Button(rightX, startY + spacing, btnWidth, btnHeight, AbilityType::Jump));
-    buttons.push_back(Button(rightX, startY + spacing * 2, btnWidth, btnHeight, AbilityType::Teleport));
+    UpgradeType upgradeTypes[] = {
+        UpgradeType::Speed,
+        UpgradeType::PayPerDelivery,
+        UpgradeType::FuelEfficiency,
+        UpgradeType::Handling,
+        UpgradeType::Acceleration
+    };
     
-    // Repair button (bottom center)
-    float repairY = startY + spacing * 4;
-    repairButton = new Button(rightX, repairY, btnWidth, btnHeight);
-}
-
-void ShopUI::Show() {
-    isVisible = true;
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-}
-
-void ShopUI::Hide() {
-    isVisible = false;
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-}
-
-void ShopUI::Toggle() {
-    if (isVisible) {
-        Hide();
-    } else {
-        Show();
+    for (int i = 0; i < 5; i++)
+    {
+        float y = upgradeStartY + i * (upgradeH + upgradeSpacing);
+        buttons.push_back(Button(upgradeX, y, upgradeW, upgradeH, upgradeTypes[i]));
+    }
+    
+    // ABILITIES (right column)
+    float abilityStartY = panelY + 160.0f;
+    float abilityX = panelX + panelWidth - 460.0f;
+    float abilityW = 420.0f;
+    float abilityH = 70.0f;
+    float abilitySpacing = 12.0f;
+    
+    AbilityType abilityTypes[] = {
+        AbilityType::Teleport,
+        AbilityType::Jump,
+        AbilityType::Turbo
+    };
+    
+    for (int i = 0; i < 3; i++)
+    {
+        float y = abilityStartY + i * (abilityH + abilitySpacing);
+        buttons.push_back(Button(abilityX, y, abilityW, abilityH, abilityTypes[i]));
     }
 }
 
-void ShopUI::Update() {
-    if (isVisible && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        Hide();
-    }
+// ======================================================================
+// FORMAT INFO
+// ======================================================================
+std::string ShopUI::FormatUpgradeInfo(UpgradeType type) const
+{
+    const Upgrade* upg = shopManager->GetUpgrade(type);
+    if (!upg) return "";
+    return "LEVEL " + std::to_string(upg->currentLevel) + "/" + std::to_string(upg->maxLevel);
 }
 
-void ShopUI::Render() {
+std::string ShopUI::FormatAbilityInfo(AbilityType type) const
+{
+    return shopManager->IsAbilityUnlocked(type) ? "UNLOCKED" : "LOCKED";
+}
+
+// ======================================================================
+// RENDER
+// ======================================================================
+void ShopUI::Render()
+{
     if (!isVisible) return;
-    
+
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
+
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
-    
-     // Background overlay
-     RenderColoredQuad(0, 0, fbW, fbH, 0.0f, 0.0f, 0.0f, 0.6f);
-    
-    // Main shop panel
-    float panelWidth = 900.0f;
-    float panelHeight = 600.0f;
-    float panelX = fbW / 2.0f - panelWidth / 2.0f;
-    float panelY = 50.0f;
-    
-     RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.20f, 0.18f, 0.15f, 0.98f);
-    
+
+    BuildButtons();
+
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+    glUseProgram(hudProgram);
+    glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+    // =====================================================
+    // MAIN PANEL
+    // =====================================================
+    // Semi-transparent dark overlay so game is visible behind shop
+    RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f, 0.65f);
+
+    float panelWidth  = 980.0f;
+    float panelHeight = 620.0f;
+    float panelX = fbW * 0.5f - panelWidth * 0.5f;
+    float panelY = 40.0f;
+
+    // shadow
+    RenderColoredQuad(panelX + 8.0f, panelY + 8.0f, panelWidth, panelHeight, 0.0f, 0.0f, 0.0f, 0.35f);
+
+    // main body
+    RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.05f, 0.05f, 0.05f, 0.94f);
+
+    // metallic border
     float border = 3.0f;
-    RenderColoredQuad(panelX, panelY, panelWidth, border, 0.20f, 0.16f, 0.13f, 1.0f);
-    RenderColoredQuad(panelX, panelY + panelHeight - border, panelWidth, border, 0.20f, 0.16f, 0.13f, 1.0f);
-    RenderColoredQuad(panelX, panelY, border, panelHeight, 0.20f, 0.16f, 0.13f, 1.0f);
-    RenderColoredQuad(panelX + panelWidth - border, panelY, border, panelHeight, 0.20f, 0.16f, 0.13f, 1.0f);
-    
-    float innBorder = 1.5f;
-    float g = 4.0f;
-    RenderColoredQuad(panelX + g, panelY + g, panelWidth - g*2, innBorder, 0.35f, 0.28f, 0.22f, 1.0f);
-    RenderColoredQuad(panelX + g, panelY + panelHeight - g - innBorder, panelWidth - g*2, innBorder, 0.35f, 0.28f, 0.22f, 1.0f);
-    RenderColoredQuad(panelX + g, panelY + g, innBorder, panelHeight - g*2, 0.35f, 0.28f, 0.22f, 1.0f);
-    RenderColoredQuad(panelX + panelWidth - g - innBorder, panelY + g, innBorder, panelHeight - g*2, 0.35f, 0.28f, 0.22f, 1.0f);
-    
-    // Title background
-    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelWidth - 10.0f, 50.0f, 0.15f, 0.12f, 0.10f, 0.95f);
-    RenderTextCentered("UPGRADES SHOP", fbW / 2.0f, panelY + 40.0f, 1.0f, 0.8f, 0.0f, 3.0f);
-    
-    // Balance
+    RenderColoredQuad(panelX, panelY, panelWidth, border, 0.65f, 0.65f, 0.65f, 1.0f);
+    RenderColoredQuad(panelX, panelY + panelHeight - border, panelWidth, border, 0.65f, 0.65f, 0.65f, 1.0f);
+    RenderColoredQuad(panelX, panelY, border, panelHeight, 0.65f, 0.65f, 0.65f, 1.0f);
+    RenderColoredQuad(panelX + panelWidth - border, panelY, border, panelHeight, 0.65f, 0.65f, 0.65f, 1.0f);
+
+    // header bar
+    RenderColoredQuad(panelX, panelY, panelWidth, 70.0f, 0.10f, 0.10f, 0.10f, 1.0f);
+
+    // separator
+    RenderColoredQuad(panelX + 25.0f, panelY + 125.0f, panelWidth - 50.0f, 2.0f, 0.35f, 0.35f, 0.35f, 1.0f);
+
+    // title
+    RenderTextCentered("SHOP", fbW * 0.5f, panelY + 42.0f, 0.90f, 0.90f, 0.90f, 4.0f);
+
+    // balance
     char balanceText[64];
-    snprintf(balanceText, sizeof(balanceText), "Balance: $%d", shopManager->GetBalance());
-    RenderTextCentered(balanceText, fbW / 2.0f, panelY + 90.0f, 0.2f, 1.0f, 0.2f, 2.5f);
-    
-    // Section titles
-    RenderTextCentered("UPGRADES", fbW / 2.0f - 225.0f, 150.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    RenderTextCentered("ABILITIES", fbW / 2.0f + 225.0f, 150.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    
-    // Render all buttons
-    for (const auto& btn : buttons) {
-        RenderButton(btn);
+    snprintf(balanceText, sizeof(balanceText), "BALANCE: $%d", shopManager->GetBalance());
+    RenderTextCentered(balanceText, fbW * 0.5f, panelY + 92.0f, 1.0f, 0.75f, 0.15f, 2.5f);
+
+    // section titles
+    RenderTextCentered("UPGRADES", fbW * 0.5f - 225.0f, panelY + 110.0f, 0.90f, 0.90f, 0.90f, 2.0f);
+    RenderTextCentered("ABILITIES", fbW * 0.5f + 225.0f, panelY + 110.0f, 0.90f, 0.90f, 0.90f, 2.0f);
+
+    // =====================================================
+    // RENDER ALL BUTTONS
+    // =====================================================
+    for (const auto& btn : buttons)
+    {
+        if (btn.isRepair)
+            RenderRepairButton(btn);
+        else if (btn.isUpgrade)
+            RenderUpgradeButton(btn);
+        else
+            RenderAbilityButton(btn);
     }
-    
-    // Render repair button
-    if (repairButton) {
-        RenderButton(*repairButton);
-    }
-    
-    // Instructions
-    RenderTextCentered("[ESC] Close  |  Click to Purchase", fbW / 2.0f, fbH - 30.0f, 0.8f, 0.8f, 0.8f, 1.8f);
-    
+
     glEnable(GL_DEPTH_TEST);
 }
 
-void ShopUI::RenderButton(const Button& btn) {
-    if (btn.isRepair) {
-        RenderRepairButton(btn);
-    } else if (btn.isUpgrade) {
-        RenderUpgradeButton(btn);
-    } else {
-        RenderAbilityButton(btn);
-    }
-}
+// ======================================================================
+// RENDER UPGRADE BUTTON
+// ======================================================================
+void ShopUI::RenderUpgradeButton(const Button& btn)
+{
+    const Upgrade* upg = shopManager->GetUpgrade(btn.upgradeType);
+    if (!upg) return;
 
-void ShopUI::RenderUpgradeButton(const Button& btn) {
-    const Upgrade* upgrade = shopManager->GetUpgrade(btn.upgradeType);
-    if (!upgrade) return;
-    
-    bool canAfford = shopManager->GetBalance() >= upgrade->GetCost();
-    bool maxLevel = !upgrade->CanUpgrade();
-    
-    // Button background
-    if (btn.isHovered && !maxLevel) {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.25f, 0.25f, 0.35f, 0.95f);
-    } else {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.15f, 0.15f, 0.2f, 0.9f);
-    }
-    
-    // Button border
-    float br = maxLevel ? 0.3f : (canAfford ? 0.2f : 0.6f);
-    float bg = maxLevel ? 0.3f : (canAfford ? 1.0f : 0.2f);
-    float bb = maxLevel ? 0.3f : (canAfford ? 0.2f : 0.2f);
-    RenderColoredQuad(btn.x, btn.y, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y + btn.height - 2.0f, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x + btn.width - 2.0f, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    
+    int currentLevel = upg->currentLevel;
+    bool maxLevel = (currentLevel >= upg->maxLevel);
+    int cost = upg->GetCost();
+    bool canAfford = !maxLevel && (shopManager->GetBalance() >= cost);
+
+    // Background
+    if (btn.isHovered && !maxLevel)
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.18f, 0.18f, 0.18f, 1.0f);
+    else
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.10f, 0.10f, 0.10f, 1.0f);
+
+    // Border
+    float br, bg, bb;
+    if (maxLevel)      { br = 0.45f; bg = 0.45f; bb = 0.45f; }
+    else if (canAfford) { br = 0.95f; bg = 0.72f; bb = 0.18f; }
+    else               { br = 0.55f; bg = 0.25f; bb = 0.25f; }
+
+    RenderColoredQuad(btn.x, btn.y, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y + btn.height - 3.0f, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x + btn.width - 3.0f, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+
     // Name
-    RenderText(upgrade->name.c_str(), btn.x + 10.0f, btn.y + 15.0f, 1.0f, 1.0f, 1.0f, 2.0f);
-    
-    // Level indicator
-    char levelText[32];
-    snprintf(levelText, sizeof(levelText), "Lv. %d/%d", upgrade->currentLevel, upgrade->maxLevel);
-    RenderText(levelText, btn.x + 10.0f, btn.y + 40.0f, 0.7f, 0.7f, 0.7f, 1.5f);
-    
+    RenderText(upg->name.c_str(), btn.x + 15.0f, btn.y + 15.0f, 1.0f, 1.0f, 1.0f, 1.6f);
+
+    // Level
+    char levelText[64];
+    snprintf(levelText, sizeof(levelText), "LEVEL %d/%d", currentLevel, upg->maxLevel);
+    RenderText(levelText, btn.x + 15.0f, btn.y + 42.0f, 0.7f, 0.7f, 0.7f, 1.2f);
+
     // Cost or MAX
-    if (maxLevel) {
-        RenderText("MAX", btn.x + btn.width - 80.0f, btn.y + 25.0f, 0.2f, 1.0f, 0.2f, 2.0f);
-    } else {
-        char costText[32];
-        snprintf(costText, sizeof(costText), "$%d", upgrade->GetCost());
-        float r = canAfford ? 1.0f : 1.0f;
-        float g = canAfford ? 0.8f : 0.3f;
-        float b = canAfford ? 0.0f : 0.3f;
-        RenderText(costText, btn.x + btn.width - 90.0f, btn.y + 25.0f, r, g, b, 2.0f);
-    }
+    char costText[32];
+    if (maxLevel) snprintf(costText, sizeof(costText), "MAX");
+    else          snprintf(costText, sizeof(costText), "$%d", cost);
+    RenderText(costText, btn.x + btn.width - 70.0f, btn.y + 25.0f, 1.0f, 0.75f, 0.15f, 1.6f);
 }
 
-void ShopUI::RenderAbilityButton(const Button& btn) {
-    const Ability* ability = shopManager->GetAbility(btn.abilityType);
-    if (!ability) return;
-    
-    bool canAfford = shopManager->GetBalance() >= ability->cost;
-    bool unlocked = ability->unlocked;
-    
-    // Button background
-    if (btn.isHovered && !unlocked) {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.25f, 0.25f, 0.35f, 0.95f);
-    } else {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.15f, 0.15f, 0.2f, 0.9f);
-    }
-    
-    // Button border
-    float br = unlocked ? 0.3f : (canAfford ? 0.5f : 0.6f);
-    float bg = unlocked ? 0.3f : (canAfford ? 0.3f : 0.2f);
-    float bb = unlocked ? 0.3f : (canAfford ? 1.0f : 0.2f);
-    RenderColoredQuad(btn.x, btn.y, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y + btn.height - 2.0f, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x + btn.width - 2.0f, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    
+// ======================================================================
+// RENDER ABILITY BUTTON
+// ======================================================================
+void ShopUI::RenderAbilityButton(const Button& btn)
+{
+    const Ability* ab = shopManager->GetAbility(btn.abilityType);
+    if (!ab) return;
+
+    bool unlocked = ab->unlocked;
+    int cost = ab->cost;
+    bool canAfford = !unlocked && (shopManager->GetBalance() >= cost);
+
+    // Background
+    if (btn.isHovered && !unlocked)
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.18f, 0.18f, 0.18f, 1.0f);
+    else
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.10f, 0.10f, 0.10f, 1.0f);
+
+    // Border
+    float br, bg, bb;
+    if (unlocked)      { br = 0.45f; bg = 0.45f; bb = 0.45f; }
+    else if (canAfford) { br = 0.95f; bg = 0.72f; bb = 0.18f; }
+    else               { br = 0.55f; bg = 0.25f; bb = 0.25f; }
+
+    RenderColoredQuad(btn.x, btn.y, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y + btn.height - 3.0f, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x + btn.width - 3.0f, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+
     // Name
-    RenderText(ability->name.c_str(), btn.x + 10.0f, btn.y + 15.0f, 1.0f, 1.0f, 1.0f, 1.8f);
-    
+    RenderText(ab->name.c_str(), btn.x + 15.0f, btn.y + 15.0f, 1.0f, 1.0f, 1.0f, 1.6f);
+
     // Status
-    if (unlocked) {
-        RenderText("UNLOCKED", btn.x + 10.0f, btn.y + 40.0f, 0.2f, 1.0f, 0.2f, 1.5f);
-    } else {
-        char costText[32];
-        snprintf(costText, sizeof(costText), "$%d", ability->cost);
-        float r = canAfford ? 0.5f : 1.0f;
-        float g = canAfford ? 0.5f : 0.3f;
-        float b = canAfford ? 1.0f : 0.3f;
-        RenderText(costText, btn.x + btn.width - 90.0f, btn.y + 25.0f, r, g, b, 2.0f);
-    }
+    char statusText[32];
+    if (unlocked) snprintf(statusText, sizeof(statusText), "UNLOCKED");
+    else          snprintf(statusText, sizeof(statusText), "$%d", cost);
+    RenderText(statusText, btn.x + btn.width - 110.0f, btn.y + 25.0f, 1.0f, 0.75f, 0.15f, 1.6f);
 }
 
-void ShopUI::ProcessMouseClick(double mouseX, double mouseY) {
-    if (!isVisible) return;
+// ======================================================================
+// RENDER REPAIR BUTTON
+// ======================================================================
+void ShopUI::RenderRepairButton(const Button& btn)
+{
+    bool canAfford = (shopManager->GetBalance() >= 50);
     
-    // Check repair button first
-    if (repairButton && repairButton->Contains(mouseX, mouseY) && carState) {
-        float durability = carState->durability;
-        if (durability < 100.0f) {
-            int balance = shopManager->GetBalance();
-            float damagePercent = (100.0f - durability) / 100.0f;
-            int repairCost = static_cast<int>(balance * 0.25f * damagePercent);
-            
-            if (balance >= repairCost) {
-                shopManager->AddMoney(-repairCost);
-                carState->durability = 100.0f;
-                carState->isDead = false;
-                std::cout << "[SHOP] Carro reparado! Costo: $" << repairCost << std::endl;
-            } else {
-                std::cout << "[SHOP] No tienes suficiente dinero para reparar" << std::endl;
-            }
-        }
-        return;
-    }
+    if (btn.isHovered && canAfford)
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.18f, 0.18f, 0.18f, 1.0f);
+    else
+        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.10f, 0.10f, 0.10f, 1.0f);
     
-    for (const auto& btn : buttons) {
-        if (btn.Contains(mouseX, mouseY)) {
-            if (btn.isUpgrade) {
-                if (shopManager->PurchaseUpgrade(btn.upgradeType)) {
-                    std::cout << "Mejora comprada!" << std::endl;
-                } else {
-                    std::cout << "No se pudo comprar (fondos/nivel)" << std::endl;
-                }
-            } else {
-                if (shopManager->PurchaseAbility(btn.abilityType)) {
-                    std::cout << "Habilidad desbloqueada!" << std::endl;
-                } else {
-                    std::cout << "No se pudo desbloquear" << std::endl;
-                }
-            }
-            break;
-        }
-    }
+    float br, bg, bb;
+    if (canAfford) { br = 0.95f; bg = 0.72f; bb = 0.18f; }
+    else           { br = 0.55f; bg = 0.25f; bb = 0.25f; }
+    
+    RenderColoredQuad(btn.x, btn.y, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y + btn.height - 3.0f, btn.width, 3.0f, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+    RenderColoredQuad(btn.x + btn.width - 3.0f, btn.y, 3.0f, btn.height, br, bg, bb, 1.0f);
+    
+    RenderText("REPAIR VEHICLE", btn.x + 15.0f, btn.y + 20.0f, 1.0f, 1.0f, 1.0f, 1.6f);
+    RenderText("$50", btn.x + btn.width - 60.0f, btn.y + 25.0f, 1.0f, 0.75f, 0.15f, 1.6f);
 }
 
-void ShopUI::ProcessMouseMove(double mouseX, double mouseY) {
-    if (!isVisible) return;
-    
-    for (auto& btn : buttons) {
-        btn.isHovered = btn.Contains(mouseX, mouseY);
-    }
-    
-    if (repairButton) {
-        repairButton->isHovered = repairButton->Contains(mouseX, mouseY);
-    }
-}
-
-std::string ShopUI::FormatUpgradeInfo(UpgradeType type) const {
-    const Upgrade* upgrade = shopManager->GetUpgrade(type);
-    if (!upgrade) return "";
-    
-    std::ostringstream oss;
-    oss << upgrade->name << " [Nv." << upgrade->currentLevel << "/" << upgrade->maxLevel << "]";
-    
-    if (upgrade->CanUpgrade()) {
-        oss << " - $" << upgrade->GetCost();
-    } else {
-        oss << " - MAX";
-    }
-    
-    return oss.str();
-}
-
-std::string ShopUI::FormatAbilityInfo(AbilityType type) const {
-    const Ability* ability = shopManager->GetAbility(type);
-    if (!ability) return "";
-    
-    std::ostringstream oss;
-    oss << ability->name;
-    
-    if (ability->unlocked) {
-        oss << " - DESBLOQUEADA";
-    } else {
-        oss << " - $" << ability->cost;
-    }
-    
-    return oss.str();
-}
-
-void ShopUI::RenderText(const char* text, float x, float y, float r, float g, float b, float scale) {
+// ======================================================================
+// LOW-LEVEL RENDERING
+// ======================================================================
+void ShopUI::RenderText(const char* text, float x, float y, float r, float g, float b, float scale)
+{
     static float qb[60000]; int n = stb_easy_font_print(0, 0, (char*)text, NULL, qb, sizeof(qb));
     if (n <= 0) return;
     static float tb[90000]; convertQuadsToTrianglesClean(qb, n, tb);
@@ -413,12 +446,14 @@ void ShopUI::RenderText(const char* text, float x, float y, float r, float g, fl
     glDrawArrays(GL_TRIANGLES, 0, n * 6); glBindVertexArray(0);
 }
 
-void ShopUI::RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float s) {
+void ShopUI::RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float s)
+{
     float w = GetTextWidth(text, s);
     RenderText(text, cx - w * 0.5f, y, r, g, b, s);
 }
 
-void ShopUI::RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a) {
+void ShopUI::RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a)
+{
     glUseProgram(hudProgram);
     int fbW, fbH; glfwGetFramebufferSize(window, &fbW, &fbH);
     glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
@@ -429,63 +464,4 @@ void ShopUI::RenderColoredQuad(float x, float y, float w, float h, float r, floa
     glUniform1i(glGetUniformLocation(hudProgram, "uSolid"), 1);
     glUniform4f(glGetUniformLocation(hudProgram, "uColor"), r, g, b, a);
     glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
-void ShopUI::RenderRepairButton(const Button& btn) {
-    if (!carState) return;
-    
-    float durability = carState->durability;
-    bool isDead = carState->isDead;
-    
-    // Calcular costo de reparación: 25% del balance si está a 0%, proporcional si no
-    int balance = shopManager->GetBalance();
-    float damagePercent = (100.0f - durability) / 100.0f;
-    int repairCost = static_cast<int>(balance * 0.25f * damagePercent);
-    
-    bool canAfford = balance >= repairCost && durability < 100.0f;
-    bool needsRepair = durability < 100.0f;
-    
-    // Botón background
-    if (btn.isHovered && needsRepair) {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.25f, 0.25f, 0.35f, 0.95f);
-    } else {
-        RenderColoredQuad(btn.x, btn.y, btn.width, btn.height, 0.15f, 0.15f, 0.2f, 0.9f);
-    }
-    
-    // Border
-    float br, bg, bb;
-    if (!needsRepair) {
-        br = bg = bb = 0.3f; // Gris si no necesita
-    } else if (isDead) {
-        br = 1.0f; bg = 0.0f; bb = 0.0f; // Rojo si está muerto
-    } else if (canAfford) {
-        br = 0.0f; bg = 1.0f; bb = 0.5f; // Verde si puede
-    } else {
-        br = 1.0f; bg = 0.3f; bb = 0.0f; // Naranja si no puede
-    }
-    
-    RenderColoredQuad(btn.x, btn.y, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y + btn.height - 2.0f, btn.width, 2.0f, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    RenderColoredQuad(btn.x + btn.width - 2.0f, btn.y, 2.0f, btn.height, br, bg, bb, 1.0f);
-    
-    // Texto
-    if (isDead) {
-        RenderText("REPAIR CAR", btn.x + 10.0f, btn.y + 15.0f, 1.0f, 0.2f, 0.2f, 2.2f);
-        RenderText("(BROKEN)", btn.x + 10.0f, btn.y + 40.0f, 1.0f, 0.5f, 0.0f, 1.5f);
-    } else {
-        RenderText("REPAIR", btn.x + 10.0f, btn.y + 15.0f, 1.0f, 1.0f, 1.0f, 2.2f);
-        char durText[32];
-        snprintf(durText, sizeof(durText), "Health: %.0f%%", durability);
-        RenderText(durText, btn.x + 10.0f, btn.y + 40.0f, 0.7f, 0.7f, 0.7f, 1.5f);
-    }
-    
-    // Costo
-    if (needsRepair) {
-        char costText[32];
-        snprintf(costText, sizeof(costText), "$%d", repairCost);
-        RenderText(costText, btn.x + btn.width - 90.0f, btn.y + 25.0f, 1.0f, 0.8f, 0.0f, 2.0f);
-    } else {
-        RenderText("100%", btn.x + btn.width - 80.0f, btn.y + 25.0f, 0.2f, 1.0f, 0.2f, 2.0f);
-    }
 }
