@@ -28,9 +28,10 @@ This project was built without a commercial game engine, utilizing the following
 ## Authors
 
 This project was developed collaboratively by:
-- **Gustavo Espinoza** 
-- **Erick**
-- **Kenry**
+- **Espinoza Saenz Isaac Antonio** (2024–1873U)
+- **Lira Zavala Kenry Onell** (2024-1898U)
+- **Morales Matamoros Erick Antonio** (2024–1935U)
+- **Orozco Jarquín Gustavo Adolfo** (2024–1938U)
 
 ## How to Clone and Run Locally
 
