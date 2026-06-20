@@ -107,6 +107,7 @@ MainMenu::~MainMenu()
     glDeleteVertexArrays(1, &quadVAO); glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &textVAO); glDeleteBuffers(1, &textVBO);
     if (backgroundTexture) glDeleteTextures(1, &backgroundTexture);
+    if (pauseDecorTexture) glDeleteTextures(1, &pauseDecorTexture);
     if (playTexture)       glDeleteTextures(1, &playTexture);
     if (resumeTexture)     glDeleteTextures(1, &resumeTexture);
     if (howToPlayTexture)  glDeleteTextures(1, &howToPlayTexture);
@@ -228,6 +229,7 @@ void MainMenu::LoadAllTextures()
     stbi_set_flip_vertically_on_load(true);
     std::vector<unsigned char> dummy;
     backgroundTexture = LoadTextureFile("res/textures/BackGround_STB.png", bgTexWidth, bgTexHeight, dummy);
+    pauseDecorTexture = LoadTextureFile("res/textures/PauseMenu_STB.png", pauseDecorTexWidth, pauseDecorTexHeight, dummy);
     playTexture       = LoadTextureFile("res/textures/Play_STB.png", playTexWidth, playTexHeight, playAlpha);
     resumeTexture     = LoadTextureFile("res/textures/Resume_STB.png", resumeTexWidth, resumeTexHeight, resumeAlpha);
     howToPlayTexture  = LoadTextureFile("res/textures/HowToPlay_STB.png", howToPlayTexWidth, howToPlayTexHeight, howToPlayAlpha);
@@ -237,7 +239,7 @@ void MainMenu::LoadAllTextures()
     helpIconAlpha     = howToPlayAlpha;
     settingsTexture   = LoadTextureFile("res/textures/Settings_STB.png", settingsTexWidth, settingsTexHeight, settingsAlpha);
     exitTexture       = LoadTextureFile("res/textures/Exit_STB.png", exitTexWidth, exitTexHeight, exitAlpha);
-    mainMenuTexture   = LoadTextureFile("res/textures/Exit_STB.png", mainMenuTexWidth, mainMenuTexHeight, mainMenuAlpha);
+    mainMenuTexture   = LoadTextureFile("res/textures/BackToMenu_STB.png", mainMenuTexWidth, mainMenuTexHeight, mainMenuAlpha);
     shopTexture       = LoadTextureFile("res/textures/Shop_STB.png", shopTexWidth, shopTexHeight, shopAlpha);
 }
 
@@ -275,6 +277,14 @@ void MainMenu::RenderButtonImage(float cx, float cy, float maxW, unsigned int te
     float asp = (float)tw / th;
     float dw = maxW, dh = maxW / asp;
     RenderQuad(cx - dw * 0.5f, cy - dh * 0.5f, dw, dh, tex);
+}
+
+// Igual que RenderButtonImage pero con ancho y alto exactos, ignorando el aspect
+// ratio real de la textura (garantiza rectángulos idénticos entre botones distintos).
+void MainMenu::RenderButtonImageFixed(float cx, float cy, float w, float h, unsigned int tex)
+{
+    if (!tex) return;
+    RenderQuad(cx - w * 0.5f, cy - h * 0.5f, w, h, tex);
 }
 
 void MainMenu::RenderBackgroundImage(float fbW, float fbH, float timeVal)
@@ -554,7 +564,7 @@ MainMenu::Result MainMenu::Show(bool pause)
 
     float ref = std::min((float)fbW, (float)fbH);
 
-    float btnMaxW = std::min(std::max(ref * 0.30f, 200.f), 500.f);
+    float btnMaxW = std::min(std::max(ref * 0.3f, 200.f), 400.f); // botones más grandes
 
     const std::vector<unsigned char>* al[4];
     unsigned int texID[4]; int tw[4], th[4];
@@ -570,42 +580,36 @@ MainMenu::Result MainMenu::Show(bool pause)
         texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
     }
 
-    float btnScale[4][2] = {
-        { 1.20f, 1.20f },
-        { 1.10f, 1.10f },
-        { 1.10f, 1.10f },
-        { 1.03f, 1.03f },
-    };
+    // Tamaño fijo idéntico para los 4 botones, sin depender del aspect ratio de cada
+    // textura (así no importa si las imágenes fuente no son perfectamente uniformes).
+    float btnW = btnMaxW;
+    float btnH = btnMaxW / 3.2f; // 3.2 = aspect ratio típico de estos botones (ancho/alto)
 
     float dw[4], dh[4];
-    for (int i = 0; i < 4; i++)
-    {
-        float ws = btnScale[i][0];
-        float hs = btnScale[i][1];
-        float asp = (float)tw[i] / th[i];
-        dw[i] = btnMaxW * ws;
-        dh[i] = (btnMaxW / asp) * hs;
-    }
+    dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;    // PLAY
+    dw[1] = btnW * 1.15f;  dh[1] = btnH * 1.0f;   // SHOP
+    dw[2] = btnW * 1.15f;  dh[2] = btnH * 1.0f;   // SETTINGS
+    dw[3] = btnW * 0.85f;  dh[3] = btnH * 1.0f;   // EXIT
 
     float sp = 10.0f;
 
     float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
 
-    float startY = (fbH - totalH) * 0.7f;
+    float startY = (fbH - totalH) * 0.5f;
 
     float cy[4] = {
         startY + dh[0] * 0.5f,                                              // top: PLAY/RESUME
         startY + dh[0] + sp + dh[1] * 0.5f,                                 // 2nd: SHOP
-        startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,                   // 3rd: HOW TO PLAY
-        startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f       // 4th: EXIT/MAIN MENU
+        startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,                    // 3rd: HOW TO PLAY
+        startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f        // 4th: EXIT/MAIN MENU
     };
-    float cx = fbW * 0.5f;
+    float cx = fbW * 0.13f; // centrado sobre el panel gris izquierdo (ajusta este % si el panel se mueve)
 
     bool over[4];
     float bob[4];
     for (int i = 0; i < 4; i++)
     {
-        bob[i] = sin((float)currentT * 2.5f + i * 1.2f) * 5.0f;
+        bob[i] = 0.0f; // animación de flotación eliminada
         over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i] + bob[i], dw[i], dh[i], *al[i], tw[i], th[i]);
     }
 
@@ -637,27 +641,22 @@ MainMenu::Result MainMenu::Show(bool pause)
             RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
         }
         RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
+
+        if (pauseDecorTexture != 0)
+        {
+            RenderQuad(0, 0, (float)fbW, (float)fbH, pauseDecorTexture);
+        }
+
+        // El logo "PAUSE MENU" ya viene integrado en BackGround_STB.png, no se necesita parche extra.
     }
     else {
         RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
         RenderClouds((float)fbW, (float)fbH, (float)currentT);
 
-        float coverW = fbW * 0.16f;
-        float coverH = fbH * 0.15f;
-        float coverX = fbW * 0.5f - coverW * 0.5f;
-        float coverY = fbH * 0.03f;
-        RenderQuadSubset(coverX, coverY, coverW, coverH, backgroundTexture, 0.2f, 0.80f, 0.16f, 0.15f);
+        // (parche "cover" eliminado: el logo/banner ya viene integrado en LoL.png)
 
-        float sheenCycle = fmod((float)currentT, 3.0f);
-        float sheenVal = -10.0f;
-        if (sheenCycle < 1.0f) {
-            sheenVal = sheenCycle * 2.0f;
-        }
-        float logoW = fbW * 0.26f;
-        float logoH = fbH * 0.11f;
-        float logoX = fbW * 0.5f - logoW * 0.5f;
-        float logoY = fbH * 0.245f - logoH * 0.5f;
-        RenderQuadSubset(logoX, logoY, logoW, logoH, backgroundTexture, 0.37f, 0.695f, 0.26f, 0.11f, sheenVal);
+        // (parche del logo con efecto "sheen" eliminado: el logo ya viene integrado en LoL.png,
+        //  pegar un recorte de la misma imagen encima duplicaba/cortaba el texto)
     }
 
     // Draw all 4 buttons
@@ -680,7 +679,7 @@ MainMenu::Result MainMenu::Show(bool pause)
         }
 
         // Renderiza la textura de imagen para TODOS los botones (incluyendo SHOP)
-        RenderButtonImage(cx, cy[i] + yOff + bob[i], dw[i] * s, texID[i], tw[i], th[i]);
+        RenderButtonImageFixed(cx, cy[i] + yOff + bob[i], dw[i] * s, dh[i] * s, texID[i]);
     }
 
     // Draw "?" help icon in top-right corner
@@ -705,96 +704,198 @@ MainMenu::Result MainMenu::Show(bool pause)
 
 void MainMenu::RenderLoading(float progress, const char* message)
 {
-    // Clear screen
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    // Use static variables to maintain state between calls for smooth animation
+    static float displayedProgress = 0.0f;
+    static double animStartTime = glfwGetTime();
+
+    // Smoothly interpolate displayed progress toward real progress (easing)
+    float catchUpSpeed = 3.5f;
+    float rawDt = (float)(glfwGetTime() - animStartTime);
+    displayedProgress += (progress - displayedProgress) * catchUpSpeed * 0.016f;
+    if (displayedProgress < progress) displayedProgress = progress; // never lag behind
+    if (displayedProgress > 1.0f) displayedProgress = 1.0f;
+
+    float p = displayedProgress;
+    double time = glfwGetTime();
+
+    int fbW = width, fbH = height;
+
+    // Clear
+    glClearColor(0.04f, 0.04f, 0.06f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    int fbW = width, fbH = height;
     glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
     glUseProgram(hudProgram);
     glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
 
-    // Draw background dimmed to 70% black
-    RenderBackgroundImage((float)fbW, (float)fbH);
-    RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.7f);
-
-    // Draw a nice retro loading panel in the center
-    float pw = 600.0f;
-    float ph = 170.0f;
-    float px = (fbW - pw) * 0.5f;
-    float py = (fbH - ph) * 0.5f;
-    
-    // Panel base (dark charcoal brown)
-    RenderColoredQuad(px, py, pw, ph, 0.12f, 0.10f, 0.09f, 0.95f);
-    
-    // Double retro borders (matching the buttons!)
-    float bcol1_r = 0.35f, bcol1_g = 0.28f, bcol1_b = 0.22f;
-    float bcol2_r = 0.20f, bcol2_g = 0.16f, bcol2_b = 0.13f;
-    
-    // Outer border
-    float ob = 3.0f;
-    RenderColoredQuad(px - ob, py - ob, pw + ob*2, ob, bcol2_r, bcol2_g, bcol2_b);
-    RenderColoredQuad(px - ob, py + ph, pw + ob*2, ob, bcol2_r, bcol2_g, bcol2_b);
-    RenderColoredQuad(px - ob, py, ob, ph, bcol2_r, bcol2_g, bcol2_b);
-    RenderColoredQuad(px + pw, py, ob, ph, bcol2_r, bcol2_g, bcol2_b);
-
-    // Inner border
-    float ib = 1.5f;
-    float gap = 4.0f;
-    RenderColoredQuad(px + gap, py + gap, pw - gap*2, ib, bcol1_r, bcol1_g, bcol1_b);
-    RenderColoredQuad(px + gap, py + ph - gap - ib, pw - gap*2, ib, bcol1_r, bcol1_g, bcol1_b);
-    RenderColoredQuad(px + gap, py + gap, ib, ph - gap*2, bcol1_r, bcol1_g, bcol1_b);
-    RenderColoredQuad(px + pw - gap - ib, py + gap, ib, ph - gap*2, bcol1_r, bcol1_g, bcol1_b);
-
-    // Message (Warm Gold/Bronze)
-    RenderTextCentered(message, fbW * 0.5f, py + 30.0f, 0.8f, 0.65f, 0.45f, 1.4f);
-
-    // Percentage text
-    char pct[32];
-    sprintf(pct, "%d%%", (int)(progress * 100.0f));
-    RenderTextCentered(pct, fbW * 0.5f, py + 65.0f, 0.8f, 0.65f, 0.45f, 1.2f);
-
-    // Segmented progress bar
-    int maxSegments = 16;
-    int filledSegments = (int)(progress * maxSegments);
-    
-    float barW = pw * 0.8f;
-    float barH = 20.0f;
-    float segmentGap = 4.0f;
-    float totalGapsWidth = (maxSegments - 1) * segmentGap;
-    float segmentW = (barW - totalGapsWidth) / maxSegments;
-    
-    float barX = px + (pw - barW) * 0.5f;
-    float barY = py + 105.0f;
-    
-    // Draw segments
-    for (int i = 0; i < maxSegments; i++)
+    // ============================================================
+    // Animated background particles (subtle, elegant)
+    // ============================================================
+    float particleAlpha = 0.12f;
+    for (int i = 0; i < 30; i++)
     {
-        float segX = barX + i * (segmentW + segmentGap);
-        if (i < filledSegments)
-        {
-            // Filled segment: warm gold/bronze color (R=0.8f, G=0.55f, B=0.35f)
-            RenderColoredQuad(segX, barY, segmentW, barH, 0.8f, 0.55f, 0.35f, 1.0f);
-            
-            // Sub-borders inside the segment to make it look 3D/beveled!
-            RenderColoredQuad(segX, barY, segmentW, 1.5f, 0.95f, 0.75f, 0.55f, 1.0f); // top highlight
-            RenderColoredQuad(segX, barY + barH - 1.5f, segmentW, 1.5f, 0.5f, 0.35f, 0.2f, 1.0f); // bottom shadow
-        }
-        else
-        {
-            // Empty segment: dark background with a very subtle gold/bronze border
-            RenderColoredQuad(segX, barY, segmentW, barH, 0.08f, 0.06f, 0.05f, 1.0f);
-            
-            // Subtle border around empty segment
-            float bt = 1.0f;
-            RenderColoredQuad(segX, barY, segmentW, bt, 0.25f, 0.2f, 0.15f, 1.0f);
-            RenderColoredQuad(segX, barY + barH - bt, segmentW, bt, 0.25f, 0.2f, 0.15f, 1.0f);
-            RenderColoredQuad(segX, barY, bt, barH, 0.25f, 0.2f, 0.15f, 1.0f);
-            RenderColoredQuad(segX + segmentW - bt, barY, bt, barH, 0.25f, 0.2f, 0.15f, 1.0f);
-        }
+        float seed = (float)i * 137.508f; // golden angle
+        float phase = sin((float)time * 0.7f + seed) * 0.5f + 0.5f;
+        float px = fmod(seed * 0.618f, 1.0f) * fbW;
+        float py = (fmod(seed * 0.382f + (float)time * 0.03f, 1.0f)) * fbH;
+        float size = 2.0f + phase * 3.0f;
+        float alpha = particleAlpha * (0.3f + phase * 0.7f);
+        RenderColoredQuad(px, py, size, size, 1.0f, 1.0f, 1.0f, alpha);
+    }
+
+    // ============================================================
+    // Main panel with glass morphism effect
+    // ============================================================
+    float pw = 580.0f;
+    float ph = 185.0f;
+    float centerX = fbW * 0.5f;
+    float centerY = fbH * 0.5f;
+    float px = centerX - pw * 0.5f;
+    float py = centerY - ph * 0.5f;
+
+    // Outer glow (subtle)
+    float glowSize = 8.0f;
+    RenderColoredQuad(px - glowSize, py - glowSize, pw + glowSize * 2, ph + glowSize * 2,
+                      0.25f, 0.25f, 0.30f, 0.5f);
+
+    // Dark glass panel with slight transparency
+    RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.92f);
+
+    // Top accent line (animated subtle gradient via two quads)
+    float accentHeight = 2.5f;
+    float accentProgress = p; // fills left to right
+    RenderColoredQuad(px, py, pw * accentProgress, accentHeight, 0.75f, 0.75f, 0.82f, 0.9f);
+    RenderColoredQuad(px + pw * accentProgress, py, pw * (1.0f - accentProgress), accentHeight,
+                      0.15f, 0.15f, 0.18f, 0.4f);
+
+    // Thin border with animated corners
+    float borderThick = 1.2f;
+    float cornerLen = 40.0f;
+    float cornerAlpha = 0.6f;
+    float borderAlpha = 0.25f;
+
+    // Border lines (semi-transparent white)
+    RenderColoredQuad(px, py, pw, borderThick, 1.0f, 1.0f, 1.0f, borderAlpha);
+    RenderColoredQuad(px, py + ph - borderThick, pw, borderThick, 1.0f, 1.0f, 1.0f, borderAlpha);
+    RenderColoredQuad(px, py, borderThick, ph, 1.0f, 1.0f, 1.0f, borderAlpha);
+    RenderColoredQuad(px + pw - borderThick, py, borderThick, ph, 1.0f, 1.0f, 1.0f, borderAlpha);
+
+    // Corner accents (bright white)
+    // Top-left
+    RenderColoredQuad(px, py, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    RenderColoredQuad(px, py, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    // Top-right
+    RenderColoredQuad(px + pw - cornerLen, py, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    RenderColoredQuad(px + pw - borderThick * 1.5f, py, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    // Bottom-left
+    RenderColoredQuad(px, py + ph - borderThick * 1.5f, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    RenderColoredQuad(px, py + ph - cornerLen, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    // Bottom-right
+    RenderColoredQuad(px + pw - cornerLen, py + ph - borderThick * 1.5f, cornerLen, borderThick * 1.5f, 1.0f, 1.0f, 1.0f, cornerAlpha);
+    RenderColoredQuad(px + pw - borderThick * 1.5f, py + ph - cornerLen, borderThick * 1.5f, cornerLen, 1.0f, 1.0f, 1.0f, cornerAlpha);
+
+    // ============================================================
+    // Rotating dots animation (3 dots)
+    // ============================================================
+    float dotY = py + 42.0f;
+    float dotCenterX = centerX;
+    for (int i = 0; i < 3; i++)
+    {
+        float dotPhase = (float)time * 3.0f + i * 2.094f; // 120° apart
+        float dotAlpha = 0.3f + sin(dotPhase) * 0.4f;
+        float dotX = dotCenterX + (i - 1) * 16.0f;
+        RenderColoredQuad(dotX - 2.5f, dotY - 2.5f, 5.0f, 5.0f, 1.0f, 1.0f, 1.0f, dotAlpha);
+    }
+
+    // ============================================================
+    // Message text
+    // ============================================================
+    float msgY = py + 62.0f;
+    RenderTextCentered(message, centerX, msgY, 0.82f, 0.82f, 0.85f, 1.25f);
+
+    // ============================================================
+    // Animated progress bar
+    // ============================================================
+    float barW = pw * 0.72f;
+    float barH = 5.0f;
+    float barX = centerX - barW * 0.5f;
+    float barY = py + 100.0f;
+
+    // Bar background (dark track)
+    RenderColoredQuad(barX, barY, barW, barH, 0.18f, 0.18f, 0.20f, 1.0f);
+
+    // Bar fill (white gradient via two quads)
+    float fillW = barW * p;
+    if (fillW > 0.0f)
+    {
+        // Main fill
+        RenderColoredQuad(barX, barY, fillW, barH, 0.85f, 0.85f, 0.88f, 1.0f);
+        // Bright leading edge
+        float edgeW = std::min(3.0f, fillW);
+        RenderColoredQuad(barX + fillW - edgeW, barY, edgeW, barH, 1.0f, 1.0f, 1.0f, 0.9f);
+        // Glow under the bar
+        RenderColoredQuad(barX, barY + barH, fillW, 2.0f, 0.65f, 0.65f, 0.70f, 0.25f);
+    }
+
+    // ============================================================
+    // Percentage text with subtle pulse
+    // ============================================================
+    float pctPulse = 1.0f + sin((float)time * 2.5f) * 0.02f;
+    char pct[16];
+    sprintf(pct, "%d%%", (int)(p * 100.0f));
+    float pctY = barY + 28.0f;
+    RenderTextCentered(pct, centerX, pctY, 0.55f, 0.55f, 0.58f, 1.05f * pctPulse);
+
+    // ============================================================
+    // Subtle separator line below percentage
+    // ============================================================
+    float sepY = pctY + 24.0f;
+    float sepW = pw * 0.3f;
+    RenderColoredQuad(centerX - sepW * 0.5f, sepY, sepW, 0.8f, 0.35f, 0.35f, 0.38f, 0.35f);
+
+    // ============================================================
+    // Glowing orb following the progress
+    // ============================================================
+    float orbX = barX + fillW;
+    float orbY = barY + barH * 0.5f;
+    float orbRadius = 8.0f;
+    int orbSegments = 16;
+    for (int i = 0; i < orbSegments; i++)
+    {
+        float angle1 = (float)i / orbSegments * 6.28318f;
+        float angle2 = (float)(i + 1) / orbSegments * 6.28318f;
+        float r1 = orbRadius * 0.85f;
+        float r2 = orbRadius;
+
+        // Approximate circle with small quads
+        float cx1 = orbX + cos(angle1) * r1;
+        float cy1 = orbY + sin(angle1) * r1;
+        float cx2 = orbX + cos(angle2) * r2;
+        float cy2 = orbY + sin(angle2) * r2;
+        float cx0 = orbX;
+        float cy0 = orbY;
+
+        // Small colored quad approximating a circle segment
+        float segW = 3.0f;
+        float segH = 3.0f;
+        float segAlpha = 0.7f + sin((float)time * 4.0f + (float)i) * 0.3f;
+        RenderColoredQuad(cx1 - segW * 0.5f, cy1 - segH * 0.5f, segW, segH, 1.0f, 1.0f, 1.0f, segAlpha * 0.6f);
+    }
+
+    // Inner bright dot
+    RenderColoredQuad(orbX - 3.0f, orbY - 3.0f, 6.0f, 6.0f, 1.0f, 1.0f, 1.0f, 0.9f);
+
+    // Outer glow ring
+    float ringAlpha = 0.25f + sin((float)time * 3.0f) * 0.1f;
+    for (int i = 0; i < 12; i++)
+    {
+        float angle = (float)i / 12.0f * 6.28318f;
+        float rx = orbX + cos(angle) * orbRadius * 1.6f;
+        float ry = orbY + sin(angle) * orbRadius * 1.6f;
+        RenderColoredQuad(rx - 2.0f, ry - 2.0f, 4.0f, 4.0f, 1.0f, 1.0f, 1.0f, ringAlpha);
     }
 
     glfwSwapBuffers(window);

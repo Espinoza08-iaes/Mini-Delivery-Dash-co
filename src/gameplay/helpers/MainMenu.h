@@ -37,6 +37,11 @@ private:
     int bgTexHeight = 0;
     unsigned int pauseBackgroundTexture = 0;
 
+    // Decorative panel art shown behind the pause menu buttons (separate from the
+    // live captured game frame in pauseBackgroundTexture)
+    unsigned int pauseDecorTexture = 0;
+    int pauseDecorTexWidth = 0, pauseDecorTexHeight = 0;
+
     // Button textures + alpha for pixel‑perfect hit detection
     unsigned int playTexture = 0;
     int playTexWidth = 0, playTexHeight = 0;
@@ -84,6 +89,7 @@ private:
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.5f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.5f);
     void RenderButtonImage(float cx, float cy, float maxW, unsigned int tex, int tw, int th);
+    void RenderButtonImageFixed(float cx, float cy, float w, float h, unsigned int tex);
     void RenderBackgroundImage(float fbW, float fbH, float timeVal = 0.0f);
     void RenderClouds(float fbW, float fbH, float timeVal);
 
