@@ -281,24 +281,18 @@ void ShopUI::Render()
     float panelX = fbW * 0.5f - panelWidth * 0.5f;
     float panelY = (fbH - panelHeight) * 0.5f;
 
-    // shadow
-    RenderColoredQuad(panelX + 8.0f, panelY + 8.0f, panelWidth, panelHeight, 0.0f, 0.0f, 0.0f, 0.35f);
+    // Drop shadow
+    RenderColoredQuad(panelX - 8.0f, panelY - 8.0f, panelWidth + 16.0f, panelHeight + 16.0f, 0.0f, 0.0f, 0.0f, 0.30f);
 
-    // main body
-    RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.05f, 0.05f, 0.05f, 0.94f);
+    // Border
+    RenderColoredQuad(panelX - 2.0f, panelY - 2.0f, panelWidth + 4.0f, panelHeight + 4.0f, 0.3f, 0.3f, 0.35f, 0.9f);
 
-    // metallic border
-    float border = 3.0f;
-    RenderColoredQuad(panelX, panelY, panelWidth, border, 0.65f, 0.65f, 0.65f, 1.0f);
-    RenderColoredQuad(panelX, panelY + panelHeight - border, panelWidth, border, 0.65f, 0.65f, 0.65f, 1.0f);
-    RenderColoredQuad(panelX, panelY, border, panelHeight, 0.65f, 0.65f, 0.65f, 1.0f);
-    RenderColoredQuad(panelX + panelWidth - border, panelY, border, panelHeight, 0.65f, 0.65f, 0.65f, 1.0f);
+    // Main body (Dark sleek grey)
+    RenderColoredQuad(panelX, panelY, panelWidth, panelHeight, 0.08f, 0.08f, 0.10f, 0.95f);
 
-    // header bar
-    RenderColoredQuad(panelX, panelY, panelWidth, 70.0f, 0.10f, 0.10f, 0.10f, 1.0f);
-
-    // separator
-    RenderColoredQuad(panelX + 25.0f, panelY + 125.0f, panelWidth - 50.0f, 2.0f, 0.35f, 0.35f, 0.35f, 1.0f);
+    // Header section
+    RenderColoredQuad(panelX, panelY, panelWidth, 80.0f, 0.13f, 0.13f, 0.16f, 0.95f);
+    RenderColoredQuad(panelX, panelY + 78.0f, panelWidth, 2.0f, 0.9f, 0.6f, 0.1f, 1.0f); // Orange separator line
 
     // title
     RenderTextCentered("SHOP", fbW * 0.5f, panelY + 42.0f, 0.90f, 0.90f, 0.90f, 4.0f);

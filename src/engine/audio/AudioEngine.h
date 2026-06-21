@@ -60,6 +60,8 @@ public:
     bool LoadAmbientMusic(const std::string& filepath);
     void PlayAmbientMusic();
     void StopAmbientMusic();    
+    
+    void UpdateVolumes(bool musicOn, bool sfxOn);
 
 private:
 

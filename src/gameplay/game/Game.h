@@ -5,6 +5,7 @@
 
 // Forward declaration
 class ShopUI;
+struct GameSettings;
 
 class Game
 {
@@ -19,7 +20,7 @@ private:
 
     void CheckWaterRespawn (CarState& car, City& city, float& verticalSpeed, bool& isOnGround, float& lastGroundHeight);
 
-    void UpdateCameraEffects(GLFWwindow* window, Camera& camera, CarState& car);
+    void UpdateCameraEffects(GLFWwindow* window, Camera& camera, CarState& car, GameSettings* settings);
 
     void UpdateHeadlights(Shader& shaderProgram, const CarState& car, bool headlightsOn);
 

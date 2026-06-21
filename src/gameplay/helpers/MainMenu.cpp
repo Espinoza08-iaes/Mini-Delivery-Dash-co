@@ -494,10 +494,170 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
     }
 }
 
+MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settings)
+{
+    double startTime = glfwGetTime();
+    double lastT = startTime;
+    float fadeAlpha = 1.0f;
+    float fadeOutAlpha = 0.0f;
+    bool isFadingOut = false;
+    float fadeDuration = 0.3f;
+    Result pendingChoice = Result::None;
+    bool settingsChanged = false;
+
+    while (!glfwWindowShouldClose(window))
+    {
+        glfwPollEvents();
+        int fbW, fbH; glfwGetFramebufferSize(window, &fbW, &fbH); glViewport(0, 0, fbW, fbH);
+        double mx, my; glfwGetCursorPos(window, &mx, &my);
+        int wW, wH; glfwGetWindowSize(window, &wW, &wH);
+        mx *= (float)fbW / wW; my *= (float)fbH / wH;
+        bool click = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+        double currentT = glfwGetTime();
+        float dt = (float)(currentT - lastT);
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+        lastT = currentT;
+
+        if (!isFadingOut)
+        {
+            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
+        }
+        else
+        {
+            fadeOutAlpha += dt / fadeDuration;
+            if (fadeOutAlpha >= 1.0f) return settingsChanged ? Result::SettingsChanged : Result::None;
+        }
+
+        // Layout
+        float pw = 700.0f, ph = 550.0f;
+        float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
+
+        // Button BACK
+        float bw = 200, bh = 50;
+        float bx = (fbW - bw) * 0.5f, by = py + ph - 70.f;
+        float bob = sin((float)currentT * 2.5f) * 5.0f;
+        float drawYBase = by + bob;
+
+        bool overBack = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
+        
+        // 6 Option Buttons
+        float btnW = 350, btnH = 45;
+        float startY = py + 105.0f;
+        float spacing = 55.0f;
+        float btnX = (fbW - btnW) * 0.5f;
+
+        bool overBtn[6];
+        for(int i=0; i<6; ++i) {
+            overBtn[i] = PointInRect((float)mx, (float)my, btnX, startY + i * spacing, btnW, btnH);
+        }
+
+        static bool was = false;
+        if (click && !was && !isFadingOut) {
+            if (overBack) { isFadingOut = true; }
+            if (settings) {
+                if (overBtn[0]) { settings->musicOn = !settings->musicOn; settingsChanged = true; }
+                if (overBtn[1]) { settings->sfxOn = !settings->sfxOn; settingsChanged = true; }
+                if (overBtn[2]) { settings->ssaoOn = !settings->ssaoOn; settingsChanged = true; }
+                if (overBtn[3]) { settings->hudOn = !settings->hudOn; settingsChanged = true; }
+                if (overBtn[4]) { settings->timeFrozen = !settings->timeFrozen; settingsChanged = true; }
+                if (overBtn[5]) { settings->camDistant = !settings->camDistant; settingsChanged = true; }
+            }
+        }
+        was = click;
+
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) {
+            isFadingOut = true;
+        }
+
+        glClearColor(0,0,0,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+        glUseProgram(hudProgram);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+        if (bgTex) RenderQuad(0, 0, (float)fbW, (float)fbH, bgTex);
+        else RenderBackgroundImage((float)fbW, (float)fbH);
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.30f);
+
+        RenderColoredQuad(px - 8, py - 8, pw + 16, ph + 16, 0.0f, 0.0f, 0.0f, 0.3f);
+        RenderColoredQuad(px - 2, py - 2, pw + 4, ph + 4, 0.3f, 0.3f, 0.35f, 0.9f);
+        RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.95f);
+
+        RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
+        RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
+        RenderTextCentered("SETTINGS", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
+
+        const char* labels[6] = { "MUSIC", "SFX", "SSAO", "HUD", "FREEZE TIME", "CAMERA" };
+        bool states[6] = { true, true, true, true, false, false };
+        if (settings) {
+            states[0] = settings->musicOn; states[1] = settings->sfxOn;
+            states[2] = settings->ssaoOn; states[3] = settings->hudOn;
+            states[4] = settings->timeFrozen; states[5] = settings->camDistant;
+        }
+
+        for (int i=0; i<6; ++i) {
+            float vS = overBtn[i] ? 0.95f : 1.0f;
+            float vDrawW = btnW * vS, vDrawH = btnH * vS;
+            float vDrawX = btnX + (btnW - vDrawW) * 0.5f, vDrawY = startY + i * spacing + (btnH - vDrawH) * 0.5f;
+            
+            RenderColoredQuad(vDrawX, vDrawY, vDrawW, vDrawH, 0.15f, 0.15f, 0.18f);
+            float vt = 1.2f * vS, vcol = 0.3f;
+            RenderColoredQuad(vDrawX, vDrawY, vDrawW, vt, vcol, vcol, vcol);
+            RenderColoredQuad(vDrawX, vDrawY + vDrawH - vt, vDrawW, vt, vcol, vcol, vcol);
+            RenderColoredQuad(vDrawX, vDrawY, vt, vDrawH, vcol, vcol, vcol);
+            RenderColoredQuad(vDrawX + vDrawW - vt, vDrawY, vt, vDrawH, vcol, vcol, vcol);
+            
+            char btnText[64];
+            if (i == 5) {
+                snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "DISTANT" : "NORMAL");
+            } else {
+                snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "ON" : "OFF");
+            }
+            
+            // Draw state color
+            float r = states[i] ? 0.1f : 0.9f;
+            float g = states[i] ? 0.9f : 0.1f;
+            float b = 0.1f;
+            if (i == 4) { // Time Frozen is inverted visually maybe? "ON" means frozen.
+                r = states[i] ? 0.2f : 0.8f;
+                g = states[i] ? 0.8f : 0.8f;
+                b = states[i] ? 0.9f : 0.2f;
+            }
+            if (i == 5) { // Camera mode color
+                r = states[i] ? 0.2f : 0.8f;
+                g = states[i] ? 0.8f : 0.8f;
+                b = states[i] ? 0.9f : 0.2f;
+            }
+            RenderTextCentered(btnText, vDrawX + vDrawW * 0.5f, vDrawY + (vDrawH - 18.0f * vS) * 0.5f, r, g, b, 1.3f * vS);
+        }
+
+        // Back Button
+        float s = 1.0f, yOff = 0.0f;
+        if (overBack) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
+        float drawW = bw * s, drawH = bh * s;
+        float drawX = bx + (bw - drawW) * 0.5f, drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
+        RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f);
+        float bt = 1.2f * s, bcol = 0.3f;
+        RenderColoredQuad(drawX, drawY, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY + drawH - bt, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderColoredQuad(drawX + drawW - bt, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderTextCentered("BACK", drawX + drawW * 0.5f, drawY + (drawH - 18.0f * s) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f * s);
+
+        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+        if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
+
+        glfwSwapBuffers(window);
+    }
+    return pendingChoice;
+}
+
 // ======================================================================
 // MAIN MENU / PAUSE
 // ======================================================================
-MainMenu::Result MainMenu::Show(bool pause)
+MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
 {
     Result choice = Result::None;
     bool escWas = false;
@@ -615,7 +775,7 @@ MainMenu::Result MainMenu::Show(bool pause)
         if (click && !wasCl && !isFadingOut) {
             if (over[0])      { pendingChoice = Result::Play;      isFadingOut = true; }
             else if (over[1]) { choice = Result::Shop; click = false; }
-            else if (over[2]) { pendingChoice = Result::Settings;  isFadingOut = true; }
+            else if (over[2]) { choice = Result::Settings; click = false; }
             else if (over[3]) { pendingChoice = Result::Quit;      isFadingOut = true; }
             else if (helpOver) { choice = Result::HowToPlay; click = false; }
         }
@@ -656,7 +816,7 @@ MainMenu::Result MainMenu::Show(bool pause)
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
         if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
 
-        if (choice == Result::Shop || choice == Result::HowToPlay) {
+        if (choice == Result::Shop || choice == Result::HowToPlay || choice == Result::Settings) {
             // Capture the back buffer and create a BLURRED version for the fade effect
             unsigned char* pixels = new unsigned char[fbW * fbH * 3];
             glReadBuffer(GL_BACK);
@@ -705,6 +865,17 @@ MainMenu::Result MainMenu::Show(bool pause)
             
             if (choice == Result::HowToPlay) {
                 ShowHowToPlay(capturedBg);
+                glDeleteTextures(1, &capturedBg);
+                capturedBg = 0;
+                choice = Result::None; // continue main menu loop
+            }
+            if (choice == Result::Settings) {
+                Result res = ShowSettings(capturedBg, settings);
+                if (res == Result::SettingsChanged) {
+                    glDeleteTextures(1, &capturedBg);
+                    capturedBg = 0;
+                    return Result::SettingsChanged;
+                }
                 glDeleteTextures(1, &capturedBg);
                 capturedBg = 0;
                 choice = Result::None; // continue main menu loop

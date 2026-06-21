@@ -5,15 +5,24 @@
 
 struct GLFWwindow;
 
+struct GameSettings {
+    bool musicOn = true;
+    bool sfxOn = true;
+    bool ssaoOn = true;
+    bool hudOn = true;
+    bool timeFrozen = false;
+    bool camDistant = false;
+};
+
 class MainMenu
 {
 public:
     MainMenu(GLFWwindow* window, int screenWidth, int screenHeight);
     ~MainMenu();
 
-    enum class Result { Play, Quit, None, HowToPlay, Shop, Settings };
+    enum class Result { Play, Quit, None, HowToPlay, Shop, Settings, SettingsChanged };
 
-    Result Show(bool showPause = false);
+    Result Show(bool showPause = false, GameSettings* settings = nullptr);
     unsigned int GetCapturedBackground() const { return capturedBg; }
     void SetPauseBackground(unsigned int texture);
     void RenderLoading(float progress, const char* message);
@@ -100,6 +109,7 @@ private:
 
     // Sub‑menu
     void ShowHowToPlay(unsigned int bgTex = 0);
+    Result ShowSettings(unsigned int bgTex = 0, GameSettings* settings = nullptr);
 };
 
 #endif

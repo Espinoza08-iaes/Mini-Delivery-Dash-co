@@ -350,3 +350,15 @@ void AudioEngine::StopDeliveryMusic()
 {
     alSourceStop(deliverySource);
 }
+
+void AudioEngine::UpdateVolumes(bool musicOn, bool sfxOn)
+{
+    float musicGain = musicOn ? 0.2f : 0.0f;
+    float sfxGain = sfxOn ? 0.5f : 0.0f;
+
+    alSourcef(menuSource, AL_GAIN, musicGain);
+    alSourcef(ambientSource, AL_GAIN, musicGain);
+    alSourcef(deliverySource, AL_GAIN, musicGain);
+
+    alSourcef(engineSource, AL_GAIN, sfxGain);
+}

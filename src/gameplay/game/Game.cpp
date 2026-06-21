@@ -108,7 +108,7 @@ namespace GameConstants
 // ============================================================================
 
 // Handles dynamic camera FOV transitions and shake effects during car boost.
-void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car)
+void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car, GameSettings* settings)
 {
     using namespace GameConstants;
     // Check if turbo is unlocked
@@ -116,8 +116,9 @@ void Game::UpdateCameraEffects(GLFWwindow *window, Camera &camera, CarState &car
     bool canUseTurbo = shop->IsAbilityUnlocked(AbilityType::Turbo);
     bool isBoosting = canUseTurbo && (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && car.speed > 1.0f);
     
+    float normalFov = (settings && settings->camDistant) ? 65.0f : CAMERA_FOV_NORMAL;
     static float currentFov = CAMERA_FOV_NORMAL;
-    float targetFov = isBoosting ? CAMERA_FOV_BOOSTING : CAMERA_FOV_NORMAL;
+    float targetFov = isBoosting ? CAMERA_FOV_BOOSTING : normalFov;
     currentFov = glm::mix(currentFov, targetFov, CAMERA_FOV_SMOOTHING);
     
     if (isBoosting)
@@ -321,6 +322,8 @@ int Game::Run()
     audioEngine.LoadDeliveryMusic("res/audio/deliveryMusic.wav");
     
     OrderState lastOrderState = OrderState::WAITING;
+    GameSettings globalSettings;
+    audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
     
     bool returnFromShop = false;
     // Bucle principal (menú + juego)
@@ -337,50 +340,58 @@ int Game::Run()
 
         // ----- MENÚ PRINCIPAL -----
         MainMenu menu(window, fbW, fbH);
-        MainMenu::Result res = menu.Show();
+        MainMenu::Result res = menu.Show(false, &globalSettings);
 
-        if (res == MainMenu::Result::Shop)
+        while (res == MainMenu::Result::Shop || res == MainMenu::Result::SettingsChanged)
         {
-            GLuint shopBgTex = menu.GetCapturedBackground();
-            g_shopUI->SetBackgroundTexture(shopBgTex);
-            g_shopUI->Show();
-            static bool escWasShop = true;
-            escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
-            while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
+            if (res == MainMenu::Result::SettingsChanged)
             {
-                glfwPollEvents();
-                double mx, my; glfwGetCursorPos(window, &mx, &my);
-                g_shopUI->ProcessMouseMove(mx, my);
-                if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
-                    g_shopUI->ProcessMouseClick(mx, my);
-                
-                bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-                if (escNow && !escWasShop)
-                    g_shopUI->Hide();
-                escWasShop = escNow;
-                
-                glDisable(GL_DEPTH_TEST);
-                glDisable(GL_CULL_FACE);
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                
-                int currentW, currentH;
-                glfwGetFramebufferSize(window, &currentW, &currentH);
-                glViewport(0, 0, currentW, currentH);
-                
-                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                
-                g_shopUI->Render();
-                glfwSwapBuffers(window);
+                audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
+                res = menu.Show(false, &globalSettings);
             }
-            glEnable(GL_DEPTH_TEST);
-            
-            g_shopUI->SetBackgroundTexture(0);
-            glDeleteTextures(1, &shopBgTex);
-            
-            // Go back to menu.Show() without recreating menu (avoids black screen)
-            res = menu.Show();
+            else if (res == MainMenu::Result::Shop)
+            {
+                GLuint shopBgTex = menu.GetCapturedBackground();
+                g_shopUI->SetBackgroundTexture(shopBgTex);
+                g_shopUI->Show();
+                static bool escWasShop = true;
+                escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+                while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
+                {
+                    glfwPollEvents();
+                    double mx, my; glfwGetCursorPos(window, &mx, &my);
+                    g_shopUI->ProcessMouseMove(mx, my);
+                    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+                        g_shopUI->ProcessMouseClick(mx, my);
+                    
+                    bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+                    if (escNow && !escWasShop)
+                        g_shopUI->Hide();
+                    escWasShop = escNow;
+                    
+                    glDisable(GL_DEPTH_TEST);
+                    glDisable(GL_CULL_FACE);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    
+                    int currentW, currentH;
+                    glfwGetFramebufferSize(window, &currentW, &currentH);
+                    glViewport(0, 0, currentW, currentH);
+                    
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    
+                    g_shopUI->Render();
+                    glfwSwapBuffers(window);
+                }
+                glEnable(GL_DEPTH_TEST);
+                
+                g_shopUI->SetBackgroundTexture(0);
+                glDeleteTextures(1, &shopBgTex);
+                
+                // Go back to menu.Show() without recreating menu (avoids black screen)
+                res = menu.Show();
+            }
         }
 
         if (res == MainMenu::Result::Quit || glfwWindowShouldClose(window))
@@ -509,7 +520,7 @@ int Game::Run()
         int lastCameraHeight = fbH;
 
         DayNightCycle dayNight;
-        bool useSSAO = true;
+        bool& useSSAO = globalSettings.ssaoOn;
 
         // Restaurar estado OpenGL tras el menú
         glEnable(GL_DEPTH_TEST);
@@ -566,7 +577,9 @@ int Game::Run()
             lastFrame = currentFrame;
 
             SyncCameraToFramebuffer(window, camera);
-            dayNight.Update(dt);
+            if (!globalSettings.timeFrozen) {
+                dayNight.Update(dt);
+            }
             UpdateGameplay(window, dayNight, headlightsOn, lightsPressed);
 
             bool braking = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && car.speed > 0.1f);
@@ -651,7 +664,7 @@ int Game::Run()
            deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed, car);
 
             UpdateFollowCamera(camera, car, dt, city);
-            UpdateCameraEffects(window, camera, car);
+            UpdateCameraEffects(window, camera, car, &globalSettings);
             UpdateHeadlights(shaderProgram, car, headlightsOn);
             ApplyDayNightLighting(shaderProgram, dayNight);
 
@@ -846,7 +859,9 @@ int Game::Run()
             DrawOcean(waterShader, ocean, camera, currentFrame, skyTint, dayNight);
 
             // Render delivery HUD (2D overlay)
-            deliveryHUD.Render(deliverySystem, car, qKeyPressed);
+            if (globalSettings.hudOn) {
+                deliveryHUD.Render(deliverySystem, car, qKeyPressed);
+            }
 
             // Render shop UI (2D overlay)
             g_shopUI->Render();
@@ -897,10 +912,17 @@ int Game::Run()
 
                 MainMenu pauseMenu(window, fbW, fbH);
                 pauseMenu.SetPauseBackground(pauseTex);
-                MainMenu::Result pauseResult = pauseMenu.Show(true);
-
-                if (pauseResult == MainMenu::Result::Shop)
+                MainMenu::Result pauseResult = pauseMenu.Show(true, &globalSettings);
+                
+                while (pauseResult == MainMenu::Result::Shop || pauseResult == MainMenu::Result::SettingsChanged)
                 {
+                    if (pauseResult == MainMenu::Result::SettingsChanged)
+                    {
+                        audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
+                        pauseResult = pauseMenu.Show(true, &globalSettings);
+                    }
+                    else if (pauseResult == MainMenu::Result::Shop)
+                    {
                     g_shopUI->Show();
                     glfwWaitEventsTimeout(0.1);
                     static bool escWasShop = true; // ignore first ESC press
@@ -934,7 +956,9 @@ int Game::Run()
                         glfwSwapBuffers(window);
                     }
                     glEnable(GL_DEPTH_TEST);
+                    pauseResult = pauseMenu.Show(true, &globalSettings);
                 }
+            }
 
                 glDeleteTextures(1, &pauseTex);
 
