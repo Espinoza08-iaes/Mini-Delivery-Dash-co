@@ -97,22 +97,45 @@ void AudioEngine::PlayEngine()
 
 void AudioEngine::UpdateEngineRPM(float speed, float maxSpeed, float dt)
 {
-    float normalized =
-        std::abs(speed) / maxSpeed;
+    float normalized = std::abs(speed) / maxSpeed;
+    if (normalized < 0.0f) normalized = 0.0f;
+    if (normalized > 1.0f) normalized = 1.0f;
 
-    if (normalized < 0.0f)
-        normalized = 0.0f;
+    // Simulate 5 gears to make the sound more dynamic and less "flat"
+    const int gearCount = 5;
+    float gearMaxSpeeds[] = { 0.2f, 0.4f, 0.6f, 0.8f, 1.0f };
+    
+    int currentGear = 0;
+    for (int i = 0; i < gearCount; i++) {
+        if (normalized <= gearMaxSpeeds[i] || i == gearCount - 1) {
+            currentGear = i;
+            break;
+        }
+    }
+    
+    float gearMinSpeed = (currentGear == 0) ? 0.0f : gearMaxSpeeds[currentGear - 1];
+    float gearMaxSpeed = gearMaxSpeeds[currentGear];
+    float speedInGear = (normalized - gearMinSpeed) / (gearMaxSpeed - gearMinSpeed);
+    
+    // Pitch configuration for gear shifts
+    float idlePitch = 0.7f;
+    float maxPitch = 1.4f + (currentGear * 0.15f); // Redline sounds higher in higher gears
+    float shiftDropPitch = 1.0f + (currentGear * 0.1f); // RPM drops after shifting
+    
+    float basePitch = (currentGear == 0) ? idlePitch : shiftDropPitch;
+    float targetPitch = basePitch + speedInGear * (maxPitch - basePitch);
 
-    if (normalized > 1.0f)
-        normalized = 1.0f;
+    // Let it idle gracefully if very slow
+    if (normalized < 0.02f) {
+        targetPitch = idlePitch;
+    }
 
-    float targetPitch = 0.8f + normalized * 1.5f;
-
-    float response = (targetPitch > currentPitch) ? 8.0f : 1.6f;  // sube rapido : baja lento
+    // Response speed: faster when revving up, slightly slower when dropping
+    float response = (targetPitch > currentPitch) ? 10.0f : 5.0f; 
 
     currentPitch += (targetPitch - currentPitch) * response * dt;
 
-    alSourcef( engineSource, AL_PITCH, currentPitch);
+    alSourcef(engineSource, AL_PITCH, currentPitch);
 }
 
 void AudioEngine::StopEngine()
@@ -349,6 +372,40 @@ void AudioEngine::PlayDeliveryMusic()
 void AudioEngine::StopDeliveryMusic()
 {
     alSourceStop(deliverySource);
+}
+
+void AudioEngine::PauseGameplayAudio()
+{
+    // Pause gameplay sounds
+    ALint state;
+    alGetSourcei(engineSource, AL_SOURCE_STATE, &state);
+    if (state == AL_PLAYING) alSourcePause(engineSource);
+    
+    alGetSourcei(ambientSource, AL_SOURCE_STATE, &state);
+    if (state == AL_PLAYING) alSourcePause(ambientSource);
+    
+    alGetSourcei(deliverySource, AL_SOURCE_STATE, &state);
+    if (state == AL_PLAYING) alSourcePause(deliverySource);
+
+    // Play menu music
+    PlayMenuMusic();
+}
+
+void AudioEngine::ResumeGameplayAudio()
+{
+    // Stop menu music
+    StopMenuMusic();
+
+    // Resume gameplay sounds
+    ALint state;
+    alGetSourcei(engineSource, AL_SOURCE_STATE, &state);
+    if (state == AL_PAUSED) alSourcePlay(engineSource);
+    
+    alGetSourcei(ambientSource, AL_SOURCE_STATE, &state);
+    if (state == AL_PAUSED) alSourcePlay(ambientSource);
+    
+    alGetSourcei(deliverySource, AL_SOURCE_STATE, &state);
+    if (state == AL_PAUSED) alSourcePlay(deliverySource);
 }
 
 void AudioEngine::UpdateVolumes(bool musicOn, bool sfxOn)

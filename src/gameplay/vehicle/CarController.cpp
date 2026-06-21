@@ -107,8 +107,12 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
         steerInput -= 1.0f;
 
     // --- Speed ---
-    if (throttle > 0.0f)
-        car.speed += acceleration * dt;
+    float currentMaxForward = isBoosting ? maxForwardSpeed * 2.0f : maxForwardSpeed;
+
+    if (throttle > 0.0f) {
+        float activeAccel = isBoosting ? acceleration * 1.5f : acceleration;
+        car.speed += activeAccel * dt;
+    }
     else if (throttle < 0.0f)
         car.speed -= brakePower * dt;
     else
@@ -118,7 +122,14 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
         if (car.speed < 0.0f)
             car.speed = std::min(0.0f, car.speed + friction * dt);
     }
-    car.speed = glm::clamp(car.speed, -maxReverseSpeed, isBoosting ? maxForwardSpeed * 2.0f : maxForwardSpeed);
+    
+    if (car.speed > currentMaxForward) {
+        // Smoothly decelerate if over max speed (e.g., nitro was released)
+        car.speed -= (friction + 2.0f) * dt;
+        if (car.speed < currentMaxForward) car.speed = currentMaxForward;
+    } else {
+        car.speed = std::max(car.speed, -maxReverseSpeed);
+    }
 
     // --- Steering ---
     if (steerInput != 0.0f)

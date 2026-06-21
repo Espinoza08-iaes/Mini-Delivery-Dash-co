@@ -953,6 +953,7 @@ int Game::Run()
 
                 MainMenu pauseMenu(window, fbW, fbH);
                 pauseMenu.SetPauseBackground(pauseTex);
+                audioEngine.PauseGameplayAudio();
                 MainMenu::Result pauseResult = pauseMenu.Show(true, &globalSettings);
                 
                 while (pauseResult == MainMenu::Result::Shop || pauseResult == MainMenu::Result::SettingsChanged)
@@ -1011,7 +1012,12 @@ int Game::Run()
                     audioEngine.StopEngine();
                     audioEngine.StopDeliveryMusic();
                     audioEngine.StopAmbientMusic();
+                    audioEngine.StopMenuMusic();
                     enJuego = false;
+                }
+                else
+                {
+                    audioEngine.ResumeGameplayAudio();
                 }
 
                 // Restore OpenGL state after the pause menu loop
