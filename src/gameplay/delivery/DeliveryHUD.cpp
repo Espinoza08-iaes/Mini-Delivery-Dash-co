@@ -327,14 +327,19 @@ void DeliveryHUD::RenderSpeedometer(const CarState& car, float maxSpeed)
         RenderBezelPanel(centerX - dashboardW * 0.5f, centerY - dashboardH * 0.5f, dashboardW, dashboardH, 4.0f);
     }
     
+    // Calculate physical km/h correctly (1 unit/s ~ 1 m/s = 3.6 km/h)
+    float currentSpeedKMH = std::abs(car.speed) * 3.6f;
+    float maxSpeedKMH = maxSpeed * 3.6f;
+    
+
+    
     // Speed text centered inside the dashboard
-    float currentSpeed = std::abs(car.speed) * 15.0f; // Multiplicador mágico para que parezcan KM/H reales
     char speedText[32];
-    snprintf(speedText, sizeof(speedText), "%.0f", currentSpeed);
-    RenderTextCentered(speedText, centerX, centerY + 3.0f, 1.0f, 1.0f, 1.0f, 3.0f);
+    snprintf(speedText, sizeof(speedText), "%.0f", currentSpeedKMH);
+    RenderTextCentered(speedText, centerX, centerY - 2.0f, 1.0f, 1.0f, 1.0f, 3.0f);
     
     // "km/h" small text below speed
-    RenderTextCentered("KM/H", centerX, centerY - 20.0f, 0.7f, 0.7f, 0.7f, 1.2f);
+    RenderTextCentered("KM/H", centerX, centerY - 25.0f, 0.7f, 0.7f, 0.7f, 1.2f);
 }
 
 // ======================================================================
