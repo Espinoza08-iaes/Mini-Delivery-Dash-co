@@ -2,6 +2,7 @@
 #define GAME_H
 
 #include "../helpers/Helpers.h"
+#include "../city/StreetLamp.h"
 
 // Forward declaration
 class ShopUI;

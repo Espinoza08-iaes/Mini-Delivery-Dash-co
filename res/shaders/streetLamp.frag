@@ -15,6 +15,8 @@ uniform vec3 camPos;
 uniform bool uUseAlpha;
 uniform float uAmbientStrength = 0.20;
 uniform int  uStreetLightsOn;
+uniform int  uLightIdx;
+uniform int  uOffMask;
 uniform vec3 uFogColor = vec3(0.07, 0.13, 0.17);
 uniform float uFogStart = 40.0;
 uniform float uFogEnd   = 250.0;
@@ -23,23 +25,21 @@ void main()
 {
     vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0);
 
-    // Detectar bombilla por su color amarillo cálido
     bool isBulb = (color.r > 0.8 && color.g > 0.8 && (color.r - color.b) > 0.15);
+    bool isOff = (uOffMask & (1 << uLightIdx)) != 0;
 
     vec3 result;
-    if (isBulb && uStreetLightsOn == 1)
+
+    if (isBulb && uStreetLightsOn == 1 && !isOff)
     {
-        // Bombilla encendida de noche: emissive
         result = texColor.rgb * 3.0;
     }
     else if (isBulb)
     {
-        // Bombilla apagada de día: color normal suave
         result = texColor.rgb * 0.6;
     }
     else
     {
-        // Poste metálico: iluminación simple
         vec3 normal   = normalize(Normal);
         vec3 lightDir = normalize(lightPos);
         float diff    = max(dot(normal, lightDir), 0.0);

@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../city/City.h"
+#include "../city/StreetLamp.h"
 #include "../scene/streetLamp.h"
 #include "../helpers/MainMenu.h"
 #include "../delivery/DeliverySystem.h"
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <vector>
 #include <cstdlib>
 #include <ctime>
@@ -416,6 +418,7 @@ int Game::Run()
         // Cargar desde archivo si existe, si no usar auto-generación
         menu.RenderLoading(0.90f, "SETTING UP SHADOWS & LIGHTS...");
         std::vector<glm::vec3> lampPositions;
+        std::vector<LampPoleState> lampStates;
         {
             std::ifstream testFile("res/lamp_positions.txt");
             if (testFile.good())
@@ -534,6 +537,7 @@ int Game::Run()
 
         float lastFrame = static_cast<float>(glfwGetTime());
         bool headlightsOn = false;
+        glm::vec3 prevCarPosition = car.position;
         bool lightsPressed = false;
 
         glfwSetWindowTitle(window, "Mini Delivery Dash");
@@ -561,6 +565,7 @@ int Game::Run()
             HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight, &deliverySystem);
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
             UpdateCar(window, car, dt, city);
+            prevCarPosition = car.position;
             audioEngine.UpdateEngineRPM(car.speed,24.0f, dt);
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
@@ -569,9 +574,11 @@ int Game::Run()
             CheckWaterRespawn(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
             if (glm::length(car.position - oldPos) > 10.0f)
             {
-                // Car was respawned (teleported), notify delivery system
                 deliverySystem.OnWaterRespawn();
             }
+
+            UpdateStreetLamps(lampPositions, lampStates, car, prevCarPosition, dt);
+            prevCarPosition = car.position;
 
             // Update shop (ESC to close)
             g_shopUI->Update();
@@ -720,34 +727,7 @@ int Game::Run()
 
             shaderProgram.Activate();
             glUniform1i(glGetUniformLocation(shaderProgram.ID, "uStreetLightsOn"), isNight ? 1 : 0);
-
-            // Encontrar las 8 mas cercanas al carro (usando std::nth_element para O(N))
-            const int MAX_SL = 8;
-            std::vector<std::pair<float, int>> byDist;
-            byDist.reserve(lampPositions.size());
-            for (int i = 0; i < (int)lampPositions.size(); ++i)
-            {
-                glm::vec3 diff = lampPositions[i] - car.position;
-                diff.y = 0.0f;
-                byDist.push_back({glm::dot(diff, diff), i});
-            }
-
-            int selectCount = std::min(MAX_SL, (int)byDist.size());
-            if (selectCount > 0)
-            {
-                std::nth_element(byDist.begin(), byDist.begin() + selectCount - 1, byDist.end());
-                std::sort(byDist.begin(), byDist.begin() + selectCount); // Sort only the closest 8
-            }
-
-            for (int i = 0; i < MAX_SL; ++i)
-            {
-                glm::vec3 lp = (i < selectCount)
-                                   ? lampPositions[byDist[i].second] + glm::vec3(0.0f, 4.7f, 0.0f)
-                                   : glm::vec3(0.0f, 0.0f, 0.0f);
-                std::string uname = "uStreetLightPos[" + std::to_string(i) + "]";
-                glUniform3f(glGetUniformLocation(shaderProgram.ID, uname.c_str()),
-                            lp.x, lp.y, lp.z);
-            }
+            SendStreetLightUniforms(shaderProgram.ID, lampPositions, lampStates, car);
 
             lampShader.Activate();
             glUniform1i(glGetUniformLocation(lampShader.ID, "uStreetLightsOn"), isNight ? 1 : 0);
@@ -759,17 +739,18 @@ int Game::Run()
             glm::vec3 fc = dayNight.GetHorizonColor();
             glUniform3f(glGetUniformLocation(lampShader.ID, "uFogColor"), fc.x, fc.y, fc.z);
 
-            // Dibujar postes visibles (con test de distancia + frustum culling)
-            for (const auto &pos : lampPositions)
+            int offMask = 0;
+            for (size_t k = 0; k < lampStates.size(); ++k)
             {
-                glm::vec3 diff = pos - camera.Position;
-                if (glm::dot(diff, diff) > 300.0f * 300.0f)
-                    continue;
-                if (!cameraFrustum.IsSphereVisible(pos + glm::vec3(0.0f, 2.5f, 0.0f), 3.5f))
-                    continue;
-                glm::mat4 lampMatrix = glm::translate(glm::mat4(1.0f), pos);
-                lampMesh.Draw(lampShader, camera, lampMatrix);
+                const auto& s = lampStates[k];
+                bool off = (s.fallStarted || s.respawnTimer > 0.0f) && k < 8;
+                if (off)
+                    offMask |= (1 << static_cast<int>(k));
             }
+            glUniform1i(glGetUniformLocation(lampShader.ID, "uOffMask"), offMask);
+
+            // Dibujar postes visibles (con test de distancia + frustum culling)
+            RenderStreetLamps(lampMesh, lampShader, camera, cameraFrustum, lampPositions, lampStates);
 
             city.Draw(shaderProgram, camera, &cameraFrustum);
             carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
