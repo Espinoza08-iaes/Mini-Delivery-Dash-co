@@ -8,7 +8,7 @@ struct GLFWwindow;
 struct GameSettings {
     bool musicOn = true;
     bool sfxOn = true;
-    bool ssaoOn = true;
+    bool shadowsOn = true;
     bool hudOn = true;
     bool timeFrozen = false;
     bool camDistant = false;

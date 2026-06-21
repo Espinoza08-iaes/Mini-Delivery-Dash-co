@@ -44,6 +44,10 @@ uniform bool uNeonUnderglowOn;
 uniform vec3 uNeonColor;
 uniform vec3 uCarPos;
 
+// Body color override
+uniform bool uUseBodyColor;
+uniform vec3 uBodyColor;
+
 uniform vec3 uFogColor = vec3(0.07f, 0.13f, 0.17f);
 uniform float uFogStart = 40.0f;
 uniform float uFogEnd = 250.0f;
@@ -285,6 +289,10 @@ vec4 direcLight()
     float specular = specAmount * specularLight;
 
     vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+    if (uUseBodyColor) {
+        float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+        texColor.rgb = gray * uBodyColor * 2.0; // Boost slightly as greyscale can be dark
+    }
     float spec = texture(specular0, texCoord).r * specular;
     float outAlpha = uUseAlpha ? texColor.a : 1.0f;
 
@@ -339,6 +347,10 @@ void main()
             vec3 normal = normalize(Normal);
             vec3 viewDir = normalize(camPos - crntPos);
             vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            if (uUseBodyColor) {
+                float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+                texColor.rgb = gray * uBodyColor * 2.0;
+            }
             float specTex = texture(specular0, texCoord).r;
             
             vec3 leftSpot = calculateSpotLight(uHeadlightLeftPos, uHeadlightDir, normal, viewDir, texColor.rgb, specTex);
@@ -352,6 +364,10 @@ void main()
         {
             vec3 normal = normalize(Normal);
             vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            if (uUseBodyColor) {
+                float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+                texColor.rgb = gray * uBodyColor * 2.0;
+            }
             vec3 streetLight = vec3(0.0);
 
             for (int i = 0; i < 8; ++i)
@@ -365,6 +381,10 @@ void main()
         {
             vec3 normal = normalize(Normal);
             vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            if (uUseBodyColor) {
+                float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+                texColor.rgb = gray * uBodyColor * 2.0;
+            }
             baseLight.rgb += calculateNeonUnderglow(normal, texColor.rgb);
         }
         

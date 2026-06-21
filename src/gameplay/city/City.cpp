@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <vector>
+#include <tuple>
 
 // ============================================================================
 // Anonymous namespace - Constants and helpers
@@ -422,4 +423,66 @@ std::vector<glm::vec3> City::GetStreetLampPositionsFromFile(const char* filePath
         positions.push_back(glm::vec3(x, y, z));
     std::cout << "[LAMPS] Loaded " << positions.size() << " positions from " << filePath << std::endl;
     return positions;
+}
+
+void City::GenerateWaypoints(const char* outputFile) const
+{
+    std::ifstream checkFile(outputFile);
+    if (checkFile.good()) {
+        return; // Already generated
+    }
+    
+    std::cout << "[WAYPOINTS] Generating NavMesh from Road Triangles..." << std::endl;
+    const auto &tris = mPhysics.GetRoadTriangles();
+    if (tris.empty()) return;
+    
+    std::vector<glm::vec3> centroids;
+    centroids.reserve(tris.size());
+    for (const auto& tri : tris) {
+        centroids.push_back((tri.a + tri.b + tri.c) / 3.0f);
+    }
+    
+    // Conectar triángulos que comparten al menos una arista (2 vértices)
+    // Para simplificar, conectaremos los que compartan AL MENOS 1 vértice y estén cerca.
+    auto quantize = [](float v) { return static_cast<int>(std::round(v * 10.0f)); };
+    using VertexKey = std::tuple<int, int, int>;
+    auto makeKey = [&](glm::vec3 p) -> VertexKey {
+        return {quantize(p.x), quantize(p.y), quantize(p.z)};
+    };
+    
+    // Mapear cada vértice a las IDs de los triángulos que lo contienen
+    std::map<VertexKey, std::vector<int>> vertexToTris;
+    for (int i = 0; i < (int)tris.size(); ++i) {
+        vertexToTris[makeKey(tris[i].a)].push_back(i);
+        vertexToTris[makeKey(tris[i].b)].push_back(i);
+        vertexToTris[makeKey(tris[i].c)].push_back(i);
+    }
+    
+    std::vector<std::vector<int>> links(centroids.size());
+    for (const auto& pair : vertexToTris) {
+        const auto& sharedTris = pair.second;
+        for (size_t i = 0; i < sharedTris.size(); ++i) {
+            for (size_t j = i + 1; j < sharedTris.size(); ++j) {
+                int t1 = sharedTris[i];
+                int t2 = sharedTris[j];
+                
+                // Asegurarse de no duplicar links y de que la distancia sea razonable (< 30m) para evitar fallos geométricos
+                if (glm::distance(centroids[t1], centroids[t2]) < 30.0f) {
+                    if (std::find(links[t1].begin(), links[t1].end(), t2) == links[t1].end()) {
+                        links[t1].push_back(t2);
+                        links[t2].push_back(t1);
+                    }
+                }
+            }
+        }
+    }
+    
+    std::ofstream out(outputFile);
+    for (size_t i = 0; i < centroids.size(); ++i) {
+        out << "NODE " << centroids[i].x << " " << centroids[i].y << " " << centroids[i].z << "\n";
+        for (int neighbor : links[i]) {
+            out << "LINK " << i << " " << neighbor << "\n";
+        }
+    }
+    std::cout << "[WAYPOINTS] Saved " << centroids.size() << " waypoints to " << outputFile << std::endl;
 }

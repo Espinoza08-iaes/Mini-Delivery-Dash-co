@@ -328,7 +328,7 @@ void DeliveryHUD::RenderSpeedometer(const CarState& car, float maxSpeed)
     }
     
     // Speed text centered inside the dashboard
-    float currentSpeed = std::abs(car.speed);
+    float currentSpeed = std::abs(car.speed) * 15.0f; // Multiplicador mágico para que parezcan KM/H reales
     char speedText[32];
     snprintf(speedText, sizeof(speedText), "%.0f", currentSpeed);
     RenderTextCentered(speedText, centerX, centerY + 3.0f, 1.0f, 1.0f, 1.0f, 3.0f);

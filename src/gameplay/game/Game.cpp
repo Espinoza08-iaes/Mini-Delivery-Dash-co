@@ -7,6 +7,7 @@
 #include "../delivery/DeliveryHUD.h"
 #include "../shop/ShopUI.h"
 #include "../shop/ShopManager.h"
+#include "../traffic/TrafficSystem.h"
 #include "../../engine/graphics/Frustum.h"
 #include "../../engine/audio/AudioEngine.h"
 
@@ -445,6 +446,8 @@ int Game::Run()
         );
         glfwPollEvents();
 
+        city.GenerateWaypoints("res/waypoints.txt");
+
         // Cargar desde archivo si existe, si no usar auto-generación
         menu.RenderLoading(0.90f, "SETTING UP SHADOWS & LIGHTS...");
         std::vector<glm::vec3> lampPositions;
@@ -473,6 +476,9 @@ int Game::Run()
         glfwSetMouseButtonCallback(window, Game::mouse_button_callback);
         glfwSetCursorPosCallback(window, Game::cursor_position_callback);
         std::cout << "[INFO] Shop system initialized" << std::endl;
+        
+        // --- Traffic System ---
+        TrafficSystem trafficSystem(&carModel);
         
         // Set car state reference AFTER car is initialized
         // Will be set in game loop
@@ -527,7 +533,7 @@ int Game::Run()
         int lastCameraHeight = fbH;
 
         DayNightCycle dayNight;
-        bool& useSSAO = globalSettings.ssaoOn;
+        bool& useShadows = globalSettings.shadowsOn;
 
         // Restaurar estado OpenGL tras el menú
         glEnable(GL_DEPTH_TEST);
@@ -670,6 +676,9 @@ int Game::Run()
 
             deliverySystem.Update(dt, car, eKeyJustPressed);
             OrderState currentState = deliverySystem.GetOrderState();
+            
+            // --- Traffic ---
+            trafficSystem.Update(dt, car, city);
 
             // Music change for delivery or waiting for order, depending on status.
             if(currentState != lastOrderState)
@@ -760,19 +769,21 @@ int Game::Run()
             lightProjection[3][1] += dy;
             lightSpaceMatrix = lightProjection * lightView;
 
-            Frustum lightFrustum;
-            lightFrustum.Update(lightSpaceMatrix);
+            if (useShadows) {
+                Frustum lightFrustum;
+                lightFrustum.Update(lightSpaceMatrix);
 
-            shadowShader.Activate();
-            glUniformMatrix4fv(glGetUniformLocation(shadowShader.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+                shadowShader.Activate();
+                glUniformMatrix4fv(glGetUniformLocation(shadowShader.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
 
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(2.5f, 10.0f);
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(2.5f, 10.0f);
 
-            city.Draw(shadowShader, camera, &lightFrustum);
-            carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
+                city.Draw(shadowShader, camera, &lightFrustum);
+                carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
-            glDisable(GL_POLYGON_OFFSET_FILL);
+                glDisable(GL_POLYGON_OFFSET_FILL);
+            }
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             // --- 1b. Resize camera depth texture if window size changed ---
@@ -786,20 +797,7 @@ int Game::Run()
             }
 
             // --- 1c. Render depth of scene from camera's perspective (for SSAO) ---
-            if (useSSAO)
-            {
-                glBindFramebuffer(GL_FRAMEBUFFER, cameraDepthFBO);
-                glViewport(0, 0, camera.width, camera.height);
-                glClear(GL_DEPTH_BUFFER_BIT);
-
-                shadowShader.Activate();
-                camera.Matrix(shadowShader, "lightSpaceMatrix");
-
-                city.Draw(shadowShader, camera, &cameraFrustum);
-                carModel.Draw(shadowShader, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            }
+            // SSAO has been permanently disabled for performance.
 
             // Reset viewport to window size
             SyncCameraToFramebuffer(window, camera);
@@ -852,7 +850,7 @@ int Game::Run()
             glActiveTexture(GL_TEXTURE0 + 12);
             glBindTexture(GL_TEXTURE_2D, cameraDepthMap);
             glUniform1i(glGetUniformLocation(shaderProgram.ID, "uCameraDepthMap"), 12);
-            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uUseSSAO"), useSSAO ? 1 : 0);
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uUseSSAO"), 0);
 
             // --- Street Lamps: encender de noche ---
             float timeOfDay = dayNight.GetTime();
@@ -885,11 +883,19 @@ int Game::Run()
             // Dibujar postes visibles (con test de distancia + frustum culling)
             RenderStreetLamps(lampMesh, lampShader, camera, cameraFrustum, lampPositions, lampStates);
 
+            shaderProgram.Activate();
             city.Draw(shaderProgram, camera, &cameraFrustum);
             carModel.Draw(shaderProgram, camera, BuildCarMatrix(car), car.wheelSpin, car.steering, headlightsOn, braking);
 
             // Render delivery system
             deliverySystem.Render(shaderProgram, camera);
+
+            // Render Traffic system
+            trafficSystem.Render(shaderProgram, camera);
+            
+            // Reset body color override after traffic rendering
+            shaderProgram.Activate();
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uUseBodyColor"), 0);
 
             DrawOcean(waterShader, ocean, camera, currentFrame, skyTint, dayNight);
 
@@ -1055,13 +1061,13 @@ int Game::Run()
             }
             f9WasPressed = f9Pressed;
 
-            // --- O: toggle SSAO ---
+            // --- O: toggle Shadows ---
             static bool oWasPressed = false;
             bool oPressed = glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS;
             if (oPressed && !oWasPressed)
             {
-                useSSAO = !useSSAO;
-                std::cout << "[GAME] SSAO " << (useSSAO ? "ENABLED" : "DISABLED") << std::endl;
+                useShadows = !useShadows;
+                std::cout << "[GAME] SHADOWS " << (useShadows ? "ENABLED" : "DISABLED") << std::endl;
             }
             oWasPressed = oPressed;
         }

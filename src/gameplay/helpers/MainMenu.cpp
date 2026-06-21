@@ -561,7 +561,7 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
             if (settings) {
                 if (overBtn[0]) { settings->musicOn = !settings->musicOn; settingsChanged = true; }
                 if (overBtn[1]) { settings->sfxOn = !settings->sfxOn; settingsChanged = true; }
-                if (overBtn[2]) { settings->ssaoOn = !settings->ssaoOn; settingsChanged = true; }
+                if (overBtn[2]) { settings->shadowsOn = !settings->shadowsOn; settingsChanged = true; }
                 if (overBtn[3]) { settings->hudOn = !settings->hudOn; settingsChanged = true; }
                 if (overBtn[4]) { settings->timeFrozen = !settings->timeFrozen; settingsChanged = true; }
                 if (overBtn[5]) { settings->camDistant = !settings->camDistant; settingsChanged = true; }
@@ -591,11 +591,11 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
         RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
         RenderTextCentered("SETTINGS", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
 
-        const char* labels[6] = { "MUSIC", "SFX", "SSAO", "HUD", "FREEZE TIME", "CAMERA" };
+        const char* labels[6] = { "MUSIC", "SFX", "SHADOWS", "HUD", "FREEZE TIME", "CAMERA" };
         bool states[6] = { true, true, true, true, false, false };
         if (settings) {
             states[0] = settings->musicOn; states[1] = settings->sfxOn;
-            states[2] = settings->ssaoOn; states[3] = settings->hudOn;
+            states[2] = settings->shadowsOn; states[3] = settings->hudOn;
             states[4] = settings->timeFrozen; states[5] = settings->camDistant;
         }
 
@@ -771,7 +771,7 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
         float helpCx = helpRight - helpDisplayW * 0.5f;
         float helpCy = helpTop + helpDisplayH * 0.5f;
 
-        bool helpOver = !pause && IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpDisplayW, helpDisplayH, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
+        bool helpOver = IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpDisplayW, helpDisplayH, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
 
         static bool wasCl = false;
         if (click && !wasCl && !isFadingOut) {
@@ -807,7 +807,7 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             RenderButtonImageFixed(cx, cy[i] + yOff, dw[i] * s, dh[i] * s, texID[i]);
         }
 
-        if (!pause && helpIconTexture)
+        if (helpIconTexture)
         {
             float hs = 1.0f;
             if (helpOver) hs = click ? 0.92f : 1.08f;
