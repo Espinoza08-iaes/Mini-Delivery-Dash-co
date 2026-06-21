@@ -10,9 +10,7 @@
                 "${workspaceFolder}/src",
                 "${workspaceFolder}/third_party",
                 "${workspaceFolder}/third_party/glad/include",
-                "${workspaceFolder}/third_party/GL",
                 "${workspaceFolder}/third_party/GLFW",
-                "${workspaceFolder}/third_party/SOIL2",
                 "${workspaceFolder}/third_party/glm",
                 "${workspaceFolder}/third_party/assimp",
                 "${workspaceFolder}/third_party/stb"

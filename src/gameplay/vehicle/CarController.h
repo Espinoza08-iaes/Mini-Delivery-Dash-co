@@ -37,11 +37,7 @@ struct CarState
 
 glm::mat4 BuildCarMatrix(const CarState& car);
 
-void UpdateCar(
-    GLFWwindow* window,
-    CarState& car,
-    float dt,
-    const City& city);
+void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, int tireMode = 0, bool isRaining = false);
 
 void HandleCarJumpAndRespawn(
     GLFWwindow* window,

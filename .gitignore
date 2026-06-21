@@ -81,4 +81,6 @@ ehthumbs_vista.db
 # assets/
 # res/  # mantener si los recursos son pequeños y deben versionarse
 
+# Runtime generated files
 debug_log.txt
+shop_save.txt

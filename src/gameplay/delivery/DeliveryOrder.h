@@ -42,6 +42,11 @@ struct DeliveryOrder
     float reward;
     float timeLimit;
     float fragileHealth;
+
+    // Tracking variables per order
+    float elapsedTime;
+    int collisionCount;
+    int waterCount;
     
     // Constructor
     DeliveryOrder()
@@ -53,6 +58,9 @@ struct DeliveryOrder
         , reward(0.0f)
         , timeLimit(0.0f)
         , fragileHealth(100.0f)
+        , elapsedTime(0.0f)
+        , collisionCount(0)
+        , waterCount(0)
     {}
 };
 

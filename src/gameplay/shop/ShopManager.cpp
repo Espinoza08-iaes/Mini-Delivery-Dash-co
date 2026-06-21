@@ -15,6 +15,9 @@ ShopManager::ShopManager() : walletBalance(3000)
     abilities[AbilityType::Teleport] = Ability{"Teleport (Key 1)", false, 800};
     abilities[AbilityType::Jump] = Ability{"Jump (Key Z)", false, 600};
     abilities[AbilityType::Turbo] = Ability{"Turbo (Shift)", false, 1000};
+    abilities[AbilityType::NeonUnderglow] = Ability{"Neon Underglow (U)", false, 1200};
+    abilities[AbilityType::TireDrift] = Ability{"Drift Tires (Toggle M)", false, 800};
+    abilities[AbilityType::TireGrip] = Ability{"Grip Tires (Toggle N)", false, 800};
 }
 
 ShopManager *ShopManager::GetInstance()

@@ -214,10 +214,151 @@ bool AudioEngine::LoadMenuMusic(const std::string& filepath)
 
 void AudioEngine::PlayMenuMusic()
 {
+    alSourceStop(menuSource);
+    alSourceRewind(menuSource);
     alSourcePlay(menuSource);
 }
 
 void AudioEngine::StopMenuMusic()
 {
     alSourceStop(menuSource);
+}
+
+// ===============================================
+// Delivery audio methods
+// ===============================================
+
+bool AudioEngine::LoadAmbientMusic(const std::string& filepath)
+{
+    drwav wav;
+
+    if (!drwav_init_file(&wav, filepath.c_str(), nullptr))
+    {
+        std::cout << "[AUDIO] Failed loading WAV: " << filepath << "\n";
+        return false;
+    }
+
+    std::vector<int16_t> samples(wav.totalPCMFrameCount * wav.channels);
+
+    drwav_read_pcm_frames_s16(&wav, wav.totalPCMFrameCount, samples.data());
+
+    ALenum format;
+
+    if (wav.channels == 1)
+        format = AL_FORMAT_MONO16;
+    else
+        format = AL_FORMAT_STEREO16;
+
+    alGenBuffers(1, &ambientBuffer);
+
+    alBufferData(ambientBuffer, format, samples.data(),
+        static_cast<ALsizei>(
+            samples.size() * sizeof(int16_t)),
+        wav.sampleRate);
+
+    alGenSources(1, &ambientSource);
+
+    alSourcei(ambientSource, AL_BUFFER, ambientBuffer);
+
+    alSourcei(ambientSource, AL_LOOPING, AL_TRUE);
+
+    alSourcef(ambientSource, AL_GAIN, 0.2f);
+
+    drwav_uninit(&wav);
+
+    std::cout << "[AUDIO] Loaded: " << filepath << "\n";
+
+    return true;
+}
+
+void AudioEngine::PlayAmbientMusic()
+{
+    ALint state;
+    alGetSourcei(ambientSource, AL_SOURCE_STATE, &state);
+
+    if(state != AL_PLAYING)
+        alSourcePlay(ambientSource);
+}
+
+void AudioEngine::StopAmbientMusic()
+{
+    alSourceStop(ambientSource);
+}
+
+void AudioEngine::SetDeliveryPitch(float pitch)
+{
+    alSourcef(deliverySource, AL_PITCH, pitch);
+}
+
+// ===============================================
+// Delivery audio methods
+// ===============================================
+
+bool AudioEngine::LoadDeliveryMusic(const std::string& filepath)
+{
+    drwav wav;
+
+    if (!drwav_init_file(&wav, filepath.c_str(), nullptr))
+    {
+        std::cout << "[AUDIO] Failed loading WAV: " << filepath << "\n";
+        return false;
+    }
+
+    std::vector<int16_t> samples(wav.totalPCMFrameCount * wav.channels);
+
+    drwav_read_pcm_frames_s16(&wav, wav.totalPCMFrameCount, samples.data());
+
+    ALenum format;
+
+    if (wav.channels == 1)
+        format = AL_FORMAT_MONO16;
+    else
+        format = AL_FORMAT_STEREO16;
+
+    alGenBuffers(1, &deliveryBuffer);
+
+    alBufferData(deliveryBuffer, format, samples.data(),
+        static_cast<ALsizei>(
+            samples.size() * sizeof(int16_t)),
+        wav.sampleRate);
+
+    alGenSources(1, &deliverySource);
+
+    alSourcei(deliverySource, AL_BUFFER, deliveryBuffer);
+
+    alSourcei(deliverySource, AL_LOOPING, AL_TRUE);
+
+    alSourcef(deliverySource, AL_GAIN, 0.2f);
+
+    drwav_uninit(&wav);
+
+    std::cout << "[AUDIO] Loaded: " << filepath << "\n";
+
+    return true;
+}
+
+void AudioEngine::PlayDeliveryMusic()
+{
+    ALint state;
+    alGetSourcei(deliverySource, AL_SOURCE_STATE, &state);
+
+    if(state != AL_PLAYING)
+        alSourcePlay(deliverySource);
+}
+
+void AudioEngine::StopDeliveryMusic()
+{
+    alSourceStop(deliverySource);
+}
+
+void AudioEngine::UpdateVolumes(bool musicOn, bool sfxOn)
+{
+    float musicGain = musicOn ? 0.2f : 0.0f;
+    float sfxGain = sfxOn ? 0.5f : 0.0f;
+
+    alSourcef(menuSource, AL_GAIN, musicGain);
+    alSourcef(ambientSource, AL_GAIN, musicGain);
+    alSourcef(deliverySource, AL_GAIN, musicGain);
+
+    alSourcef(engineSource, AL_GAIN, sfxGain);
 }

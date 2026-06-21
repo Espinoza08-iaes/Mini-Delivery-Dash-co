@@ -17,9 +17,9 @@ public:
     AudioEngine();
     ~AudioEngine();
     
-    //======================================
+    //========================================================
     // Engine audio
-    //======================================
+    //========================================================
 
     bool Initialize();
 
@@ -33,15 +33,35 @@ public:
 
     void Shutdown();
 
-    //======================================
+    //========================================================
     // Menu audio
-    //======================================
+    //========================================================
 
     bool LoadMenuMusic(const std::string& filepath);
 
     void PlayMenuMusic();
 
     void StopMenuMusic();
+
+    //========================================================
+    // Delivery audio
+    //========================================================
+
+    bool LoadDeliveryMusic(const std::string& filepath);
+    void PlayDeliveryMusic();
+    void StopDeliveryMusic();
+
+    void SetDeliveryPitch(float pitch);
+    
+    //========================================================
+    // Ambient audio
+    //========================================================
+
+    bool LoadAmbientMusic(const std::string& filepath);
+    void PlayAmbientMusic();
+    void StopAmbientMusic();    
+    
+    void UpdateVolumes(bool musicOn, bool sfxOn);
 
 private:
 
@@ -55,4 +75,10 @@ private:
 
     ALuint menuBuffer = 0;
     ALuint menuSource = 0;
+
+    ALuint ambientBuffer = 0;
+    ALuint ambientSource = 0;
+
+    ALuint deliveryBuffer = 0; 
+    ALuint deliverySource = 0;
 };

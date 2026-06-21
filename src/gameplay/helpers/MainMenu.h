@@ -5,15 +5,25 @@
 
 struct GLFWwindow;
 
+struct GameSettings {
+    bool musicOn = true;
+    bool sfxOn = true;
+    bool ssaoOn = true;
+    bool hudOn = true;
+    bool timeFrozen = false;
+    bool camDistant = false;
+};
+
 class MainMenu
 {
 public:
     MainMenu(GLFWwindow* window, int screenWidth, int screenHeight);
     ~MainMenu();
 
-    enum class Result { Play, Quit, None, HowToPlay, Shop };
+    enum class Result { Play, Quit, None, HowToPlay, Shop, Settings, SettingsChanged };
 
-    Result Show(bool showPause = false);
+    Result Show(bool showPause = false, GameSettings* settings = nullptr);
+    unsigned int GetCapturedBackground() const { return capturedBg; }
     void SetPauseBackground(unsigned int texture);
     void RenderLoading(float progress, const char* message);
 
@@ -32,10 +42,16 @@ private:
     unsigned int textProgram = 0;
 
     // Background texture (main menu and HowToPlay)
+    unsigned int capturedBg = 0;
     unsigned int backgroundTexture = 0;
     int bgTexWidth = 0;
     int bgTexHeight = 0;
     unsigned int pauseBackgroundTexture = 0;
+
+    // Decorative panel art shown behind the pause menu buttons (separate from the
+    // live captured game frame in pauseBackgroundTexture)
+    unsigned int pauseDecorTexture = 0;
+    int pauseDecorTexWidth = 0, pauseDecorTexHeight = 0;
 
     // Button textures + alpha for pixel‑perfect hit detection
     unsigned int playTexture = 0;
@@ -53,6 +69,15 @@ private:
     unsigned int shopTexture = 0;
     int shopTexWidth = 0, shopTexHeight = 0;
     std::vector<unsigned char> shopAlpha;
+
+    unsigned int settingsTexture = 0;
+    int settingsTexWidth = 0, settingsTexHeight = 0;
+    std::vector<unsigned char> settingsAlpha;
+
+    // Small "?" how-to-play corner icon
+    unsigned int helpIconTexture = 0;
+    int helpIconTexWidth = 0, helpIconTexHeight = 0;
+    std::vector<unsigned char> helpIconAlpha;
 
     unsigned int exitTexture = 0;
     int exitTexWidth = 0, exitTexHeight = 0;
@@ -75,6 +100,7 @@ private:
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.5f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.5f);
     void RenderButtonImage(float cx, float cy, float maxW, unsigned int tex, int tw, int th);
+    void RenderButtonImageFixed(float cx, float cy, float w, float h, unsigned int tex);
     void RenderBackgroundImage(float fbW, float fbH, float timeVal = 0.0f);
     void RenderClouds(float fbW, float fbH, float timeVal);
 
@@ -82,7 +108,8 @@ private:
     bool PointInRect(float px, float py, float rx, float ry, float rw, float rh);
 
     // Sub‑menu
-    void ShowHowToPlay();
+    void ShowHowToPlay(unsigned int bgTex = 0);
+    Result ShowSettings(unsigned int bgTex = 0, GameSettings* settings = nullptr);
 };
 
 #endif

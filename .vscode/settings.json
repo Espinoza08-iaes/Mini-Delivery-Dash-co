@@ -1,7 +1,7 @@
 {
     "cmake.ignoreCMakeListsMissing": true,
     "cmake.configureArgs": [
-        "-DGLFW_LIBRARY=${workspaceFolder}/third_party/GLFW/lib/libglfw3.dll.a",
+        "-DGLFW_LIBRARY=${workspaceFolder}/third_party/GLFW/lib/libglfw3.a",
         "-DGLFW_INCLUDE_DIR=${workspaceFolder}/third_party/GLFW/include",
         
         "-DASSIMP_LIBRARY=${workspaceFolder}/third_party/assimp/lib/libassimp.dll.a",

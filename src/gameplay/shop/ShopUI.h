@@ -40,6 +40,7 @@ private:
     ShopManager* shopManager;
     CarState* carState;  // Referencia al estado del carro
     bool isVisible;
+    unsigned int backgroundTexture = 0;
     
     unsigned int quadVAO, quadVBO;
     unsigned int textVAO, textVBO;
@@ -76,6 +77,7 @@ public:
     void Toggle();
     void Update();
     bool IsVisible() const { return isVisible; }
+    void SetBackgroundTexture(unsigned int tex) { backgroundTexture = tex; }
 
     void Render();
     void ProcessMouseClick(double mouseX, double mouseY);

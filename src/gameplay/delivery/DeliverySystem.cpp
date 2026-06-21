@@ -20,8 +20,6 @@ DeliverySystem::DeliverySystem()
     , packageAnimationDuration(0.5f)
     , isAnimatingPackage(false)
     , walletBalance(0.0f)
-    , orderElapsedTime(0.0f)
-    , collisionCount(0)
     , totalLoss(0.0f)
     , initialReward(0.0f)
     , finalElapsedTime(0.0f)
@@ -43,7 +41,20 @@ void DeliverySystem::Initialize()
 
 void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPressed)
 {
-    // Update package animation
+    // Handle waiting after delivery (Success Screen Pause)
+    if (lastDeliveredOrder.state == OrderState::DELIVERED)
+    {
+        lastDeliveredOrder.elapsedTime += deltaTime;
+        // Minimum 1.5s before can close
+        if (lastDeliveredOrder.elapsedTime > 1.5f && eKeyPressed)
+        {
+            lastDeliveredOrder.state = OrderState::WAITING; // clear state
+            std::cout << "[DELIVERY] Closed success screen, resuming active deliveries." << std::endl;
+        }
+        // Do not update other timers while paused on success screen
+        return;
+    }
+
     if (isAnimatingPackage)
     {
         packageAnimationTime += deltaTime;
@@ -52,265 +63,201 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             packageAnimationTime = packageAnimationDuration;
             isAnimatingPackage = false;
         }
-        
         float t = packageAnimationTime / packageAnimationDuration;
-        // Smooth step interpolation
         float smoothT = t * t * (3.0f - 2.0f * t);
-        glm::vec3 currentPos = glm::mix(packageAnimationStart, packageAnimationEnd, smoothT);
-        package.SetPosition(currentPos);
+        package.SetPosition(glm::mix(packageAnimationStart, packageAnimationEnd, smoothT));
     }
     
-    // Update order state based on car position and speed
-    if (currentOrder.state == OrderState::WAITING)
+    // Check pickup
+    if (activeOrders.size() < 3 && waitingOrder.state == OrderState::WAITING)
     {
         if (TryPickupOrder(car) && eKeyPressed)
         {
-            // Start pickup animation
-            packageAnimationStart = currentOrder.originPosition;
+            packageAnimationStart = waitingOrder.originPosition;
             packageAnimationEnd = car.position + glm::vec3(0.0f, 1.0f, 0.0f);
             packageAnimationTime = 0.0f;
             isAnimatingPackage = true;
             
-            currentOrder.state = OrderState::PICKED_UP;
-            orderElapsedTime = 0.0f;
-            collisionCount = 0;
+            waitingOrder.state = OrderState::PICKED_UP;
+            waitingOrder.elapsedTime = 0.0f;
+            waitingOrder.collisionCount = 0;
+            waitingOrder.waterCount = 0;
+            
+            activeOrders.push_back(waitingOrder);
+            GenerateNewOrder();
         }
     }
-    else if (currentOrder.state == OrderState::PICKED_UP)
-    {
-        // FIX BUG 5: The internal clock ONLY advances if not yet delivered
-        orderElapsedTime += deltaTime;
 
-        // FIX BUG 4: Update star tracking for HUD - respect time thresholds
-        if (orderElapsedTime <= timeStar3) { currentStars = 3; currentTargetTime = timeStar3; }
-        else if (orderElapsedTime <= timeStar2) { currentStars = 2; currentTargetTime = timeStar2; }
-        else if (orderElapsedTime <= timeStar1) { currentStars = 1; currentTargetTime = timeStar1; }
+    float speedKmh = std::abs(car.speed) * 3.6f;
+    static float lastSpeed = speedKmh;
+    float speedChange = std::abs(lastSpeed - speedKmh);
+    bool hadSignificantCollision = (speedChange > 15.0f && lastSpeed > 15.0f);
+    lastSpeed = speedKmh;
+    
+    if (hadSignificantCollision && mIgnoreNextCollision) {
+        mIgnoreNextCollision = false;
+        hadSignificantCollision = false;
+    }
+
+    for (auto it = activeOrders.begin(); it != activeOrders.end(); )
+    {
+        DeliveryOrder& order = *it;
+        order.elapsedTime += deltaTime;
+        
+        // Update star tracking for HUD (based on this order's time)
+        if (order.elapsedTime <= timeStar3) { currentStars = 3; currentTargetTime = timeStar3; }
+        else if (order.elapsedTime <= timeStar2) { currentStars = 2; currentTargetTime = timeStar2; }
+        else if (order.elapsedTime <= timeStar1) { currentStars = 1; currentTargetTime = timeStar1; }
         else { currentStars = 0; currentTargetTime = timeStar0; }
         
-        // FIX BUG 4: Fragile health ONLY reduces from physical collisions, NEVER from time
-        static bool wasColliding = false;
-        float speedKmh = std::abs(car.speed) * 3.6f;
-        static float lastSpeed = speedKmh;
-        float speedChange = std::abs(lastSpeed - speedKmh);
-        
-        if (speedChange > 15.0f && lastSpeed > 15.0f) // Significant deceleration at speed
+        if (hadSignificantCollision)
         {
-            if (mIgnoreNextCollision)
-            {
-                // Was a water respawn, not real collision
-                mIgnoreNextCollision = false;
-            }
-            else
-            {
-                collisionCount++;
-                if (currentOrder.type == OrderType::FRAGILE)
-                {
-                    currentOrder.fragileHealth -= 15.0f;
-                    if (currentOrder.fragileHealth <= 0.0f)
-                    {
-                        currentOrder.fragileHealth = 0.0f;
-                        currentOrder.state = OrderState::FAILED;
-                        std::cout << "[DELIVERY] Paquete destruido por choque!" << std::endl;
-                        GenerateNewOrder();
-                    }
-                }
-            }
+            order.collisionCount++;
+            if (order.type == OrderType::FRAGILE) order.fragileHealth -= 15.0f;
         }
-        lastSpeed = speedKmh;
         
-        // Sync Health with Economy (for non-fragile packages)
-        if (currentOrder.type != OrderType::FRAGILE)
+        if (order.type == OrderType::FRAGILE && speedKmh > 30.0f)
+            order.fragileHealth -= deltaTime * 5.0f;
+        
+        if (order.type != OrderType::FRAGILE)
         {
             float b, bon, pC, pW, pT;
-            CalculateDetailedRewards(b, bon, pC, pW, pT);
+            CalculateDetailedRewards(order, b, bon, pC, pW, pT);
             float totalPenalties = pC + pW + pT;
-            
-            // Health drops exactly in the same percentage as money lost
-            currentOrder.fragileHealth = 100.0f * (1.0f - (totalPenalties / b));
-            if (currentOrder.fragileHealth < 0.0f) currentOrder.fragileHealth = 0.0f;
-            
-            if (currentOrder.fragileHealth <= 0.0f)
-            {
-                currentOrder.state = OrderState::FAILED;
-                std::cout << "[DELIVERY] Paquete destruido!" << std::endl;
-                GenerateNewOrder();
-            }
+            order.fragileHealth = 100.0f * (1.0f - (totalPenalties / b));
         }
         
-        if (TryDeliverOrder(car) && eKeyPressed)
+        if (order.fragileHealth < 0.0f) order.fragileHealth = 0.0f;
+        
+        if (order.fragileHealth <= 0.0f)
+        {
+            std::cout << "[DELIVERY] Paquete destruido!" << std::endl;
+            it = activeOrders.erase(it);
+            continue;
+        }
+        
+        bool nearDelivery = IsCarNearPoint(car.position, order.destinationPosition, deliveryDistanceThreshold);
+        if (nearDelivery && IsCarSpeedLow(car.speed, maxPickupSpeedKmh) && eKeyPressed)
         {
             float base, bonus, penCol, penWat, penTime;
-            CalculateDetailedRewards(base, bonus, penCol, penWat, penTime);
+            CalculateDetailedRewards(order, base, bonus, penCol, penWat, penTime);
             
-            // Save breakdown for final screen
             finalBonusAmount = bonus;
             finalLossCollision = penCol;
             finalLossWater = penWat;
             finalLossTime = penTime;
-            finalElapsedTime = orderElapsedTime; // FIX BUG 5: Save frozen elapsed time
+            finalElapsedTime = order.elapsedTime;
             
-            // Apply PayPerDelivery upgrade multiplier from shop
             ShopManager* shop = ShopManager::GetInstance();
             float payMultiplier = shop->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
             
             float finalReward = (base + bonus - penCol - penWat - penTime) * payMultiplier;
-            totalLoss = initialReward - finalReward;
+            totalLoss = base - finalReward; 
             AddToWallet(finalReward);
             
-            // Add money to shop system and save progress
             shop->AddMoney(static_cast<int>(finalReward));
             shop->SaveShopData();
             
-            // Save final reward to display on screen
-            currentOrder.reward = finalReward;
-            currentOrder.state = OrderState::DELIVERED;
-            orderElapsedTime = 0.0f; // FIX 2: Reset to use as timer for screen
+            order.reward = finalReward;
+            order.state = OrderState::DELIVERED;
             
-            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward << " (x" << payMultiplier << ") Loss: $" << totalLoss << std::endl;
+            lastDeliveredOrder = order;
+            lastDeliveredOrder.elapsedTime = 0.0f; // For screen
+            
+            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward << std::endl;
+            
+            it = activeOrders.erase(it);
+            continue;
         }
         
-        // Update fragile health based on speed for fragile packages only
-        if (currentOrder.type == OrderType::FRAGILE)
-        {
-            if (speedKmh > 30.0f)
-            {
-                currentOrder.fragileHealth -= deltaTime * 5.0f;
-                if (currentOrder.fragileHealth <= 0.0f)
-                {
-                    currentOrder.state = OrderState::FAILED;
-                    std::cout << "[DELIVERY] Package destroyed by high speed!" << std::endl;
-                    GenerateNewOrder();
-                }
-            }
-        }
-        
-        // Check time limit (don't auto-cancel, just penalize)
-        if (orderElapsedTime > currentOrder.timeLimit)
-        {
-            // Time expired - will be penalized in reward calculation
-        }
-    }
-    // Handle waiting after delivery
-    else if (currentOrder.state == OrderState::DELIVERED)
-    {
-        orderElapsedTime += deltaTime;
-        // Minimum 1.5s before can close (prevents same E from delivery from closing it)
-        // Then only closes if player presses E
-        if (orderElapsedTime > 1.5f && eKeyPressed)
-        {
-            GenerateNewOrder();
-        }
+        ++it;
     }
 }
 
 void DeliverySystem::Render(Shader& shader, Camera& camera)
 {
-    // Don't render if coordinates are invalid (no mission)
-    if (currentOrder.originPosition.x > 10000.0f || currentOrder.destinationPosition.x > 10000.0f)
-        return;
-    
-    // Create zone marker mesh locally
-    Mesh zoneMarkerMesh = CreateZoneMarkerMesh();
-    
-    // Get current time for animation
     float currentTime = static_cast<float>(glfwGetTime());
-    
-    // Determine zone color based on state
     glm::vec3 pickupColor = glm::vec3(1.0f, 0.8f, 0.0f); // Yellow for pickup
     glm::vec3 deliveryColor = glm::vec3(0.0f, 1.0f, 0.3f); // Green for delivery
     
-    // Determine zone color based on state
-    glm::vec3 zoneColor;
-    if (currentOrder.state == OrderState::WAITING)
+    // Render waiting order
+    if (activeOrders.size() < 3 && waitingOrder.state == OrderState::WAITING)
     {
-        zoneColor = glm::vec3(0.0f, 1.0f, 0.3f); // Bright green for pickup
-    }
-    else
-    {
-        zoneColor = glm::vec3(0.0f, 0.7f, 1.0f); // Neon blue for delivery
-    }
-    
-    // Render zone marker at origin position when waiting
-    if (currentOrder.state == OrderState::WAITING)
-    {
+        Mesh zoneMarkerMesh = CreateZoneMarkerMesh();
         zoneShader.Activate();
         
-        // Set uniforms
-        glm::mat4 zoneModel = glm::translate(glm::mat4(1.0f), currentOrder.originPosition);
+        glm::mat4 zoneModel = glm::translate(glm::mat4(1.0f), waitingOrder.originPosition);
         glUniformMatrix4fv(glGetUniformLocation(zoneShader.ID, "model"), 1, GL_FALSE, glm::value_ptr(zoneModel));
         glUniform1f(glGetUniformLocation(zoneShader.ID, "uTime"), currentTime);
+        
+        glm::vec3 zoneColor = glm::vec3(0.0f, 0.8f, 1.0f); // Cyan
         glUniform3fv(glGetUniformLocation(zoneShader.ID, "uZoneColor"), 1, glm::value_ptr(zoneColor));
-        
-        // Use camera's matrix method to set cameraMatrix uniform
         camera.Matrix(zoneShader, "cameraMatrix");
-        
         zoneMarkerMesh.Draw(zoneShader, camera, zoneModel);
         
-        // Render "MISIÓN" text above the pillar
-        RenderZoneText(shader, camera, currentOrder.originPosition, "MISION", pickupColor);
+        RenderZoneText(shader, camera, waitingOrder.originPosition, "MISION", zoneColor);
         
-        // Render package at origin position with default shader
         shader.Activate();
+        package.SetPosition(waitingOrder.originPosition);
         package.Render(shader, camera);
     }
-    // Render zone marker at destination position when picked up
-    else if (currentOrder.state == OrderState::PICKED_UP)
+    
+    // Render active orders
+    if (!activeOrders.empty())
     {
-        zoneShader.Activate();
-        
-        // Set uniforms
-        glm::mat4 zoneModel = glm::translate(glm::mat4(1.0f), currentOrder.destinationPosition);
-        glUniformMatrix4fv(glGetUniformLocation(zoneShader.ID, "model"), 1, GL_FALSE, glm::value_ptr(zoneModel));
-        glUniform1f(glGetUniformLocation(zoneShader.ID, "uTime"), currentTime);
-        glUniform3fv(glGetUniformLocation(zoneShader.ID, "uZoneColor"), 1, glm::value_ptr(zoneColor));
-        
-        // Use camera's matrix method to set cameraMatrix uniform
-        camera.Matrix(zoneShader, "cameraMatrix");
-        
-        zoneMarkerMesh.Draw(zoneShader, camera, zoneModel);
-        
-        // Render "ENTREGAR" text above the pillar
-        RenderZoneText(shader, camera, currentOrder.destinationPosition, "ENTREGAR", deliveryColor);
-        
-        // Render package (animated or following car) with default shader
-        shader.Activate();
-        if (isAnimatingPackage)
-        {
-            package.Render(shader, camera);
+        glm::vec3 carPos = camera.Position;
+        std::vector<std::pair<float, size_t>> dists;
+        for (size_t i = 0; i < activeOrders.size(); ++i) {
+            dists.push_back({glm::length(carPos - activeOrders[i].destinationPosition), i});
         }
+        std::sort(dists.begin(), dists.end(), [](const std::pair<float, size_t>& a, const std::pair<float, size_t>& b) {
+            return a.first < b.first;
+        });
+        
+        std::vector<glm::vec3> orderColors(activeOrders.size());
+        for (size_t i = 0; i < dists.size(); ++i) {
+            if (i == 0) orderColors[dists[i].second] = glm::vec3(0.0f, 1.0f, 0.3f); // Green
+            else if (i == 1) orderColors[dists[i].second] = glm::vec3(1.0f, 0.8f, 0.0f); // Yellow
+            else orderColors[dists[i].second] = glm::vec3(1.0f, 0.2f, 0.2f); // Red
+        }
+
+        for (size_t i = 0; i < activeOrders.size(); ++i)
+        {
+            Mesh zoneMarkerMesh = CreateZoneMarkerMesh();
+            zoneShader.Activate();
+            
+            glm::mat4 zoneModel = glm::translate(glm::mat4(1.0f), activeOrders[i].destinationPosition);
+            glUniformMatrix4fv(glGetUniformLocation(zoneShader.ID, "model"), 1, GL_FALSE, glm::value_ptr(zoneModel));
+            glUniform1f(glGetUniformLocation(zoneShader.ID, "uTime"), currentTime);
+            
+            glm::vec3 zoneColor = orderColors[i];
+            glUniform3fv(glGetUniformLocation(zoneShader.ID, "uZoneColor"), 1, glm::value_ptr(zoneColor));
+            camera.Matrix(zoneShader, "cameraMatrix");
+            zoneMarkerMesh.Draw(zoneShader, camera, zoneModel);
+            
+            RenderZoneText(shader, camera, activeOrders[i].destinationPosition, "ENTREGAR", zoneColor);
+        }
+    }
+    
+    // Render animated package
+    if (isAnimatingPackage)
+    {
+        shader.Activate();
+        package.Render(shader, camera);
     }
 }
 
 bool DeliverySystem::TryPickupOrder(const CarState& car)
 {
-    if (currentOrder.state != OrderState::WAITING)
-        return false;
-    
-    // Check if car is near origin point
-    if (!IsCarNearPoint(car.position, currentOrder.originPosition, pickupDistanceThreshold))
-        return false;
-    
-    // Check if car speed is low enough (< 5 km/h)
-    if (!IsCarSpeedLow(car.speed, maxPickupSpeedKmh))
-        return false;
-    
-    return true;
+    if (activeOrders.size() >= 3 || waitingOrder.state != OrderState::WAITING) return false;
+    if (!IsCarNearPoint(car.position, waitingOrder.originPosition, pickupDistanceThreshold)) return false;
+    return IsCarSpeedLow(car.speed, maxPickupSpeedKmh);
 }
 
 bool DeliverySystem::TryDeliverOrder(const CarState& car)
 {
-    if (currentOrder.state != OrderState::PICKED_UP)
-        return false;
-    
-    // Check if car is near destination point
-    if (!IsCarNearPoint(car.position, currentOrder.destinationPosition, deliveryDistanceThreshold))
-        return false;
-    
-    // Check if car speed is low enough
-    if (!IsCarSpeedLow(car.speed, maxPickupSpeedKmh))
-        return false;
-    
-    return true;
+    // Now handled in Update loop iteration
+    return false;
 }
 
 void DeliverySystem::LoadDeliveryZones()
@@ -500,53 +447,45 @@ Mesh DeliverySystem::CreateZoneMarkerMesh()
     return Mesh(vertices, indices, textures);
 }
 
+const DeliveryOrder* DeliverySystem::GetClosestActiveOrder(const glm::vec3& carPos) const
+{
+    if (activeOrders.empty()) return nullptr;
+    
+    const DeliveryOrder* closest = &activeOrders[0];
+    float minDist = glm::length(carPos - closest->destinationPosition);
+    
+    for (size_t i = 1; i < activeOrders.size(); ++i)
+    {
+        float dist = glm::length(carPos - activeOrders[i].destinationPosition);
+        if (dist < minDist)
+        {
+            minDist = dist;
+            closest = &activeOrders[i];
+        }
+    }
+    return closest;
+}
+
 glm::vec3 DeliverySystem::GetObjectivePosition() const
 {
-    if (currentOrder.state == OrderState::WAITING)
-        return currentOrder.originPosition;
-    else if (currentOrder.state == OrderState::PICKED_UP)
-        return currentOrder.destinationPosition;
-    else
-        return glm::vec3(0.0f);
+    if (!activeOrders.empty())
+    {
+        return activeOrders[0].destinationPosition; // For simple objective fallback
+    }
+    return waitingOrder.originPosition;
 }
 
 float DeliverySystem::GetDistanceToObjective(const CarState& car) const
 {
-    glm::vec3 objective = GetObjectivePosition();
-    return glm::length(car.position - objective);
+    if (!activeOrders.empty())
+    {
+        const DeliveryOrder* closest = GetClosestActiveOrder(car.position);
+        if (closest) return glm::length(car.position - closest->destinationPosition);
+    }
+    return glm::length(car.position - waitingOrder.originPosition);
 }
 
-float DeliverySystem::CalculateReward() const
-{
-    // Use the same detailed calculation system for consistency
-    float base, bonus, penCol, penWat, penTime;
-    CalculateDetailedRewards(base, bonus, penCol, penWat, penTime);
-    float finalReward = base + bonus - penCol - penWat - penTime;
-    
-    // Also apply health percentage for fragile packages
-    float healthPercentage = currentOrder.fragileHealth / 100.0f;
-    finalReward *= healthPercentage;
-    
-    return std::max(finalReward, 0.0f); // Ensure reward is not negative
-}
 
-float DeliverySystem::CalculateEstimatedReward() const
-{
-    float base, bonus, penCol, penWat, penTime;
-    CalculateDetailedRewards(base, bonus, penCol, penWat, penTime);
-    float reward = base + bonus - penCol - penWat - penTime;
-    return std::max(reward, 0.0f);
-}
-
-float DeliverySystem::CalculateCollisionLoss() const
-{
-    // Use the same function as final calculation for consistency
-    float base, bonus, penCol, penWat, penTime;
-    CalculateDetailedRewards(base, bonus, penCol, penWat, penTime);
-    float totalLoss = penCol + penWat + penTime;
-    float maxLoss   = base + bonus;
-    return std::min(totalLoss, maxLoss); // never exceeds maximum gain
-}
 
 void DeliverySystem::GenerateNewOrder()
 {
@@ -584,19 +523,19 @@ void DeliverySystem::GenerateNewOrder()
     int deliveryIndex = std::rand() % pickupZone.deliveryPositions.size();
     glm::vec3 deliveryPosition = pickupZone.deliveryPositions[deliveryIndex];
     
-    currentOrder.originPosition = pickupZone.position;
-    currentOrder.destinationPosition = deliveryPosition;
-    currentOrder.state = OrderState::WAITING;
+    waitingOrder.originPosition = pickupZone.position;
+    waitingOrder.destinationPosition = deliveryPosition;
+    waitingOrder.state = OrderState::WAITING;
     
     // Store which pickup zone this order belongs to
     currentOrderZoneIndex = pickupIndex;
     
     // Random difficulty (0-3 for 4 difficulty levels)
     int difficultyRoll = std::rand() % 4;
-    currentOrder.difficulty = static_cast<OrderDifficulty>(difficultyRoll);
+    waitingOrder.difficulty = static_cast<OrderDifficulty>(difficultyRoll);
     
     // Calculate distance for reward calculation
-    float distance = glm::length(currentOrder.destinationPosition - currentOrder.originPosition);
+    float distance = glm::length(waitingOrder.destinationPosition - waitingOrder.originPosition);
     
     // Calculate time thresholds for star system based on distance
     float baseTime = distance / 5.0f;
@@ -607,50 +546,50 @@ void DeliverySystem::GenerateNewOrder()
     timeStar1 = timeStar2 * 1.5f;
     timeStar0 = timeStar1 * 1.5f; // Maximum limit to fail
     
-    currentOrder.timeLimit = timeStar0;
+    waitingOrder.timeLimit = timeStar0;
     
     // Base reward (reduced for balance)
     initialReward = 35.0f + (distance * 0.35f);
-    if (currentOrder.difficulty == OrderDifficulty::HARD) initialReward *= 1.8f;
+    if (waitingOrder.difficulty == OrderDifficulty::HARD) initialReward *= 1.8f;
     
     // Set reward and type based on difficulty
-    switch (currentOrder.difficulty)
+    switch (waitingOrder.difficulty)
     {
         case OrderDifficulty::EASY:
-            currentOrder.type = OrderType::STANDARD;
-            currentOrder.reward = initialReward; // Base reward for inspection
+            waitingOrder.type = OrderType::STANDARD;
+            waitingOrder.reward = initialReward; // Base reward for inspection
             break;
         case OrderDifficulty::MEDIUM:
-            currentOrder.type = OrderType::STANDARD;
-            currentOrder.reward = initialReward; // Base reward for inspection
+            waitingOrder.type = OrderType::STANDARD;
+            waitingOrder.reward = initialReward; // Base reward for inspection
             break;
         case OrderDifficulty::HARD:
-            currentOrder.type = OrderType::EXPRESS;
-            currentOrder.reward = initialReward; // Base reward for inspection
+            waitingOrder.type = OrderType::EXPRESS;
+            waitingOrder.reward = initialReward; // Base reward for inspection
             break;
         case OrderDifficulty::SPECIAL:
-            currentOrder.type = OrderType::FRAGILE; // Special orders are always fragile
-            currentOrder.reward = initialReward * 1.5f; // Higher base for special
-            initialReward = currentOrder.reward; // Sync initialReward with the higher value
+            waitingOrder.type = OrderType::FRAGILE; // Special orders are always fragile
+            waitingOrder.reward = initialReward * 1.5f; // Higher base for special
+            initialReward = waitingOrder.reward; // Sync initialReward with the higher value
             break;
     }
     
     // Reset fragile health
-    currentOrder.fragileHealth = 100.0f;
+    waitingOrder.fragileHealth = 100.0f;
     
     // Reset counters
-    waterCount = 0;
-    collisionCount = 0;
-    orderElapsedTime = 0.0f;
+    waitingOrder.waterCount = 0;
+    waitingOrder.collisionCount = 0;
+    waitingOrder.elapsedTime = 0.0f;
     currentStars = 3;
     currentTargetTime = timeStar3;
     totalLoss = 0.0f;
     
     // Initialize package at origin position
-    package = Paquete(currentOrder.originPosition);
+    package = Paquete(waitingOrder.originPosition);
     package.SetScale(glm::vec3(0.5f));
     
-    std::cout << "[DELIVERY] New order generated. Distance: " << distance << "m, Reward: $" << currentOrder.reward << std::endl;
+    std::cout << "[DELIVERY] New order generated. Distance: " << distance << "m, Reward: $" << waitingOrder.reward << std::endl;
 }
 
 void DeliverySystem::RejectOrder(const CarState& car)
@@ -661,71 +600,58 @@ void DeliverySystem::RejectOrder(const CarState& car)
 
 void DeliverySystem::OnWaterRespawn()
 {
-    mIgnoreNextCollision = true; // FIX 3: Set flag BEFORE the rest
+    mIgnoreNextCollision = true; 
 
-    if (currentOrder.state == OrderState::PICKED_UP)
+    for (auto& order : activeOrders)
     {
-        waterCount++;
-        if (currentOrder.type == OrderType::FRAGILE)
+        order.waterCount++;
+        if (order.type == OrderType::FRAGILE)
         {
-            currentOrder.fragileHealth -= 50.0f;
-            if (currentOrder.fragileHealth <= 0.0f)
-            {
-                currentOrder.fragileHealth = 0.0f;
-                currentOrder.state = OrderState::FAILED;
-                std::cout << "[DELIVERY] Paquete destruido por agua!" << std::endl;
-                GenerateNewOrder();
-            }
+            order.fragileHealth -= 50.0f;
+            // The loop in Update will kill it if it reaches 0
         }
     }
 }
 
-void DeliverySystem::CalculateDetailedRewards(float& base, float& bonus, float& penCol, float& penWat, float& penTime) const
+void DeliverySystem::CalculateDetailedRewards(const DeliveryOrder& order, float& base, float& bonus, float& penCol, float& penWat, float& penTime) const
 {
-    base = initialReward;
+    base = initialReward; // Might be incorrect if multiple orders have different bases, but sticking to existing logic
+    // Wait, initialReward was global. We should use order.reward base or recalculate it.
+    // For now we use the order.reward as the base if it hasn't been modified, but the system modifies it...
+    // Actually, order.reward IS the initialReward calculated in GenerateNewOrder.
+    base = order.reward;
     bonus = 0.0f;
     penCol = 0.0f;
     penWat = 0.0f;
     penTime = 0.0f;
     
-    // Strict bonus assignment based on time (without penalizing health or money yet)
-    if (orderElapsedTime <= timeStar3) bonus = base * 0.50f;
-    else if (orderElapsedTime <= timeStar2) bonus = base * 0.25f;
-    else if (orderElapsedTime <= timeStar1) bonus = 0.0f;
+    if (order.elapsedTime <= timeStar3) bonus = base * 0.50f;
+    else if (order.elapsedTime <= timeStar2) bonus = base * 0.25f;
+    else if (order.elapsedTime <= timeStar1) bonus = 0.0f;
     
-    // Calculate real damage based on counters and package type
-    // Use same percentages for fragile or standard, since Fragile has added risk of failing mission if health reaches 0, but economically loses the same
-    penCol = collisionCount * (base * 0.15f); // 15% per collision
-    penWat = waterCount * (base * 0.30f);     // 30% per water fall
+    penCol = order.collisionCount * (base * 0.15f);
+    penWat = order.waterCount * (base * 0.30f);
     
-    // Add speed damage penalty for fragile packages
-    if (currentOrder.type == OrderType::FRAGILE)
+    if (order.type == OrderType::FRAGILE)
     {
-        float healthLost = 100.0f - currentOrder.fragileHealth;
+        float healthLost = 100.0f - order.fragileHealth;
         if (healthLost > 0.0f)
         {
-            // Calculate how much of the health loss is from speed (not from collisions or water)
-            // Assume each collision does ~15 damage and water does 50, so remaining is from speed
-            float expectedHealthLoss = collisionCount * 15.0f + waterCount * 50.0f;
+            float expectedHealthLoss = order.collisionCount * 15.0f + order.waterCount * 50.0f;
             float speedHealthLoss = std::max(0.0f, healthLost - expectedHealthLoss);
-            
-            // Convert speed health loss to monetary penalty (1% health loss = 1% of base reward)
             penCol += (speedHealthLoss / 100.0f) * base;
         }
     }
     
-    // Time penalty ONLY applies if passes DOUBLE the time of 1 star
     float limiteDoble = timeStar1 * 2.0f;
-    if (orderElapsedTime > limiteDoble) {
-        penTime = base * 0.50f; // Penalize 50% extra only if took too long
+    if (order.elapsedTime > limiteDoble) {
+        penTime = base * 0.50f;
     }
 
-    // STRICT CLAMP: Losses can NEVER exceed maximum gain
     float gananciaTotal = base + bonus;
     float perdidasTotales = penCol + penWat + penTime;
     
     if (perdidasTotales > gananciaTotal) {
-        // Make proportional reduction so visual loss matches what was deducted
         float factor = gananciaTotal / perdidasTotales;
         penCol *= factor;
         penWat *= factor;

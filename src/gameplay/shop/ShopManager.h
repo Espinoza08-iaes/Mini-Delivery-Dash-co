@@ -15,7 +15,10 @@ enum class UpgradeType {
 enum class AbilityType {
     Teleport,
     Jump,
-    Turbo
+    Turbo,
+    NeonUnderglow,
+    TireDrift,
+    TireGrip
 };
 
 struct Upgrade {
