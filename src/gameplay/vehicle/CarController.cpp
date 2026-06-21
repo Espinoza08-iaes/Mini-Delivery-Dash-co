@@ -63,12 +63,12 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
     const float baseSteeringReturn = 8.0f;
     
     // Apply upgrades
-    float acceleration = (isBoosting ? baseAcceleration * 2.5f : baseAcceleration) * accelMult;
+    float acceleration = baseAcceleration * accelMult;
     float brakePower = baseBrakePower;
-    float maxForwardSpeed = (isBoosting ? baseMaxForwardSpeed * 2.2f : baseMaxForwardSpeed) * speedMult;
+    float maxForwardSpeed = baseMaxForwardSpeed * speedMult;
     float maxReverseSpeed = baseMaxReverseSpeed;
     float friction = baseFriction;
-    float steeringResponse = (isBoosting ? baseSteeringResponse * 0.7f : baseSteeringResponse) * handlingMult;
+    float steeringResponse = baseSteeringResponse * handlingMult;
     float steeringReturn = baseSteeringReturn;
     float maxSteering = glm::radians(35.0f);
     float turnRate = glm::radians(125.0f) * handlingMult;
@@ -118,7 +118,7 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
         if (car.speed < 0.0f)
             car.speed = std::min(0.0f, car.speed + friction * dt);
     }
-    car.speed = glm::clamp(car.speed, -maxReverseSpeed, maxForwardSpeed);
+    car.speed = glm::clamp(car.speed, -maxReverseSpeed, isBoosting ? maxForwardSpeed * 2.0f : maxForwardSpeed);
 
     // --- Steering ---
     if (steerInput != 0.0f)
@@ -136,7 +136,7 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
     float turnFactor = 0.0f;
     if (std::abs(car.speed) > 0.01f)
     {
-        float speedRatio = std::abs(car.speed) / maxForwardSpeed;
+        float speedRatio = std::abs(car.speed) / (isBoosting ? maxForwardSpeed * 2.0f : maxForwardSpeed);
         float rawFactor = 0.35f + 0.65f * speedRatio;
         if (car.speed < 0.0f)
         {
@@ -338,7 +338,7 @@ void HandleCarJumpAndRespawn(GLFWwindow *window, CarState &car, float &carVertic
             // Solo funciona si hay una misión esperando (no activa)
             if (deliverySystem && deliverySystem->HasWaitingOrder())
             {
-                glm::vec3 pickupPos = deliverySystem->GetCurrentOrder().originPosition;
+                glm::vec3 pickupPos = deliverySystem->GetWaitingOrder().originPosition;
                 car.position = pickupPos + glm::vec3(0.0f, 2.0f, 0.0f); // Spawn arriba del pickup
                 car.speed = 0.0f;
                 std::cout << "[DEBUG] Teletransporte a pickup activado!" << std::endl;

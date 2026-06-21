@@ -37,7 +37,7 @@ public:
     const std::vector<DeliveryOrder>& GetActiveOrders() const { return activeOrders; }
     
     bool HasActiveOrder() const { return !activeOrders.empty(); }
-    bool HasWaitingOrder() const { return activeOrders.size() < 3; }
+    bool HasWaitingOrder() const { return waitingOrder.state == OrderState::WAITING; }
     
     const DeliveryOrder* GetClosestActiveOrder(const glm::vec3& carPos) const;
     

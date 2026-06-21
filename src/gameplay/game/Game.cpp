@@ -281,6 +281,7 @@ void Game::DrawOcean(Shader &waterShader, Mesh &ocean, Camera &camera, float cur
 
 void Game::mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     if (g_shopUI && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        if (g_shopUI->IsVisible()) return;
         double mouseX, mouseY;
         glfwGetCursorPos(window, &mouseX, &mouseY);
         g_shopUI->ProcessMouseClick(mouseX, mouseY);
@@ -358,13 +359,16 @@ int Game::Run()
                 g_shopUI->Show();
                 static bool escWasShop = true;
                 escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+                static bool leftMouseWasShopPressed = false;
                 while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
                 {
                     glfwPollEvents();
                     double mx, my; glfwGetCursorPos(window, &mx, &my);
                     g_shopUI->ProcessMouseMove(mx, my);
-                    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+                    bool leftNow = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+                    if (leftNow && !leftMouseWasShopPressed)
                         g_shopUI->ProcessMouseClick(mx, my);
+                    leftMouseWasShopPressed = leftNow;
                     
                     bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
                     if (escNow && !escWasShop)
@@ -958,13 +962,16 @@ int Game::Run()
                     glfwWaitEventsTimeout(0.1);
                     static bool escWasShop = true; // ignore first ESC press
                     escWasShop = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+                    static bool leftMouseWasShopPressed = false;
                     while (g_shopUI->IsVisible() && !glfwWindowShouldClose(window))
                     {
                         glfwPollEvents();
                         double mx, my; glfwGetCursorPos(window, &mx, &my);
                         g_shopUI->ProcessMouseMove(mx, my);
-                        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+                        bool leftNow = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+                        if (leftNow && !leftMouseWasShopPressed)
                             g_shopUI->ProcessMouseClick(mx, my);
+                        leftMouseWasShopPressed = leftNow;
                         
                         bool escNow = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
                         if (escNow && !escWasShop)

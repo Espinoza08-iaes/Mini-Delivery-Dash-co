@@ -175,7 +175,7 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     ShopManager* shop = ShopManager::GetInstance();
     float speedMult = shop->GetUpgradeMultiplier(UpgradeType::Speed);
     float baseMaxSpeed = 8.0f;
-    float turboMaxSpeed = baseMaxSpeed * 2.2f * speedMult;
+    float turboMaxSpeed = baseMaxSpeed * 2.0f * speedMult;
     RenderSpeedometer(car, turboMaxSpeed);
     
     // ============================================================
