@@ -2,17 +2,10 @@
 #define MAINMENU_H
 
 #include <vector>
+#include <string>
 
 struct GLFWwindow;
-
-struct GameSettings {
-    bool musicOn = true;
-    bool sfxOn = true;
-    bool shadowsOn = true;
-    bool hudOn = true;
-    bool timeFrozen = false;
-    bool camDistant = false;
-};
+struct GameSettings;
 
 class MainMenu
 {
@@ -20,40 +13,39 @@ public:
     MainMenu(GLFWwindow* window, int screenWidth, int screenHeight);
     ~MainMenu();
 
-    enum class Result { Play, Quit, None, HowToPlay, Shop, Settings, SettingsChanged };
+    enum class Result { Play, Quit, None, HowToPlay, Shop, Settings, SettingsChanged, Credits };
 
-    Result Show(bool showPause = false, GameSettings* settings = nullptr);
-    unsigned int GetCapturedBackground() const { return capturedBg; }
+    Result Show(bool pause = false, GameSettings* settings = nullptr);
     void SetPauseBackground(unsigned int texture);
     void RenderLoading(float progress, const char* message);
+    unsigned int GetCapturedBackground() const { return capturedBg; }
 
 private:
     GLFWwindow* window;
     int width, height;
+
+    unsigned int capturedBg = 0;
 
     // OpenGL resources for colored quads
     unsigned int quadVAO = 0;
     unsigned int quadVBO = 0;
     unsigned int hudProgram = 0;
 
-    // OpenGL resources for text rendering (used in HowToPlay)
+    // OpenGL resources for text rendering
     unsigned int textVAO = 0;
     unsigned int textVBO = 0;
     unsigned int textProgram = 0;
 
-    // Background texture (main menu and HowToPlay)
-    unsigned int capturedBg = 0;
+    // Background texture
     unsigned int backgroundTexture = 0;
-    int bgTexWidth = 0;
-    int bgTexHeight = 0;
-    unsigned int pauseBackgroundTexture = 0;
+    int bgTexWidth = 0, bgTexHeight = 0;
 
-    // Decorative panel art shown behind the pause menu buttons (separate from the
-    // live captured game frame in pauseBackgroundTexture)
+    // Pause textures
     unsigned int pauseDecorTexture = 0;
     int pauseDecorTexWidth = 0, pauseDecorTexHeight = 0;
+    unsigned int pauseBackgroundTexture = 0;
 
-    // Button textures + alpha for pixel‑perfect hit detection
+    // Button textures + alpha for pixel-perfect hit detection
     unsigned int playTexture = 0;
     int playTexWidth = 0, playTexHeight = 0;
     std::vector<unsigned char> playAlpha;
@@ -74,10 +66,9 @@ private:
     int settingsTexWidth = 0, settingsTexHeight = 0;
     std::vector<unsigned char> settingsAlpha;
 
-    // Small "?" how-to-play corner icon
-    unsigned int helpIconTexture = 0;
-    int helpIconTexWidth = 0, helpIconTexHeight = 0;
-    std::vector<unsigned char> helpIconAlpha;
+    unsigned int creditsTexture = 0;
+    int creditsTexWidth = 0, creditsTexHeight = 0;
+    std::vector<unsigned char> creditsAlpha;
 
     unsigned int exitTexture = 0;
     int exitTexWidth = 0, exitTexHeight = 0;
@@ -86,6 +77,11 @@ private:
     unsigned int mainMenuTexture = 0;
     int mainMenuTexWidth = 0, mainMenuTexHeight = 0;
     std::vector<unsigned char> mainMenuAlpha;
+
+    // Help icon (reuses howToPlay texture)
+    unsigned int helpIconTexture = 0;
+    int helpIconTexWidth = 0, helpIconTexHeight = 0;
+    std::vector<unsigned char> helpIconAlpha;
 
     // Setup
     void SetupGraphics();
@@ -107,9 +103,10 @@ private:
     // Utility
     bool PointInRect(float px, float py, float rx, float ry, float rw, float rh);
 
-    // Sub‑menu
+    // Sub-menus
     void ShowHowToPlay(unsigned int bgTex = 0);
-    Result ShowSettings(unsigned int bgTex = 0, GameSettings* settings = nullptr);
+    Result ShowSettings(unsigned int bgTex, GameSettings* settings);
+    void ShowCredits(unsigned int bgTex);
 };
 
 #endif

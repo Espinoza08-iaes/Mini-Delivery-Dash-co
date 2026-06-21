@@ -6,7 +6,14 @@
 
 // Forward declaration
 class ShopUI;
-struct GameSettings;
+struct GameSettings {
+    bool musicOn = true;
+    bool sfxOn = true;
+    bool shadowsOn = true;
+    bool hudOn = true;
+    bool timeFrozen = false;
+    bool camDistant = false;
+};
 
 class Game
 {
