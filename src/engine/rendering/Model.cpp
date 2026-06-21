@@ -390,8 +390,15 @@ Model::Model(const char* file)
     preclassifyMeshes();
 }
 
-void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking, const Frustum* frustum)
+void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wheelSpin, float steeringAngle, bool headlightsOn, bool braking, const Frustum* frustum, glm::vec3 bodyColor)
 {
+    shader.Activate();
+    bool overrideColor = (bodyColor.x >= 0.0f);
+    glUniform1i(glGetUniformLocation(shader.ID, "uUseBodyColor"), overrideColor ? 1 : 0);
+    if (overrideColor) {
+        glUniform3fv(glGetUniformLocation(shader.ID, "uBodyColor"), 1, glm::value_ptr(bodyColor));
+    }
+
     for (unsigned int i = 0; i < meshes.size(); i++)
     {
         // Skip hidden meshes
@@ -429,6 +436,12 @@ void Model::Draw(Shader& shader, Camera& camera, glm::mat4 worldMatrix, float wh
         }
 
         glUniform1i(glGetUniformLocation(shader.ID, "uUseAlpha"), meshesUseAlpha[i] ? 1 : 0);
+
+        // Check if this mesh is the car body
+        if (overrideColor) {
+            bool isBody = (meshMaterialNames[i] == "McLaren_F1_1993_By_Alex_Ka_");
+            glUniform1i(glGetUniformLocation(shader.ID, "uUseBodyColor"), isBody ? 1 : 0);
+        }
 
         // Emissive lights (headlights / brakelights)
         bool isEmissive = false;

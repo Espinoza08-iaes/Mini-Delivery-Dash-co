@@ -1,0 +1,42 @@
+[AUDIO] OpenAL initialized
+[AUDIO] Loaded: res/audio/motorAudio.wav
+[AUDIO] Loaded: res/audio/menuMusic.wav
+[AUDIO] Loaded: res/audio/ambientMusic.wav
+[AUDIO] Loaded: res/audio/deliveryMusic.wav
+[AUDIO] Entering main menu
+[MainMenu] Loaded: res/textures/BackGround_STB.png (1672x941)
+[MainMenu] Loaded: res/textures/PauseMenu_STB.png (1672x941)
+[MainMenu] Loaded: res/textures/Play_STB.png (1051x320)
+[MainMenu] Loaded: res/textures/Resume_STB.png (1051x320)
+[MainMenu] Loaded: res/textures/HowToPlay_STB.png (906x275)
+[MainMenu] Loaded: res/textures/Settings_STB.png (906x275)
+[MainMenu] Loaded: res/textures/Exit_STB.png (1051x320)
+[MainMenu] Loaded: res/textures/BackToMenu_STB.png (906x275)
+[MainMenu] Loaded: res/textures/Shop_STB.png (906x275)
+[INFO] Loading assets and compiling shaders... Please wait.
+[LAMPS] Loaded 502 positions from res/lamp_positions.txt
+[INFO] Street lamps: 502
+[DELIVERY] New order generated. Distance: 258.597m, Reward: $188.263
+[HUD] Loaded DashBoard_STB.png (1455x367)
+[HUD] Loaded WhilePlayingPanels_STB.png (810x358)
+[INFO] Shop system initialized
+[SPAWN] Road at: (-48.2939, 1.75556, 56.5327)
+[TRAFFIC] Spawned NPC at (-71.2207, 0.928074, 90.5233) road=6m
+[TRAFFIC] Spawned NPC at (-27.8265, 3.20684, 14.3975) road=6m
+[TRAFFIC] Spawned NPC at (-101.532, 0.441283, 110.979) road=6m
+[TRAFFIC] Spawned NPC at (-32.2355, 3.11719, 9.31277) road=6m
+[TRAFFIC] Spawned NPC at (-88.8132, 0.16069, 138.608) road=6m
+[TRAFFIC] Spawned NPC at (-51.849, 0.427258, 144.726) road=6m
+[TRAFFIC] Spawned NPC at (-112.818, 0.900692, 45.8957) road=6m
+[TRAFFIC] Spawned NPC at (7.22355, 3.14675, 104.672) road=6m
+[TRAFFIC] Spawned NPC at (-8.10351, 2.0467, 128.026) road=6m
+[TRAFFIC] Spawned NPC at (-4.62895, 1.66302, 171.214) road=6m
+[TRAFFIC] Spawned NPC at (-58.9459, 2.17107, 13.8326) road=6m
+[TRAFFIC] Spawned NPC at (42.8162, 5.04501, 114.074) road=6m
+[TRAFFIC] Spawned NPC at (10.6729, 5.20679, 25.0826) road=6m
+[TRAFFIC] Spawned NPC at (10.8965, 3.34717, 91.0167) road=4.8m
+[TRAFFIC] Spawned NPC at (97.0757, 17.6267, -21.5348) road=6m
+[TRAFFIC] Spawned NPC at (111.419, 17.5441, -1.68944) road=6m
+[TRAFFIC] Spawned NPC at (48.1496, 5.18909, 122.322) road=6m
+[TRAFFIC] Spawned NPC at (25.6228, 3.96457, 107.397) road=6m
+[TRAFFIC] Spawned NPC at (174.554, 17.8487, 70.1372) road=6m

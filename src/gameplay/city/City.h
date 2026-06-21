@@ -49,6 +49,7 @@ public:
 
     std::vector<glm::vec3> GetStreetLampPositions(float spacing = 18.0f) const;
     std::vector<glm::vec3> GetStreetLampPositionsFromFile(const char* filePath) const;
+    void GenerateWaypoints(const char* outputFile) const;
     game::CityPhysics& GetPhysics() { return mPhysics; }
     const game::CityPhysics& GetPhysics() const { return mPhysics; }
 

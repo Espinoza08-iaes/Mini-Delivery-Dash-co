@@ -40,7 +40,8 @@ public:
         float steeringAngle = 0.0f,
         bool headlightsOn = false,
         bool braking = false,
-        const Frustum* frustum = nullptr
+        const Frustum* frustum = nullptr,
+        glm::vec3 bodyColor = glm::vec3(-1.0f)
     );
 
     //Declara la función para construir las cajas de colisión a partir de las mallas del modelo
