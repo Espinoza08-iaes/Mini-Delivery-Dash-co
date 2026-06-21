@@ -39,6 +39,11 @@ uniform vec3 uHeadlightRightPos;
 uniform vec3 uHeadlightDir;
 uniform vec3 uHeadlightColor;
 
+// Neon Underglow uniforms
+uniform bool uNeonUnderglowOn;
+uniform vec3 uNeonColor;
+uniform vec3 uCarPos;
+
 uniform vec3 uFogColor = vec3(0.07f, 0.13f, 0.17f);
 uniform float uFogStart = 40.0f;
 uniform float uFogEnd = 250.0f;
@@ -229,6 +234,30 @@ vec3 calculateStreetLight(vec3 lampPos, vec3 normal, vec3 albedo)
     return diffuse + glow;
 }
 
+vec3 calculateNeonUnderglow(vec3 normal, vec3 albedo)
+{
+    // Light is slightly below the car center
+    vec3 lightPos = uCarPos - vec3(0.0, 0.2, 0.0);
+    vec3 toLight = lightPos - crntPos;
+    float dist = length(toLight);
+    
+    if (dist > 3.5)
+        return vec3(0.0);
+
+    vec3 lightDir = normalize(toLight);
+    
+    // Smooth attenuation
+    float atten = pow(clamp(1.0 - dist / 3.5, 0.0, 1.0), 1.5);
+    
+    // Only light up surfaces mostly facing up (like the road)
+    float upFacing = max(dot(normal, vec3(0.0, 1.0, 0.0)), 0.0);
+    // Smooth out the upFacing
+    upFacing = smoothstep(0.5, 1.0, upFacing);
+    
+    // Intense neon glow
+    return albedo * uNeonColor * atten * upFacing * 2.5;
+}
+
 vec4 direcLight()
 {
     // ambient lighting
@@ -330,6 +359,13 @@ void main()
 
             streetLight = min(streetLight, vec3(0.85));
             baseLight.rgb += streetLight;
+        }
+
+        if (uNeonUnderglowOn)
+        {
+            vec3 normal = normalize(Normal);
+            vec4 texColor = texture(diffuse0, texCoord) * vec4(color, 1.0f);
+            baseLight.rgb += calculateNeonUnderglow(normal, texColor.rgb);
         }
         
         FragColor = baseLight;

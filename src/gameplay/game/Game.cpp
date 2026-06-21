@@ -569,6 +569,14 @@ int Game::Run()
         // Set car state reference to shop UI
         g_shopUI->SetCarState(&car);
 
+        bool neonUnderglowOn = false;
+        bool neonPressed = false;
+        int tireMode = 0; // 0=Normal, 1=Grip, -1=Drift
+        bool tireMPressed = false;
+        bool tireNPressed = false;
+        bool isRaining = false;
+        bool rainPressed = false;
+
         // Bucle del juego
         while (enJuego && !glfwWindowShouldClose(window))
         {
@@ -586,9 +594,44 @@ int Game::Run()
             bool accelerating = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS);
             float jumpDistanceBoost = accelerating ? 1.4f : 0.0f;
 
+            // Toggles
+            ShopManager* shop = ShopManager::GetInstance();
+            if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) {
+                if (!neonPressed && shop->IsAbilityUnlocked(AbilityType::NeonUnderglow)) {
+                    neonUnderglowOn = !neonUnderglowOn;
+                    neonPressed = true;
+                    std::cout << "[NEON] " << (neonUnderglowOn ? "ON" : "OFF") << std::endl;
+                }
+            } else neonPressed = false;
+
+            if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+                if (!tireMPressed && shop->IsAbilityUnlocked(AbilityType::TireDrift)) {
+                    tireMode = (tireMode == -1) ? 0 : -1;
+                    tireMPressed = true;
+                    std::cout << "[TIRE] Mode: " << (tireMode == -1 ? "DRIFT" : "NORMAL") << std::endl;
+                }
+            } else tireMPressed = false;
+
+            if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
+                if (!tireNPressed && shop->IsAbilityUnlocked(AbilityType::TireGrip)) {
+                    tireMode = (tireMode == 1) ? 0 : 1;
+                    tireNPressed = true;
+                    std::cout << "[TIRE] Mode: " << (tireMode == 1 ? "GRIP" : "NORMAL") << std::endl;
+                }
+            } else tireNPressed = false;
+
+            // F5 for rain (cheat/debug or environment system)
+            if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS) {
+                if (!rainPressed) {
+                    isRaining = !isRaining;
+                    rainPressed = true;
+                    std::cout << "[WEATHER] Rain: " << (isRaining ? "ON" : "OFF") << std::endl;
+                }
+            } else rainPressed = false;
+
             HandleCarJumpAndRespawn(window, car, carVerticalSpeed, isOnGround, spawnPoint, jumpDistanceBoost, lastGroundHeight, &deliverySystem);
             ApplyGravity(car, carVerticalSpeed, isOnGround, dt);
-            UpdateCar(window, car, dt, city);
+            UpdateCar(window, car, dt, city, tireMode, isRaining);
             audioEngine.UpdateEngineRPM(car.speed,24.0f, dt);
             ResolveGroundCollision(car, city, carVerticalSpeed, isOnGround, lastGroundHeight);
 
@@ -604,10 +647,18 @@ int Game::Run()
             // Update shop (ESC to close)
             g_shopUI->Update();
 
-            // Update delivery system with 'E' key state
-            bool eKeyPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
-            bool qKeyPressed = (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
-            deliverySystem.Update(dt, car, eKeyPressed);
+            // Update delivery system with 'E' key state (debounced)
+            static bool lastEPressed = false;
+            bool currentEPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
+            bool eKeyJustPressed = currentEPressed && !lastEPressed;
+            lastEPressed = currentEPressed;
+
+            static bool lastQPressed = false;
+            bool currentQPressed = (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
+            bool qKeyJustPressed = currentQPressed && !lastQPressed;
+            lastQPressed = currentQPressed;
+
+            deliverySystem.Update(dt, car, eKeyJustPressed);
             OrderState currentState = deliverySystem.GetOrderState();
 
             // Music change for delivery or waiting for order, depending on status.
@@ -648,11 +699,11 @@ int Game::Run()
             {
                 bool danger = false;
 
-                float timeRemaining = deliverySystem.GetTimeRemaining();
+                float timeRemaining = deliverySystem.GetTimeRemaining(car.position);
 
                 if(timeRemaining <= 10.0f)
                     danger = true;
-                if(deliverySystem.GetFragileHealth() <= 20.0f)
+                if(deliverySystem.GetFragileHealth(car.position) <= 20.0f)
                     danger = true;
                 if(danger)
                     audioEngine.SetDeliveryPitch(1.25f);
@@ -661,7 +712,7 @@ int Game::Run()
             }
 
             // Handle mission rejection
-           deliveryHUD.TryRejectMission(deliverySystem, qKeyPressed, car);
+            deliveryHUD.TryRejectMission(deliverySystem, qKeyJustPressed, car);
 
             UpdateFollowCamera(camera, car, dt, city);
             UpdateCameraEffects(window, camera, car, &globalSettings);
@@ -799,6 +850,16 @@ int Game::Run()
 
             shaderProgram.Activate();
             glUniform1i(glGetUniformLocation(shaderProgram.ID, "uStreetLightsOn"), isNight ? 1 : 0);
+            
+            // Neon uniforms
+            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uNeonUnderglowOn"), neonUnderglowOn ? 1 : 0);
+            // Dynamic Neon Color based on time (RGB loop) or static
+            float timeVal = static_cast<float>(glfwGetTime());
+            glm::vec3 neonColor = glm::vec3(sin(timeVal)*0.5f+0.5f, cos(timeVal*1.2f)*0.5f+0.5f, sin(timeVal*0.8f)*0.5f+0.5f);
+            // Booster for neon intensity
+            neonColor *= 1.5f;
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uNeonColor"), neonColor.x, neonColor.y, neonColor.z);
+            glUniform3f(glGetUniformLocation(shaderProgram.ID, "uCarPos"), car.position.x, car.position.y, car.position.z);
 
             // Encontrar las 8 mas cercanas al carro (usando std::nth_element para O(N))
             const int MAX_SL = 8;
@@ -860,7 +921,7 @@ int Game::Run()
 
             // Render delivery HUD (2D overlay)
             if (globalSettings.hudOn) {
-                deliveryHUD.Render(deliverySystem, car, qKeyPressed);
+                deliveryHUD.Render(deliverySystem, car, qKeyJustPressed);
             }
 
             // Render shop UI (2D overlay)

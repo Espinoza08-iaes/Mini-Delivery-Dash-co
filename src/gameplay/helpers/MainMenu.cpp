@@ -460,18 +460,20 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
         RenderText("DRIVING", col1, startY, 0.9f, 0.6f, 0.1f, 1.5f);
         RenderText("W / S      - Accelerate / Brake", col1, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("A / D      - Steer Left / Right", col1, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
-        RenderText("SHIFT      - Nitro Boost", col1, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
-
         // Action Controls
-        RenderText("ACTIONS", col2, startY, 0.9f, 0.6f, 0.1f, 1.5f);
+        RenderText("SHOP ABILITIES", col2, startY, 0.9f, 0.6f, 0.1f, 1.5f);
         RenderText("Z          - Jump", col2, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
-        RenderText("R          - Respawn Car", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
-        RenderText("L          - Toggle Headlights", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("SHIFT      - Nitro Boost", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("U          - Neon Underglow", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("N / M      - Grip / Drift Tires", col2, startY + stepY * 4, 0.85f, 0.85f, 0.85f, 1.3f);
 
         // System Controls
-        RenderText("SYSTEM", col1, startY + stepY * 5, 0.9f, 0.6f, 0.1f, 1.5f);
-        RenderText("ESC        - Pause Menu", col1, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.3f);
-        RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("SYSTEM", col1, startY + stepY * 4.5f, 0.9f, 0.6f, 0.1f, 1.5f);
+        RenderText("ESC        - Pause Menu", col1, startY + stepY * 5.5f, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("L          - Toggle Headlights", col1, startY + stepY * 6.5f, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("F5         - Toggle Weather (Rain)", col1, startY + stepY * 7.5f, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("R          - Respawn Car", col2, startY + stepY * 5.5f, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6.5f, 0.85f, 0.85f, 0.85f, 1.3f);
 
         float s = 1.0f, yOff = 0.0f;
         if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }

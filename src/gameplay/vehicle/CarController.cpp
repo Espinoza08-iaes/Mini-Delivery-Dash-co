@@ -25,7 +25,7 @@ glm::mat4 BuildCarMatrix(const CarState &car)
 // ---------------------------------------------------------------------------
 // Car update  (city passed in so world-clamp uses its scale)
 // ---------------------------------------------------------------------------
-void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
+void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, int tireMode, bool isRaining)
 {
     // Get shop upgrades
     ShopManager* shop = ShopManager::GetInstance();
@@ -63,16 +63,34 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city)
     const float baseSteeringReturn = 8.0f;
     
     // Apply upgrades
-    const float acceleration = (isBoosting ? baseAcceleration * 2.5f : baseAcceleration) * accelMult;
-    const float brakePower = baseBrakePower;
-    const float maxForwardSpeed = (isBoosting ? baseMaxForwardSpeed * 2.2f : baseMaxForwardSpeed) * speedMult;
-    const float maxReverseSpeed = baseMaxReverseSpeed;
-    const float friction = baseFriction;
-    const float steeringResponse = (isBoosting ? baseSteeringResponse * 0.7f : baseSteeringResponse) * handlingMult;
-    const float steeringReturn = baseSteeringReturn;
-    const float maxSteering = glm::radians(35.0f);
-    const float turnRate = glm::radians(125.0f) * handlingMult;
-    const float wheelRadius = 0.38f * kCarModelScale;
+    float acceleration = (isBoosting ? baseAcceleration * 2.5f : baseAcceleration) * accelMult;
+    float brakePower = baseBrakePower;
+    float maxForwardSpeed = (isBoosting ? baseMaxForwardSpeed * 2.2f : baseMaxForwardSpeed) * speedMult;
+    float maxReverseSpeed = baseMaxReverseSpeed;
+    float friction = baseFriction;
+    float steeringResponse = (isBoosting ? baseSteeringResponse * 0.7f : baseSteeringResponse) * handlingMult;
+    float steeringReturn = baseSteeringReturn;
+    float maxSteering = glm::radians(35.0f);
+    float turnRate = glm::radians(125.0f) * handlingMult;
+    float wheelRadius = 0.38f * kCarModelScale;
+
+    // Apply Tires logic
+    if (tireMode == 1) { // Grip
+        friction *= 1.5f;
+        turnRate *= 1.2f;
+        steeringResponse *= 1.3f;
+    } else if (tireMode == -1) { // Drift
+        friction *= 0.4f;
+        turnRate *= 1.8f;
+        steeringReturn *= 0.5f;
+    }
+
+    // Apply Rain logic
+    if (isRaining) {
+        friction *= 0.6f;
+        brakePower *= 0.7f; // 30% worse braking
+        steeringResponse *= 0.8f; // Harder to steer
+    }
 
     // --- Throttle ---
     float throttle = 0.0f;

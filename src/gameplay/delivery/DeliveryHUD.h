@@ -25,6 +25,7 @@ public:
         glm::vec3 position;
         std::string label;
         bool isPickup;
+        glm::vec3 color;
     };
     
 private:
@@ -33,7 +34,7 @@ private:
     void LoadTextures();
     void RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup, const std::vector<CompassMarker>* additionalMarkers = nullptr);
     void RenderMissionPanel(const DeliverySystem& deliverySystem);
-    void RenderDeliveryHUD(const DeliverySystem& deliverySystem);
+    void RenderDeliveryHUD(const DeliverySystem& deliverySystem, const CarState& car);
     void RenderHealthBar(float x, float y, float w, float h, float health);
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.0f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.0f);

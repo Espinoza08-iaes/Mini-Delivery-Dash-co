@@ -199,9 +199,33 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     }
     
     // Compass bar
-    glm::vec3 objective = deliverySystem.GetObjectivePosition();
-    bool isPickup = deliverySystem.HasWaitingOrder();
-    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, objective, car.position, isPickup, nullptr);
+    std::vector<CompassMarker> markers;
+    if (deliverySystem.HasWaitingOrder()) {
+        markers.push_back({deliverySystem.GetWaitingOrder().originPosition, "P", true, glm::vec3(0.0f, 0.8f, 1.0f)}); // Cyan for pickup
+    }
+    
+    if (deliverySystem.HasActiveOrder()) {
+        const auto& activeOrders = deliverySystem.GetActiveOrders();
+        std::vector<std::pair<float, glm::vec3>> dists;
+        for (const auto& order : activeOrders) {
+            dists.push_back({glm::length(car.position - order.destinationPosition), order.destinationPosition});
+        }
+        std::sort(dists.begin(), dists.end(), [](const std::pair<float, glm::vec3>& a, const std::pair<float, glm::vec3>& b) {
+            return a.first < b.first;
+        });
+        
+        for (size_t i = 0; i < dists.size(); ++i) {
+            glm::vec3 color;
+            if (i == 0) color = glm::vec3(0.0f, 1.0f, 0.3f); // Green (closest)
+            else if (i == 1) color = glm::vec3(1.0f, 0.8f, 0.0f); // Yellow (medium)
+            else color = glm::vec3(1.0f, 0.2f, 0.2f); // Red (furthest)
+            
+            markers.push_back({dists[i].second, "D", false, color});
+        }
+    }
+    
+    glm::vec3 dummyObj = markers.empty() ? glm::vec3(0) : markers[0].position;
+    RenderCompassBar(fbW / 2.0f, 60.0f, car.yaw, dummyObj, car.position, false, &markers);
     
     // Distance text below compass
     float distance = deliverySystem.GetDistanceToObjective(car);
@@ -269,7 +293,7 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     }
     else if (deliverySystem.HasActiveOrder())
     {
-        RenderDeliveryHUD(deliverySystem);
+        RenderDeliveryHUD(deliverySystem, car);
     }
     
     if (ShouldShowDeliveryMessage(deliverySystem, car))
@@ -409,30 +433,32 @@ void DeliveryHUD::RenderCompassBar(float centerX, float centerY, float carYaw, c
         }
     }
     
-    // Objective marker
-    glm::vec3 toObjective = objective - carPos;
-    toObjective.y = 0.0f;
-    float distToObj = glm::length(toObjective);
-    
-    if (distToObj > 0.01f)
+    // Render all markers
+    if (additionalMarkers)
     {
-        toObjective = glm::normalize(toObjective);
-        float angleToObj = std::atan2(toObjective.x, toObjective.z);
-        float angleOffset = angleToObj - carYaw;
-        while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
-        while (angleOffset < -3.14159f) angleOffset += 6.28318f;
-        
-        float objX = centerX + angleOffset * (barWidth / 6.28318f);
-        
-        if (objX > centerX - barWidth / 2.0f + 15.0f && objX < centerX + barWidth / 2.0f - 15.0f)
+        for (const auto& marker : *additionalMarkers)
         {
-            float dotSize = 14.0f;
-            if (isPickup)
-                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 1.0f, 0.8f, 0.0f, 1.0f);
-            else
-                RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, 0.0f, 1.0f, 0.3f, 1.0f);
+            glm::vec3 toObjective = marker.position - carPos;
+            toObjective.y = 0.0f;
+            float distToObj = glm::length(toObjective);
             
-            RenderTextCentered(isPickup ? "P" : "D", objX, centerY + 6.0f, 1.0f, 1.0f, 1.0f, 1.3f);
+            if (distToObj > 0.01f)
+            {
+                toObjective = glm::normalize(toObjective);
+                float angleToObj = std::atan2(toObjective.x, toObjective.z);
+                float angleOffset = angleToObj - carYaw;
+                while (angleOffset > 3.14159f) angleOffset -= 6.28318f;
+                while (angleOffset < -3.14159f) angleOffset += 6.28318f;
+                
+                float objX = centerX + angleOffset * (barWidth / 6.28318f);
+                
+                if (objX > centerX - barWidth / 2.0f + 15.0f && objX < centerX + barWidth / 2.0f - 15.0f)
+                {
+                    float dotSize = 14.0f;
+                    RenderColoredQuad(objX - dotSize / 2.0f, centerY - dotSize / 2.0f, dotSize, dotSize, marker.color.r, marker.color.g, marker.color.b, 1.0f);
+                    RenderTextCentered(marker.label.c_str(), objX, centerY + 6.0f, 1.0f, 1.0f, 1.0f, 1.3f);
+                }
+            }
         }
     }
 }
@@ -445,7 +471,7 @@ void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
+    const DeliveryOrder& order = deliverySystem.GetWaitingOrder();
     
     float panelW = 450.0f, panelH = 380.0f;
     float panelX = fbW / 2.0f - panelW / 2.0f;
@@ -491,18 +517,20 @@ void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
 // ======================================================================
 // DELIVERY HUD (Active Order)
 // ======================================================================
-void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
+void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem, const CarState& car)
 {
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
-    const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
+    const DeliveryOrder* orderPtr = deliverySystem.GetClosestActiveOrder(car.position);
+    if (!orderPtr) return;
+    const DeliveryOrder& order = *orderPtr;
     
     float hudX = 20.0f;
     float hudY = 80.0f;
     
     char buf[128];
-    snprintf(buf, sizeof(buf), "Time: %.1f / %.1f sec", deliverySystem.GetElapsedTime(), deliverySystem.currentTargetTime);
+    snprintf(buf, sizeof(buf), "Time: %.1f / %.1f sec", order.elapsedTime, order.timeLimit);
     RenderText(buf, hudX, hudY, 1.0f, 1.0f, 1.0f, 1.8f);
     
     const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGILE" : "STANDARD";
@@ -528,11 +556,18 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
         RenderText(buf, barX + barW + 10.0f, barY + 2.0f, 1.0f, 1.0f, 1.0f, 1.5f);
     }
     
-    float estimatedGain = deliverySystem.GetEstimatedReward();
+    float b, bon, pC, pW, pT;
+    deliverySystem.CalculateDetailedRewards(order, b, bon, pC, pW, pT);
+    float estimatedGain = b + bon - pC - pW - pT;
+    if (estimatedGain < 0.0f) estimatedGain = 0.0f;
+    
     snprintf(buf, sizeof(buf), "Earnings: $%.0f", estimatedGain);
     RenderText(buf, hudX, hudY + 110.0f, 0.0f, 0.9f, 0.0f, 2.0f);
     
-    float collisionLoss = deliverySystem.GetCollisionLoss();
+    float collisionLoss = pC + pW + pT;
+    float maxLoss = b + bon;
+    collisionLoss = std::min(collisionLoss, maxLoss);
+    
     if (collisionLoss > 0.0f)
     {
         snprintf(buf, sizeof(buf), "Loss: -$%.0f", collisionLoss);
@@ -546,7 +581,7 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem)
 bool DeliveryHUD::ShouldShowMissionPanel(const DeliverySystem& deliverySystem, const CarState& car) const
 {
     if (!deliverySystem.HasWaitingOrder()) return false;
-    const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
+    const DeliveryOrder& order = deliverySystem.GetWaitingOrder();
     float distance = glm::length(car.position - order.originPosition);
     return (distance < 2.0f);
 }
@@ -554,8 +589,9 @@ bool DeliveryHUD::ShouldShowMissionPanel(const DeliverySystem& deliverySystem, c
 bool DeliveryHUD::ShouldShowDeliveryMessage(const DeliverySystem& deliverySystem, const CarState& car) const
 {
     if (!deliverySystem.HasActiveOrder()) return false;
-    const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
-    float distance = glm::length(car.position - order.destinationPosition);
+    const DeliveryOrder* orderPtr = deliverySystem.GetClosestActiveOrder(car.position);
+    if (!orderPtr) return false;
+    float distance = glm::length(car.position - orderPtr->destinationPosition);
     return (distance < 2.0f);
 }
 
