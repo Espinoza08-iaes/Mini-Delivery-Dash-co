@@ -660,10 +660,10 @@ void MainMenu::ShowCredits(unsigned int bgTex)
         }
 
         const char* names[] = {
-            "Espinoza Saenz Isaac Antonio",
-            "Lira Zavala Kenry Onell",
-            "Morales Matamoros Erick Antonio",
-            "Orozco Jarquin Gustavo Adolfo"
+            "Espinoza Saenz Isaac Antonio / 2024-1873U",
+            "Lira Zavala Kenry Onell / 2024-1898U",
+            "Morales Matamoros Erick Antonio / 2024-1935U",
+            "Orozco Jarquin Gustavo Adolfo / 2024-1938U"
         };
         float nameY = py + 270.0f;
         float nameStep = 35.0f;
