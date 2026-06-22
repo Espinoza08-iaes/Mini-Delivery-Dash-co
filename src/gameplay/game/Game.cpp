@@ -7,7 +7,6 @@
 #include "../delivery/DeliveryHUD.h"
 #include "../shop/ShopUI.h"
 #include "../shop/ShopManager.h"
-#include "../traffic/TrafficSystem.h"
 #include "../../engine/graphics/Frustum.h"
 #include "../../engine/audio/AudioEngine.h"
 
@@ -477,9 +476,6 @@ int Game::Run()
         glfwSetCursorPosCallback(window, Game::cursor_position_callback);
         std::cout << "[INFO] Shop system initialized" << std::endl;
         
-        // --- Traffic System ---
-        TrafficSystem trafficSystem(&carModel);
-        
         // Set car state reference AFTER car is initialized
         // Will be set in game loop
 
@@ -677,9 +673,6 @@ int Game::Run()
             deliverySystem.Update(dt, car, eKeyJustPressed);
             OrderState currentState = deliverySystem.GetOrderState();
             
-            // --- Traffic ---
-            trafficSystem.Update(dt, car, city);
-
             // Music change for delivery or waiting for order, depending on status.
             if(currentState != lastOrderState)
             {
@@ -890,13 +883,6 @@ int Game::Run()
             // Render delivery system
             deliverySystem.Render(shaderProgram, camera);
 
-            // Render Traffic system
-            trafficSystem.Render(shaderProgram, camera);
-            
-            // Reset body color override after traffic rendering
-            shaderProgram.Activate();
-            glUniform1i(glGetUniformLocation(shaderProgram.ID, "uUseBodyColor"), 0);
-
             DrawOcean(waterShader, ocean, camera, currentFrame, skyTint, dayNight);
 
             // Render delivery HUD (2D overlay)
@@ -953,6 +939,7 @@ int Game::Run()
 
                 MainMenu pauseMenu(window, fbW, fbH);
                 pauseMenu.SetPauseBackground(pauseTex);
+                audioEngine.PauseGameplayAudio();
                 MainMenu::Result pauseResult = pauseMenu.Show(true, &globalSettings);
                 
                 while (pauseResult == MainMenu::Result::Shop || pauseResult == MainMenu::Result::SettingsChanged)
@@ -1011,7 +998,12 @@ int Game::Run()
                     audioEngine.StopEngine();
                     audioEngine.StopDeliveryMusic();
                     audioEngine.StopAmbientMusic();
+                    audioEngine.StopMenuMusic();
                     enJuego = false;
+                }
+                else
+                {
+                    audioEngine.ResumeGameplayAudio();
                 }
 
                 // Restore OpenGL state after the pause menu loop

@@ -62,6 +62,10 @@ public:
     void StopAmbientMusic();    
     
     void UpdateVolumes(bool musicOn, bool sfxOn);
+    
+    // Pause menu controls
+    void PauseGameplayAudio();
+    void ResumeGameplayAudio();
 
 private:
 
