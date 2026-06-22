@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(MiniDeliveryDash LANGUAGES C CXX)
+project(MiniDeliveryDash LANGUAGES C CXX RC)
 
 # Si no se especifica un build type, usar Release por defecto para maximizar FPS
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -20,6 +20,10 @@ file(GLOB_RECURSE SOURCES
     "src/*.cpp"
 )
 
+
+if(WIN32)
+    list(APPEND SOURCES "res/app.rc")
+endif()
 
 add_executable(MiniDeliveryDash
     ${SOURCES}
