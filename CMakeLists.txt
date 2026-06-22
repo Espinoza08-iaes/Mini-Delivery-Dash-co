@@ -25,7 +25,7 @@ if(WIN32)
     list(APPEND SOURCES "res/app.rc")
 endif()
 
-add_executable(MiniDeliveryDash
+add_executable(MiniDeliveryDash WIN32
     ${SOURCES}
     third_party/glad/src/glad.c
 )
