@@ -59,8 +59,8 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
     const float baseMaxForwardSpeed = 8.0f;
     const float baseMaxReverseSpeed = 4.0f;
     const float baseFriction = 4.0f;
-    const float baseSteeringResponse = 4.0f;
-    const float baseSteeringReturn = 8.0f;
+    const float baseSteeringResponse = 8.0f;
+    const float baseSteeringReturn = 12.0f;
     
     // Apply upgrades
     float acceleration = baseAcceleration * accelMult;
@@ -70,8 +70,8 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
     float friction = baseFriction;
     float steeringResponse = baseSteeringResponse * handlingMult;
     float steeringReturn = baseSteeringReturn;
-    float maxSteering = glm::radians(35.0f);
-    float turnRate = glm::radians(125.0f) * handlingMult;
+    float maxSteering = glm::radians(45.0f);
+    float turnRate = glm::radians(160.0f) * handlingMult;
     float wheelRadius = 0.38f * kCarModelScale;
 
     // Apply Tires logic
@@ -148,11 +148,11 @@ void UpdateCar(GLFWwindow *window, CarState &car, float dt, const City &city, in
     if (std::abs(car.speed) > 0.01f)
     {
         float speedRatio = std::abs(car.speed) / (isBoosting ? maxForwardSpeed * 2.0f : maxForwardSpeed);
-        float rawFactor = 0.35f + 0.65f * speedRatio;
+        float rawFactor = 0.6f + 0.4f * speedRatio; // Increased base factor for better low-speed turning
         if (car.speed < 0.0f)
         {
             speedRatio = std::abs(car.speed) / maxReverseSpeed;
-            rawFactor = 0.35f + 0.65f * speedRatio;
+            rawFactor = 0.6f + 0.4f * speedRatio;
             turnFactor = -rawFactor;
         }
         else
