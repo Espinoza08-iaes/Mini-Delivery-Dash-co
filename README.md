@@ -77,15 +77,17 @@ Follow these step-by-step instructions to compile and play the game on your loca
 
 ## Controls
 
-- `W` / `S` - Accelerate / Brake (Reverse)
+- `W` / `S` - Accelerate / Brake
 - `A` / `D` - Steer Left / Right
 - `Z` - Jump
+- `SHIFT` - Nitro Boost
+- `U` - Neon Underglow
+- `N` / `M` - Grip / Drift Tires
 - `R` - Respawn Car
-- `L` - Toggle Headlights
-- `SHIFT` - Nitro / Turbo Boost
+- `RIGHT CLK` (Hold & Drag) - Orbit Camera
 - `ESC` - Open Pause Menu
-- `P` - Open Shop (when available)
-- `Right Click` (Hold & Drag) - Orbit Camera
+- `L` - Toggle Headlights
+- `F5` - Toggle Weather
 
 ## Screenshots
 
