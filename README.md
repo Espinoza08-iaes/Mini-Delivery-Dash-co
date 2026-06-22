@@ -96,7 +96,7 @@ Follow these step-by-step instructions to compile and play the game on your loca
 ![How To Play](docs/how_to_play.png)
 
 ### In-Game Delivery
-![In-Game Placeholder](https://via.placeholder.com/800x450.png?text=Add+Gameplay+Screenshot+Here)
+![In-Game Screenshot](docs/gameplay.png)
 
 ### Shop Interface
 ![Shop Interface](docs/shop_ui.png)
