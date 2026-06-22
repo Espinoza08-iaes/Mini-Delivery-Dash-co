@@ -61,7 +61,7 @@ public:
     void PlayAmbientMusic();
     void StopAmbientMusic();    
     
-    void UpdateVolumes(bool musicOn, bool sfxOn);
+    void UpdateVolumes(bool musicOn, bool sfxOn, int musicVolume = 100);
     
     // Pause menu controls
     void PauseGameplayAudio();

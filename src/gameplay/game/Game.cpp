@@ -326,7 +326,7 @@ int Game::Run()
     
     OrderState lastOrderState = OrderState::WAITING;
     GameSettings globalSettings;
-    audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
+    audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn, globalSettings.musicVolume);
     
     bool returnFromShop = false;
     // Bucle principal (menú + juego)
@@ -343,14 +343,14 @@ int Game::Run()
 
         // ----- MENÚ PRINCIPAL -----
         MainMenu menu(window, fbW, fbH);
-        MainMenu::Result res = menu.Show(false, &globalSettings);
+        MainMenu::Result res = menu.Show(false, &globalSettings, &audioEngine);
 
         while (res == MainMenu::Result::Shop || res == MainMenu::Result::SettingsChanged)
         {
             if (res == MainMenu::Result::SettingsChanged)
             {
-                audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
-                res = menu.Show(false, &globalSettings);
+                audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn, globalSettings.musicVolume);
+                res = menu.Show(false, &globalSettings, &audioEngine);
             }
             else if (res == MainMenu::Result::Shop)
             {
@@ -396,7 +396,7 @@ int Game::Run()
                 glDeleteTextures(1, &shopBgTex);
                 
                 // Go back to menu.Show() without recreating menu (avoids black screen)
-                res = menu.Show();
+                res = menu.Show(false, &globalSettings, &audioEngine);
             }
         }
 
@@ -940,17 +940,19 @@ int Game::Run()
                 MainMenu pauseMenu(window, fbW, fbH);
                 pauseMenu.SetPauseBackground(pauseTex);
                 audioEngine.PauseGameplayAudio();
-                MainMenu::Result pauseResult = pauseMenu.Show(true, &globalSettings);
+                MainMenu::Result pauseResult = pauseMenu.Show(true, &globalSettings, &audioEngine);
                 
                 while (pauseResult == MainMenu::Result::Shop || pauseResult == MainMenu::Result::SettingsChanged)
                 {
                     if (pauseResult == MainMenu::Result::SettingsChanged)
                     {
-                        audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn);
-                        pauseResult = pauseMenu.Show(true, &globalSettings);
+                        audioEngine.UpdateVolumes(globalSettings.musicOn, globalSettings.sfxOn, globalSettings.musicVolume);
+                        pauseResult = pauseMenu.Show(true, &globalSettings, &audioEngine);
                     }
                     else if (pauseResult == MainMenu::Result::Shop)
                     {
+                    GLuint shopBgTex = pauseMenu.GetCapturedBackground();
+                    g_shopUI->SetBackgroundTexture(shopBgTex);
                     g_shopUI->Show();
                     glfwWaitEventsTimeout(0.1);
                     static bool escWasShop = true; // ignore first ESC press
@@ -987,7 +989,9 @@ int Game::Run()
                         glfwSwapBuffers(window);
                     }
                     glEnable(GL_DEPTH_TEST);
-                    pauseResult = pauseMenu.Show(true, &globalSettings);
+                    g_shopUI->SetBackgroundTexture(0);
+                    glDeleteTextures(1, &shopBgTex);
+                    pauseResult = pauseMenu.Show(true, &globalSettings, &audioEngine);
                 }
             }
 

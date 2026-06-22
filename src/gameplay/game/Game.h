@@ -13,6 +13,7 @@ struct GameSettings {
     bool hudOn = true;
     bool timeFrozen = false;
     bool camDistant = false;
+    int musicVolume = 100;
 };
 
 class Game

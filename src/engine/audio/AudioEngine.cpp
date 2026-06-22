@@ -408,9 +408,9 @@ void AudioEngine::ResumeGameplayAudio()
     if (state == AL_PAUSED) alSourcePlay(deliverySource);
 }
 
-void AudioEngine::UpdateVolumes(bool musicOn, bool sfxOn)
+void AudioEngine::UpdateVolumes(bool musicOn, bool sfxOn, int musicVolume)
 {
-    float musicGain = musicOn ? 0.2f : 0.0f;
+    float musicGain = musicOn ? 0.2f * (musicVolume / 100.0f) : 0.0f;
     float sfxGain = sfxOn ? 0.5f : 0.0f;
 
     alSourcef(menuSource, AL_GAIN, musicGain);

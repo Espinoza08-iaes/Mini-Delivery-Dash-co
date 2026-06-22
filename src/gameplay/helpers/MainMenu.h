@@ -6,6 +6,7 @@
 
 struct GLFWwindow;
 struct GameSettings;
+class AudioEngine;
 
 class MainMenu
 {
@@ -15,7 +16,7 @@ public:
 
     enum class Result { Play, Quit, None, HowToPlay, Shop, Settings, SettingsChanged, Credits };
 
-    Result Show(bool pause = false, GameSettings* settings = nullptr);
+    Result Show(bool pause = false, GameSettings* settings = nullptr, AudioEngine* audio = nullptr);
     void SetPauseBackground(unsigned int texture);
     void RenderLoading(float progress, const char* message);
     unsigned int GetCapturedBackground() const { return capturedBg; }
@@ -105,7 +106,7 @@ private:
 
     // Sub-menus
     void ShowHowToPlay(unsigned int bgTex = 0);
-    Result ShowSettings(unsigned int bgTex, GameSettings* settings);
+    Result ShowSettings(unsigned int bgTex, GameSettings* settings, AudioEngine* audio);
     void ShowCredits(unsigned int bgTex);
 };
 

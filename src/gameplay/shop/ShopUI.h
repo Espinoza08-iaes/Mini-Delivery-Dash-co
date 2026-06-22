@@ -16,18 +16,19 @@ struct Button {
     UpgradeType upgradeType;
     AbilityType abilityType;
     bool isUpgrade;
-    bool isRepair;  // Nuevo: botón de reparación
+    bool isRepair;
+    bool isBack;
     bool isHovered;
     
     Button(float _x, float _y, float _w, float _h, UpgradeType ut)
-        : x(_x), y(_y), width(_w), height(_h), upgradeType(ut), abilityType(), isUpgrade(true), isRepair(false), isHovered(false) {}
+        : x(_x), y(_y), width(_w), height(_h), upgradeType(ut), abilityType(), isUpgrade(true), isRepair(false), isBack(false), isHovered(false) {}
     
     Button(float _x, float _y, float _w, float _h, AbilityType at)
-        : x(_x), y(_y), width(_w), height(_h), upgradeType(), abilityType(at), isUpgrade(false), isRepair(false), isHovered(false) {}
+        : x(_x), y(_y), width(_w), height(_h), upgradeType(), abilityType(at), isUpgrade(false), isRepair(false), isBack(false), isHovered(false) {}
     
-    // Constructor para botón de reparación
-    Button(float _x, float _y, float _w, float _h)
-        : x(_x), y(_y), width(_w), height(_h), upgradeType(), abilityType(), isUpgrade(false), isRepair(true), isHovered(false) {}
+    // Constructor para botón de reparación o back
+    Button(float _x, float _y, float _w, float _h, bool repair, bool back)
+        : x(_x), y(_y), width(_w), height(_h), upgradeType(), abilityType(), isUpgrade(false), isRepair(repair), isBack(back), isHovered(false) {}
     
     bool Contains(double mx, double my) const {
         return mx >= x && mx <= x + width && my >= y && my <= y + height;
@@ -62,6 +63,7 @@ private:
     void RenderUpgradeButton(const Button& btn);
     void RenderAbilityButton(const Button& btn);
     void RenderRepairButton(const Button& btn);
+    void RenderBackButton(const Button& btn);
     
     std::string FormatUpgradeInfo(UpgradeType type) const;
     std::string FormatAbilityInfo(AbilityType type) const;

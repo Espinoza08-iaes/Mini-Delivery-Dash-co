@@ -146,7 +146,11 @@ void ShopUI::ProcessMouseClick(double x, double y)
     {
         if (btn.Contains(x, y))
         {
-            if (btn.isRepair)
+            if (btn.isBack)
+            {
+                Hide();
+            }
+            else if (btn.isRepair)
             {
                 // Repair: restore durability
                 if (carState && shopManager->GetBalance() >= 50)
@@ -178,7 +182,7 @@ void ShopUI::BuildButtons()
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
     float panelWidth  = 980.0f;
-    float panelHeight = 620.0f;
+    float panelHeight = 680.0f;
     float panelX = fbW * 0.5f - panelWidth * 0.5f;
     float panelY = (fbH - panelHeight) * 0.5f;
     
@@ -221,6 +225,12 @@ void ShopUI::BuildButtons()
         float y = abilityStartY + i * (abilityH + abilitySpacing);
         buttons.push_back(Button(abilityX, y, abilityW, abilityH, abilityTypes[i]));
     }
+    
+    // BACK BUTTON
+    float backW = 200.0f, backH = 50.0f;
+    float backX = panelX + (panelWidth - backW) * 0.5f;
+    float backY = panelY + panelHeight - 80.0f;
+    buttons.push_back(Button(backX, backY, backW, backH, false, true));
 }
 
 // ======================================================================
@@ -277,7 +287,7 @@ void ShopUI::Render()
     RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f, 0.30f);
 
     float panelWidth  = 980.0f;
-    float panelHeight = 620.0f;
+    float panelHeight = 680.0f;
     float panelX = fbW * 0.5f - panelWidth * 0.5f;
     float panelY = (fbH - panelHeight) * 0.5f;
 
@@ -311,7 +321,9 @@ void ShopUI::Render()
     // =====================================================
     for (const auto& btn : buttons)
     {
-        if (btn.isRepair)
+        if (btn.isBack)
+            RenderBackButton(btn);
+        else if (btn.isRepair)
             RenderRepairButton(btn);
         else if (btn.isUpgrade)
             RenderUpgradeButton(btn);
@@ -429,6 +441,29 @@ void ShopUI::RenderRepairButton(const Button& btn)
     
     RenderText("REPAIR VEHICLE", btn.x + 15.0f, btn.y + 20.0f, 1.0f, 1.0f, 1.0f, 1.6f);
     RenderText("$50", btn.x + btn.width - 60.0f, btn.y + 25.0f, 1.0f, 0.75f, 0.15f, 1.6f);
+}
+
+// ======================================================================
+// RENDER BACK BUTTON
+// ======================================================================
+void ShopUI::RenderBackButton(const Button& btn)
+{
+    float s = btn.isHovered ? 0.92f : 1.0f;
+    float yOff = btn.isHovered ? 4.0f : 0.0f;
+    
+    float drawW = btn.width * s, drawH = btn.height * s;
+    float drawX = btn.x + (btn.width - drawW) * 0.5f;
+    float drawY = btn.y + (btn.height - drawH) * 0.5f + yOff;
+    
+    RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f, 1.0f);
+    
+    float bt = 1.2f * s, bcol = 0.3f;
+    RenderColoredQuad(drawX, drawY, drawW, bt, bcol, bcol, bcol, 1.0f);
+    RenderColoredQuad(drawX, drawY + drawH - bt, drawW, bt, bcol, bcol, bcol, 1.0f);
+    RenderColoredQuad(drawX, drawY, bt, drawH, bcol, bcol, bcol, 1.0f);
+    RenderColoredQuad(drawX + drawW - bt, drawY, bt, drawH, bcol, bcol, bcol, 1.0f);
+    
+    RenderTextCentered("BACK", drawX + drawW * 0.5f, drawY + (drawH - 18.0f * s) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f * s);
 }
 
 // ======================================================================

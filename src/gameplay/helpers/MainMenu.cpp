@@ -1,5 +1,6 @@
 #include "MainMenu.h"
 #include "../game/Game.h"
+#include "../../engine/audio/AudioEngine.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -470,7 +471,7 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
 // ======================================================================
 // SETTINGS
 // ======================================================================
-MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settings)
+MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settings, AudioEngine* audio)
 {
     double startTime = glfwGetTime();
     double lastT = startTime;
@@ -507,11 +508,11 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
         float drawYBase = by + bob;
         bool overBack = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
 
-        float btnW = 350, btnH = 45;
-        float startY = py + 105.0f, spacing = 55.0f;
+        float btnW = 350, btnH = 40;
+        float startY = py + 100.0f, spacing = 48.0f;
         float btnX = (fbW - btnW) * 0.5f;
-        bool overBtn[6];
-        for (int i = 0; i < 6; ++i) overBtn[i] = PointInRect((float)mx, (float)my, btnX, startY + i * spacing, btnW, btnH);
+        bool overBtn[7];
+        for (int i = 0; i < 7; ++i) overBtn[i] = PointInRect((float)mx, (float)my, btnX, startY + i * spacing, btnW, btnH);
 
         static bool was = false;
         if (click && !was && !isFadingOut) {
@@ -523,6 +524,10 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
                 if (overBtn[3]) { settings->hudOn = !settings->hudOn; settingsChanged = true; }
                 if (overBtn[4]) { settings->timeFrozen = !settings->timeFrozen; settingsChanged = true; }
                 if (overBtn[5]) { settings->camDistant = !settings->camDistant; settingsChanged = true; }
+                if (overBtn[6]) { settings->musicVolume += 10; if(settings->musicVolume > 100) settings->musicVolume = 0; settingsChanged = true; }
+                if (settingsChanged && audio) {
+                    audio->UpdateVolumes(settings->musicOn, settings->sfxOn, settings->musicVolume);
+                }
             }
         }
         was = click;
@@ -545,11 +550,11 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
         RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
         RenderTextCentered("SETTINGS", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
 
-        const char* labels[6] = { "MUSIC", "SFX", "SHADOWS", "HUD", "FREEZE TIME", "CAMERA" };
-        bool states[6] = { true, true, true, true, false, false };
-        if (settings) { states[0] = settings->musicOn; states[1] = settings->sfxOn; states[2] = settings->shadowsOn; states[3] = settings->hudOn; states[4] = settings->timeFrozen; states[5] = settings->camDistant; }
+        const char* labels[7] = { "MUSIC", "SFX", "SHADOWS", "HUD", "FREEZE TIME", "CAMERA", "MUSIC VOL" };
+        bool states[7] = { true, true, true, true, false, false, true };
+        if (settings) { states[0] = settings->musicOn; states[1] = settings->sfxOn; states[2] = settings->shadowsOn; states[3] = settings->hudOn; states[4] = settings->timeFrozen; states[5] = settings->camDistant; states[6] = settings->musicVolume > 0; }
 
-        for (int i = 0; i < 6; ++i) {
+        for (int i = 0; i < 7; ++i) {
             float vS = overBtn[i] ? 0.95f : 1.0f;
             float vDrawW = btnW * vS, vDrawH = btnH * vS;
             float vDrawX = btnX + (btnW - vDrawW) * 0.5f, vDrawY = startY + i * spacing + (btnH - vDrawH) * 0.5f;
@@ -561,9 +566,11 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
             RenderColoredQuad(vDrawX + vDrawW - vt, vDrawY, vt, vDrawH, vcol, vcol, vcol);
             char btnText[64];
             if (i == 5) snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "DISTANT" : "NORMAL");
+            else if (i == 6) snprintf(btnText, sizeof(btnText), "%s: %d%%", labels[i], settings ? settings->musicVolume : 100);
             else snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "ON" : "OFF");
             float r = states[i] ? 0.1f : 0.9f, g = states[i] ? 0.9f : 0.1f, b = 0.1f;
-            if (i >= 4) { r = states[i] ? 0.2f : 0.8f; g = states[i] ? 0.8f : 0.8f; b = states[i] ? 0.9f : 0.2f; }
+            if (i >= 4 && i <= 5) { r = states[i] ? 0.2f : 0.8f; g = states[i] ? 0.8f : 0.8f; b = states[i] ? 0.9f : 0.2f; }
+            if (i == 6) { r = 0.8f; g = 0.8f; b = 0.9f; }
             RenderTextCentered(btnText, vDrawX + vDrawW * 0.5f, vDrawY + (vDrawH - 18.0f * vS) * 0.5f, r, g, b, 1.3f * vS);
         }
 
@@ -691,7 +698,7 @@ void MainMenu::ShowCredits(unsigned int bgTex)
 // ======================================================================
 // MAIN MENU / PAUSE
 // ======================================================================
-MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
+MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings, AudioEngine* audio)
 {
     Result choice = Result::None;
     bool escWas = false;
@@ -707,12 +714,12 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
 
     const std::vector<unsigned char>* al[5];
     unsigned int texID[5]; int tw[5], th[5];
+    int numButtons = pause ? 4 : 5;
     if (pause) {
         texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
         texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
-        texID[3]=creditsTexture;   tw[3]=creditsTexWidth;    th[3]=creditsTexHeight;    al[3]=&creditsAlpha;
-        texID[4]=mainMenuTexture;  tw[4]=mainMenuTexWidth;   th[4]=mainMenuTexHeight;   al[4]=&mainMenuAlpha;
+        texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
     } else {
         texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
@@ -763,36 +770,38 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
         // ============================================================
         // BUTTON SIZES — Pause Menu (when pause == true)
         // ============================================================
-        float dw_pause[5], dh_pause[5];
+        float dw_pause[4], dh_pause[4];
         dw_pause[0] = btnW * 1.21f;  dh_pause[0] = btnH * 1.00f;   // RESUME
         dw_pause[1] = btnW * 1.14f;  dh_pause[1] = btnH * 1.00f;   // SHOP
         dw_pause[2] = btnW * 1.15f;  dh_pause[2] = btnH * 1.00f;   // SETTINGS
-        dw_pause[3] = btnW * 0.90f;  dh_pause[3] = btnH * 1.00f;   // CREDITS
-        dw_pause[4] = btnW * 1.15f;  dh_pause[4] = btnH * 1.00f;   // MAIN MENU
+        dw_pause[3] = btnW * 1.15f;  dh_pause[3] = btnH * 1.00f;   // MAIN MENU
 
         // Pick the right set
         float dw[5], dh[5];
         if (pause) {
-            for (int i = 0; i < 5; i++) { dw[i] = dw_pause[i]; dh[i] = dh_pause[i]; }
+            for (int i = 0; i < 4; i++) { dw[i] = dw_pause[i]; dh[i] = dh_pause[i]; }
         } else {
             for (int i = 0; i < 5; i++) { dw[i] = dw_main[i]; dh[i] = dh_main[i]; }
         }
 
         float sp = 10.0f;
-        float totalH = dh[0] + dh[1] + dh[2] + dh[3] + dh[4] + sp * 4;
+        float totalH = 0.0f;
+        for (int i = 0; i < numButtons; i++) totalH += dh[i];
+        totalH += sp * (numButtons - 1);
+        
         float startY = (fbH - totalH) * 0.5f;
 
-        float cy[5] = {
-            startY + dh[0] * 0.5f,
-            startY + dh[0] + sp + dh[1] * 0.5f,
-            startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,
-            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f,
-            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] + sp + dh[4] * 0.5f
-        };
+        float cy[5];
+        float currentY = startY;
+        for (int i = 0; i < numButtons; i++) {
+            cy[i] = currentY + dh[i] * 0.5f;
+            currentY += dh[i] + sp;
+        }
+        
         float cx = fbW * 0.13f;
 
-        bool over[5];
-        for (int i = 0; i < 5; i++)
+        bool over[5] = {false, false, false, false, false};
+        for (int i = 0; i < numButtons; i++)
             over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i], dw[i], dh[i], *al[i], tw[i], th[i]);
 
         float helpSize = 230.0f;
@@ -810,8 +819,9 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             if (over[0])      { pendingChoice = Result::Play;      isFadingOut = true; }
             else if (over[1]) { choice = Result::Shop; click = false; }
             else if (over[2]) { choice = Result::Settings; click = false; }
-            else if (over[3]) { choice = Result::Credits; click = false; }
-            else if (over[4]) { pendingChoice = Result::Quit;      isFadingOut = true; }
+            else if (over[3] && !pause) { choice = Result::Credits; click = false; }
+            else if (over[3] && pause) { pendingChoice = Result::Quit; isFadingOut = true; }
+            else if (over[4] && !pause) { pendingChoice = Result::Quit; isFadingOut = true; }
             else if (helpOver) { choice = Result::HowToPlay; click = false; }
         }
         wasCl = click;
@@ -831,7 +841,7 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             RenderClouds((float)fbW, (float)fbH, (float)currentT);
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < numButtons; i++) {
             float s = 1.0f, yOff = 0.0f;
             if (over[i]) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
             RenderButtonImageFixed(cx, cy[i] + yOff, dw[i] * s, dh[i] * s, texID[i]);
@@ -878,7 +888,7 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             delete[] blurred;
 
             if (choice == Result::HowToPlay) { ShowHowToPlay(capturedBg); glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
-            if (choice == Result::Settings) { Result res = ShowSettings(capturedBg, settings); if (res == Result::SettingsChanged) { glDeleteTextures(1, &capturedBg); capturedBg = 0; return Result::SettingsChanged; } glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
+            if (choice == Result::Settings) { Result res = ShowSettings(capturedBg, settings, audio); if (res == Result::SettingsChanged) { glDeleteTextures(1, &capturedBg); capturedBg = 0; return Result::SettingsChanged; } glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
             if (choice == Result::Credits) { ShowCredits(capturedBg); glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
         }
 
