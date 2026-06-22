@@ -89,6 +89,17 @@ Follow these step-by-step instructions to compile and play the game on your loca
 - `L` - Toggle Headlights
 - `F5` - Toggle Weather
 
+## Standalone Executable (Play Without Compiling)
+
+If you just want to play the game without building it from source, you can use the pre-packaged executable:
+
+1. **Extract the Game:** Unzip the provided `MiniDeliveryDash_Release.zip` into your preferred location (e.g., your Documents folder).
+2. **Important Rule:** Do **NOT** separate the `MiniDeliveryDash.exe` file from the `res/` folder. The executable requires the resources folder to be in the exact same directory to load models, textures, and audio correctly.
+3. **Play from Desktop:** To have the game accessible from your Desktop like a standard Windows application:
+   - Right-click on the `MiniDeliveryDash.exe` file.
+   - Select **Show more options** (on Windows 11) -> **Send to** -> **Desktop (create shortcut)**.
+   - You will now have a neat shortcut on your Desktop with the game's icon. Double-click it to start playing!
+
 ## Screenshots
 
 ### Main Menu

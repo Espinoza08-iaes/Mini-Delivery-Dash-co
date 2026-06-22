@@ -84,3 +84,5 @@ ehthumbs_vista.db
 # Runtime generated files
 debug_log.txt
 shop_save.txt
+# --- Release Archives ---
+*.zip
