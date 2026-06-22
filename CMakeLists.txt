@@ -20,11 +20,6 @@ file(GLOB_RECURSE SOURCES
     "src/*.cpp"
 )
 
-# RecastNavigation
-set(RECASTNAVIGATION_DEMO OFF CACHE BOOL "" FORCE)
-set(RECASTNAVIGATION_TESTS OFF CACHE BOOL "" FORCE)
-set(RECASTNAVIGATION_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/recastnavigation)
 
 add_executable(MiniDeliveryDash
     ${SOURCES}
@@ -36,8 +31,6 @@ target_include_directories(MiniDeliveryDash PRIVATE
     "${CMAKE_SOURCE_DIR}/third_party"
     "${CMAKE_SOURCE_DIR}/third_party/glad/include"
     "${CMAKE_SOURCE_DIR}/third_party/OpenAL/include"
-    "${CMAKE_SOURCE_DIR}/third_party/recastnavigation/Recast/Include"
-    "${CMAKE_SOURCE_DIR}/third_party/recastnavigation/Detour/Include"
 )
 
 set_target_properties(MiniDeliveryDash PROPERTIES
@@ -73,8 +66,6 @@ if(WIN32)
         opengl32
         gdi32
         user32
-        Recast
-        Detour
     )
 
 elseif(APPLE)
