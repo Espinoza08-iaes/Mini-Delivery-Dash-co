@@ -1,4 +1,5 @@
 #include "MainMenu.h"
+#include "../game/Game.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -94,6 +95,7 @@ MainMenu::MainMenu(GLFWwindow* w, int sw, int sh)
       mainMenuTexture(0), mainMenuTexWidth(0), mainMenuTexHeight(0),
       shopTexture(0), shopTexWidth(0), shopTexHeight(0),
       settingsTexture(0), settingsTexWidth(0), settingsTexHeight(0),
+      creditsTexture(0), creditsTexWidth(0), creditsTexHeight(0),
       helpIconTexture(0), helpIconTexWidth(0), helpIconTexHeight(0),
       pauseBackgroundTexture(0)
 {
@@ -115,15 +117,13 @@ MainMenu::~MainMenu()
     if (mainMenuTexture)   glDeleteTextures(1, &mainMenuTexture);
     if (shopTexture)       glDeleteTextures(1, &shopTexture);
     if (settingsTexture)   glDeleteTextures(1, &settingsTexture);
+    if (creditsTexture)    glDeleteTextures(1, &creditsTexture);
     if (helpIconTexture && helpIconTexture != howToPlayTexture) glDeleteTextures(1, &helpIconTexture);
     if (hudProgram)        glDeleteProgram(hudProgram);
     if (textProgram)       glDeleteProgram(textProgram);
 }
 
-void MainMenu::SetPauseBackground(unsigned int texture)
-{
-    pauseBackgroundTexture = texture;
-}
+void MainMenu::SetPauseBackground(unsigned int texture) { pauseBackgroundTexture = texture; }
 
 // ======================================================================
 // SETUP
@@ -235,6 +235,7 @@ void MainMenu::LoadAllTextures()
     helpIconTexHeight = howToPlayTexHeight;
     helpIconAlpha     = howToPlayAlpha;
     settingsTexture   = LoadTextureFile("res/textures/Settings_STB.png", settingsTexWidth, settingsTexHeight, settingsAlpha);
+    creditsTexture    = LoadTextureFile("res/textures/Credits_STB.png", creditsTexWidth, creditsTexHeight, creditsAlpha);
     exitTexture       = LoadTextureFile("res/textures/Exit_STB.png", exitTexWidth, exitTexHeight, exitAlpha);
     mainMenuTexture   = LoadTextureFile("res/textures/BackToMenu_STB.png", mainMenuTexWidth, mainMenuTexHeight, mainMenuAlpha);
     shopTexture       = LoadTextureFile("res/textures/Shop_STB.png", shopTexWidth, shopTexHeight, shopAlpha);
@@ -399,15 +400,8 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
         if (dt > 0.1f) dt = 0.1f;
         lastT = currentT;
 
-        if (!isFadingOut)
-        {
-            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
-        }
-        else
-        {
-            fadeOutAlpha += dt / fadeDuration;
-            if (fadeOutAlpha >= 1.0f) return;
-        }
+        if (!isFadingOut) { if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; } }
+        else { fadeOutAlpha += dt / fadeDuration; if (fadeOutAlpha >= 1.0f) return; }
 
         float bw = 200, bh = 50;
         float bx = (fbW - bw) * 0.5f, by = fbH - 120.f;
@@ -426,61 +420,39 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
         glUseProgram(hudProgram);
         glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
 
-        if (bgTex) {
-            RenderQuad(0, 0, (float)fbW, (float)fbH, bgTex);
-        } else {
-            RenderBackgroundImage((float)fbW, (float)fbH);
-        }
+        if (bgTex) RenderQuad(0, 0, (float)fbW, (float)fbH, bgTex);
+        else RenderBackgroundImage((float)fbW, (float)fbH);
         RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.30f);
 
         float pw = 840.0f, ph = 560.0f;
         float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
-
-        // Drop shadow
         RenderColoredQuad(px - 8, py - 8, pw + 16, ph + 16, 0.0f, 0.0f, 0.0f, 0.3f);
-        
-        // Border
         RenderColoredQuad(px - 2, py - 2, pw + 4, ph + 4, 0.3f, 0.3f, 0.35f, 0.9f);
-        
-        // Main Background (Dark sleek grey)
         RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.95f);
-
-        // Header Section
         RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
-        RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f); // Orange separator line
+        RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
         RenderTextCentered("HOW TO PLAY", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
 
-        // Content - Two Columns
-        float col1 = px + 60;
-        float col2 = px + pw * 0.5f + 40;
-        float startY = py + 120;
-        float stepY = 55;
-
-        // Driving Controls
+        float col1 = px + 60, col2 = px + pw * 0.5f + 40, startY = py + 120, stepY = 55;
         RenderText("DRIVING", col1, startY, 0.9f, 0.6f, 0.1f, 1.5f);
-        RenderText("W / S      - Accelerate / Brake", col1, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("W / S      - Accelerate / Brake", col1, startY + stepY, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("A / D      - Steer Left / Right", col1, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
-        // Action Controls
         RenderText("SHOP ABILITIES", col2, startY, 0.9f, 0.6f, 0.1f, 1.5f);
-        RenderText("Z          - Jump", col2, startY + stepY * 1, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("Z          - Jump", col2, startY + stepY, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("SHIFT      - Nitro Boost", col2, startY + stepY * 2, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("U          - Neon Underglow", col2, startY + stepY * 3, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("N / M      - Grip / Drift Tires", col2, startY + stepY * 4, 0.85f, 0.85f, 0.85f, 1.3f);
-
-        // System Controls
         RenderText("SYSTEM", col1, startY + stepY * 4.5f, 0.9f, 0.6f, 0.1f, 1.5f);
         RenderText("ESC        - Pause Menu", col1, startY + stepY * 5.5f, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("L          - Toggle Headlights", col1, startY + stepY * 6.5f, 0.85f, 0.85f, 0.85f, 1.3f);
-        RenderText("F5         - Toggle Weather (Rain)", col1, startY + stepY * 7.5f, 0.85f, 0.85f, 0.85f, 1.3f);
+        RenderText("F5         - Toggle Weather", col1, startY + stepY * 7.5f, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("R          - Respawn Car", col2, startY + stepY * 5.5f, 0.85f, 0.85f, 0.85f, 1.3f);
         RenderText("RIGHT CLK  - Orbit Camera", col2, startY + stepY * 6.5f, 0.85f, 0.85f, 0.85f, 1.3f);
 
         float s = 1.0f, yOff = 0.0f;
         if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
-
         float drawW = bw * s, drawH = bh * s;
         float drawX = bx + (bw - drawW) * 0.5f, drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
-
         RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f);
         float bt = 1.2f * s, bcol = 0.3f;
         RenderColoredQuad(drawX, drawY, drawW, bt, bcol, bcol, bcol);
@@ -491,11 +463,13 @@ void MainMenu::ShowHowToPlay(unsigned int bgTex)
 
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
         if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
-
         glfwSwapBuffers(window);
     }
 }
 
+// ======================================================================
+// SETTINGS
+// ======================================================================
 MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settings)
 {
     double startTime = glfwGetTime();
@@ -522,42 +496,26 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
         if (dt > 0.1f) dt = 0.1f;
         lastT = currentT;
 
-        if (!isFadingOut)
-        {
-            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
-        }
-        else
-        {
-            fadeOutAlpha += dt / fadeDuration;
-            if (fadeOutAlpha >= 1.0f) return settingsChanged ? Result::SettingsChanged : Result::None;
-        }
+        if (!isFadingOut) { if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; } }
+        else { fadeOutAlpha += dt / fadeDuration; if (fadeOutAlpha >= 1.0f) return settingsChanged ? Result::SettingsChanged : Result::None; }
 
-        // Layout
         float pw = 700.0f, ph = 550.0f;
         float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
-
-        // Button BACK
         float bw = 200, bh = 50;
         float bx = (fbW - bw) * 0.5f, by = py + ph - 70.f;
         float bob = sin((float)currentT * 2.5f) * 5.0f;
         float drawYBase = by + bob;
-
         bool overBack = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
-        
-        // 6 Option Buttons
-        float btnW = 350, btnH = 45;
-        float startY = py + 105.0f;
-        float spacing = 55.0f;
-        float btnX = (fbW - btnW) * 0.5f;
 
+        float btnW = 350, btnH = 45;
+        float startY = py + 105.0f, spacing = 55.0f;
+        float btnX = (fbW - btnW) * 0.5f;
         bool overBtn[6];
-        for(int i=0; i<6; ++i) {
-            overBtn[i] = PointInRect((float)mx, (float)my, btnX, startY + i * spacing, btnW, btnH);
-        }
+        for (int i = 0; i < 6; ++i) overBtn[i] = PointInRect((float)mx, (float)my, btnX, startY + i * spacing, btnW, btnH);
 
         static bool was = false;
         if (click && !was && !isFadingOut) {
-            if (overBack) { isFadingOut = true; }
+            if (overBack) isFadingOut = true;
             if (settings) {
                 if (overBtn[0]) { settings->musicOn = !settings->musicOn; settingsChanged = true; }
                 if (overBtn[1]) { settings->sfxOn = !settings->sfxOn; settingsChanged = true; }
@@ -568,10 +526,7 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
             }
         }
         was = click;
-
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) {
-            isFadingOut = true;
-        }
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) isFadingOut = true;
 
         glClearColor(0,0,0,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -586,56 +541,32 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
         RenderColoredQuad(px - 8, py - 8, pw + 16, ph + 16, 0.0f, 0.0f, 0.0f, 0.3f);
         RenderColoredQuad(px - 2, py - 2, pw + 4, ph + 4, 0.3f, 0.3f, 0.35f, 0.9f);
         RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.95f);
-
         RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
         RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
         RenderTextCentered("SETTINGS", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
 
         const char* labels[6] = { "MUSIC", "SFX", "SHADOWS", "HUD", "FREEZE TIME", "CAMERA" };
         bool states[6] = { true, true, true, true, false, false };
-        if (settings) {
-            states[0] = settings->musicOn; states[1] = settings->sfxOn;
-            states[2] = settings->shadowsOn; states[3] = settings->hudOn;
-            states[4] = settings->timeFrozen; states[5] = settings->camDistant;
-        }
+        if (settings) { states[0] = settings->musicOn; states[1] = settings->sfxOn; states[2] = settings->shadowsOn; states[3] = settings->hudOn; states[4] = settings->timeFrozen; states[5] = settings->camDistant; }
 
-        for (int i=0; i<6; ++i) {
+        for (int i = 0; i < 6; ++i) {
             float vS = overBtn[i] ? 0.95f : 1.0f;
             float vDrawW = btnW * vS, vDrawH = btnH * vS;
             float vDrawX = btnX + (btnW - vDrawW) * 0.5f, vDrawY = startY + i * spacing + (btnH - vDrawH) * 0.5f;
-            
             RenderColoredQuad(vDrawX, vDrawY, vDrawW, vDrawH, 0.15f, 0.15f, 0.18f);
             float vt = 1.2f * vS, vcol = 0.3f;
             RenderColoredQuad(vDrawX, vDrawY, vDrawW, vt, vcol, vcol, vcol);
             RenderColoredQuad(vDrawX, vDrawY + vDrawH - vt, vDrawW, vt, vcol, vcol, vcol);
             RenderColoredQuad(vDrawX, vDrawY, vt, vDrawH, vcol, vcol, vcol);
             RenderColoredQuad(vDrawX + vDrawW - vt, vDrawY, vt, vDrawH, vcol, vcol, vcol);
-            
             char btnText[64];
-            if (i == 5) {
-                snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "DISTANT" : "NORMAL");
-            } else {
-                snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "ON" : "OFF");
-            }
-            
-            // Draw state color
-            float r = states[i] ? 0.1f : 0.9f;
-            float g = states[i] ? 0.9f : 0.1f;
-            float b = 0.1f;
-            if (i == 4) { // Time Frozen is inverted visually maybe? "ON" means frozen.
-                r = states[i] ? 0.2f : 0.8f;
-                g = states[i] ? 0.8f : 0.8f;
-                b = states[i] ? 0.9f : 0.2f;
-            }
-            if (i == 5) { // Camera mode color
-                r = states[i] ? 0.2f : 0.8f;
-                g = states[i] ? 0.8f : 0.8f;
-                b = states[i] ? 0.9f : 0.2f;
-            }
+            if (i == 5) snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "DISTANT" : "NORMAL");
+            else snprintf(btnText, sizeof(btnText), "%s: %s", labels[i], states[i] ? "ON" : "OFF");
+            float r = states[i] ? 0.1f : 0.9f, g = states[i] ? 0.9f : 0.1f, b = 0.1f;
+            if (i >= 4) { r = states[i] ? 0.2f : 0.8f; g = states[i] ? 0.8f : 0.8f; b = states[i] ? 0.9f : 0.2f; }
             RenderTextCentered(btnText, vDrawX + vDrawW * 0.5f, vDrawY + (vDrawH - 18.0f * vS) * 0.5f, r, g, b, 1.3f * vS);
         }
 
-        // Back Button
         float s = 1.0f, yOff = 0.0f;
         if (overBack) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
         float drawW = bw * s, drawH = bh * s;
@@ -650,10 +581,111 @@ MainMenu::Result MainMenu::ShowSettings(unsigned int bgTex, GameSettings* settin
 
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
         if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
-
         glfwSwapBuffers(window);
     }
     return pendingChoice;
+}
+
+// ======================================================================
+// CREDITS
+// ======================================================================
+void MainMenu::ShowCredits(unsigned int bgTex)
+{
+    double startTime = glfwGetTime();
+    double lastT = startTime;
+    float fadeAlpha = 1.0f;
+    float fadeOutAlpha = 0.0f;
+    bool isFadingOut = false;
+    float fadeDuration = 0.3f;
+
+    while (!glfwWindowShouldClose(window))
+    {
+        glfwPollEvents();
+        int fbW, fbH; glfwGetFramebufferSize(window, &fbW, &fbH); glViewport(0, 0, fbW, fbH);
+        double mx, my; glfwGetCursorPos(window, &mx, &my);
+        int wW, wH; glfwGetWindowSize(window, &wW, &wH);
+        mx *= (float)fbW / wW; my *= (float)fbH / wH;
+        bool click = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+        double currentT = glfwGetTime();
+        float dt = (float)(currentT - lastT);
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+        lastT = currentT;
+
+        if (!isFadingOut) { if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; } }
+        else { fadeOutAlpha += dt / fadeDuration; if (fadeOutAlpha >= 1.0f) return; }
+
+        float bw = 200, bh = 50;
+        float bx = (fbW - bw) * 0.5f, by = fbH - 120.f;
+        float bob = sin((float)currentT * 2.5f) * 5.0f;
+        float drawYBase = by + bob;
+
+        bool over = PointInRect((float)mx, (float)my, bx, drawYBase, bw, bh);
+        static bool was = false;
+        if (click && !was && over && !isFadingOut) isFadingOut = true;
+        was = click;
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !isFadingOut) isFadingOut = true;
+
+        glClearColor(0,0,0,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+        glUseProgram(hudProgram);
+        glUniformMatrix4fv(glGetUniformLocation(hudProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+
+        if (bgTex) RenderQuad(0, 0, (float)fbW, (float)fbH, bgTex);
+        else RenderBackgroundImage((float)fbW, (float)fbH);
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.30f);
+
+        float pw = 700.0f, ph = 480.0f;
+        float px = (fbW - pw) * 0.5f, py = (fbH - ph) * 0.5f;
+
+        RenderColoredQuad(px - 8, py - 8, pw + 16, ph + 16, 0.0f, 0.0f, 0.0f, 0.3f);
+        RenderColoredQuad(px - 2, py - 2, pw + 4, ph + 4, 0.3f, 0.3f, 0.35f, 0.9f);
+        RenderColoredQuad(px, py, pw, ph, 0.08f, 0.08f, 0.10f, 0.95f);
+
+        RenderColoredQuad(px, py, pw, 75, 0.13f, 0.13f, 0.16f, 0.95f);
+        RenderColoredQuad(px, py + 73, pw, 2, 0.9f, 0.6f, 0.1f, 1.0f);
+        RenderTextCentered("CREDITS", px + pw * 0.5f, py + 25, 0.9f, 0.9f, 0.9f, 2.0f);
+
+        if (creditsTexture != 0)
+        {
+            float imgMaxW = pw * 0.45f;
+            float imgAsp = (float)creditsTexWidth / (float)creditsTexHeight;
+            float imgW = imgMaxW;
+            float imgH = imgMaxW / imgAsp;
+            float imgX = px + (pw - imgW) * 0.5f;
+            float imgY = py + 95.0f;
+            RenderQuad(imgX, imgY, imgW, imgH, creditsTexture);
+        }
+
+        const char* names[] = {
+            "Espinoza Saenz Isaac Antonio / 2024-1873U",
+            "Lira Zavala Kenry Onell / 2024-1898U",
+            "Morales Matamoros Erick Antonio / 2024-1935U",
+            "Orozco Jarquin Gustavo Adolfo / 2024-1938U"
+        };
+        float nameY = py + 270.0f;
+        float nameStep = 35.0f;
+        for (int i = 0; i < 4; i++)
+            RenderTextCentered(names[i], fbW * 0.5f, nameY + i * nameStep, 0.85f, 0.85f, 0.85f, 1.4f);
+
+        float s = 1.0f, yOff = 0.0f;
+        if (over) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
+        float drawW = bw * s, drawH = bh * s;
+        float drawX = bx + (bw - drawW) * 0.5f, drawY = drawYBase + (bh - drawH) * 0.5f + yOff;
+        RenderColoredQuad(drawX, drawY, drawW, drawH, 0.1f, 0.1f, 0.1f);
+        float bt = 1.2f * s, bcol = 0.3f;
+        RenderColoredQuad(drawX, drawY, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY + drawH - bt, drawW, bt, bcol, bcol, bcol);
+        RenderColoredQuad(drawX, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderColoredQuad(drawX + drawW - bt, drawY, bt, drawH, bcol, bcol, bcol);
+        RenderTextCentered("BACK", drawX + drawW * 0.5f, drawY + (drawH - 18.0f * s) * 0.5f, 0.75f, 0.75f, 0.75f, 1.3f * s);
+
+        float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
+        if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
+        glfwSwapBuffers(window);
+    }
 }
 
 // ======================================================================
@@ -673,19 +705,20 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
     Result pendingChoice = Result::None;
     float fadeDuration = 0.5f;
 
-    // Pre-assign texture arrays once before the loop
-    const std::vector<unsigned char>* al[4];
-    unsigned int texID[4]; int tw[4], th[4];
+    const std::vector<unsigned char>* al[5];
+    unsigned int texID[5]; int tw[5], th[5];
     if (pause) {
         texID[0]=resumeTexture;    tw[0]=resumeTexWidth;     th[0]=resumeTexHeight;     al[0]=&resumeAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
         texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
-        texID[3]=mainMenuTexture;  tw[3]=mainMenuTexWidth;   th[3]=mainMenuTexHeight;   al[3]=&mainMenuAlpha;
+        texID[3]=creditsTexture;   tw[3]=creditsTexWidth;    th[3]=creditsTexHeight;    al[3]=&creditsAlpha;
+        texID[4]=mainMenuTexture;  tw[4]=mainMenuTexWidth;   th[4]=mainMenuTexHeight;   al[4]=&mainMenuAlpha;
     } else {
         texID[0]=playTexture;      tw[0]=playTexWidth;       th[0]=playTexHeight;       al[0]=&playAlpha;
         texID[1]=shopTexture;      tw[1]=shopTexWidth;       th[1]=shopTexHeight;       al[1]=&shopAlpha;
         texID[2]=settingsTexture;  tw[2]=settingsTexWidth;   th[2]=settingsTexHeight;   al[2]=&settingsAlpha;
-        texID[3]=exitTexture;      tw[3]=exitTexWidth;       th[3]=exitTexHeight;       al[3]=&exitAlpha;
+        texID[3]=creditsTexture;   tw[3]=creditsTexWidth;    th[3]=creditsTexHeight;    al[3]=&creditsAlpha;
+        texID[4]=exitTexture;      tw[4]=exitTexWidth;       th[4]=exitTexHeight;       al[4]=&exitAlpha;
     }
 
     while (!glfwWindowShouldClose(window) && choice == Result::None)
@@ -703,15 +736,8 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
         if (dt > 0.1f) dt = 0.1f;
         lastT = currentT;
 
-        if (!isFadingOut)
-        {
-            if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; }
-        }
-        else
-        {
-            fadeOutAlpha += dt / fadeDuration;
-            if (fadeOutAlpha >= 1.0f) { fadeOutAlpha = 1.0f; choice = pendingChoice; }
-        }
+        if (!isFadingOut) { if (fadeAlpha > 0.0f) { fadeAlpha -= dt / fadeDuration; if (fadeAlpha < 0.0f) fadeAlpha = 0.0f; } }
+        else { fadeOutAlpha += dt / fadeDuration; if (fadeOutAlpha >= 1.0f) { fadeOutAlpha = 1.0f; choice = pendingChoice; } }
 
         if (pause && !isFadingOut) {
             bool esc = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
@@ -721,56 +747,62 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
 
         float ref = std::min((float)fbW, (float)fbH);
         float btnMaxW = std::min(std::max(ref * 0.3f, 200.f), 400.f);
-
         float btnW = btnMaxW;
         float btnH = btnMaxW / 3.2f;
 
-        float dw[4], dh[4];
+        // ============================================================
+        // BUTTON SIZES — Main Menu (when pause == false)
+        // ============================================================
+        float dw_main[5], dh_main[5];
+        dw_main[0] = btnW * 1.00f;  dh_main[0] = btnH * 1.00f;   // PLAY
+        dw_main[1] = btnW * 1.15f;  dh_main[1] = btnH * 1.00f;   // SHOP
+        dw_main[2] = btnW * 1.15f;  dh_main[2] = btnH * 1.00f;   // SETTINGS
+        dw_main[3] = btnW * 0.90f;  dh_main[3] = btnH * 1.00f;   // CREDITS
+        dw_main[4] = btnW * 0.85f;  dh_main[4] = btnH * 1.00f;   // EXIT
+
+        // ============================================================
+        // BUTTON SIZES — Pause Menu (when pause == true)
+        // ============================================================
+        float dw_pause[5], dh_pause[5];
+        dw_pause[0] = btnW * 1.21f;  dh_pause[0] = btnH * 1.00f;   // RESUME
+        dw_pause[1] = btnW * 1.14f;  dh_pause[1] = btnH * 1.00f;   // SHOP
+        dw_pause[2] = btnW * 1.15f;  dh_pause[2] = btnH * 1.00f;   // SETTINGS
+        dw_pause[3] = btnW * 0.90f;  dh_pause[3] = btnH * 1.00f;   // CREDITS
+        dw_pause[4] = btnW * 1.15f;  dh_pause[4] = btnH * 1.00f;   // MAIN MENU
+
+        // Pick the right set
+        float dw[5], dh[5];
         if (pause) {
-            float uniformW = btnW * 1.1f;
-            dw[0] = uniformW; dh[0] = btnH * 1.0f;
-            dw[1] = uniformW; dh[1] = btnH * 1.0f;
-            dw[2] = uniformW; dh[2] = btnH * 1.0f;
-            dw[3] = uniformW; dh[3] = btnH * 1.0f;
+            for (int i = 0; i < 5; i++) { dw[i] = dw_pause[i]; dh[i] = dh_pause[i]; }
         } else {
-            dw[0] = btnW * 1.0f;  dh[0] = btnH * 1.0f;
-            dw[1] = btnW * 1.15f; dh[1] = btnH * 1.0f;
-            dw[2] = btnW * 1.15f; dh[2] = btnH * 1.0f;
-            dw[3] = btnW * 0.85f; dh[3] = btnH * 1.0f;
+            for (int i = 0; i < 5; i++) { dw[i] = dw_main[i]; dh[i] = dh_main[i]; }
         }
 
         float sp = 10.0f;
-        float totalH = dh[0] + dh[1] + dh[2] + dh[3] + sp * 3;
+        float totalH = dh[0] + dh[1] + dh[2] + dh[3] + dh[4] + sp * 4;
         float startY = (fbH - totalH) * 0.5f;
 
-        float cy[4] = {
+        float cy[5] = {
             startY + dh[0] * 0.5f,
             startY + dh[0] + sp + dh[1] * 0.5f,
             startY + dh[0] + sp + dh[1] + sp + dh[2] * 0.5f,
-            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f
+            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] * 0.5f,
+            startY + dh[0] + sp + dh[1] + sp + dh[2] + sp + dh[3] + sp + dh[4] * 0.5f
         };
         float cx = fbW * 0.13f;
 
-        bool over[4];
-        for (int i = 0; i < 4; i++)
+        bool over[5];
+        for (int i = 0; i < 5; i++)
             over[i] = IsMouseOverButtonPixel((float)mx, (float)my, cx, cy[i], dw[i], dh[i], *al[i], tw[i], th[i]);
 
-        // "?" help icon — glued to top-right corner regardless of size
         float helpSize = 230.0f;
-
-        float helpDisplayW = helpSize;
-        float helpDisplayH = helpSize;
-        if (helpIconTexWidth > 0 && helpIconTexHeight > 0)
-        {
+        float helpDisplayW = helpSize, helpDisplayH = helpSize;
+        if (helpIconTexWidth > 0 && helpIconTexHeight > 0) {
             float helpAsp = (float)helpIconTexWidth / (float)helpIconTexHeight;
             helpDisplayH = helpSize / helpAsp;
         }
-
-        float helpRight = fbW - 20.0f;
-        float helpTop = 85.0f;
-        float helpCx = helpRight - helpDisplayW * 0.5f;
-        float helpCy = helpTop + helpDisplayH * 0.5f;
-
+        float helpRight = fbW - 20.0f, helpTop = 85.0f;
+        float helpCx = helpRight - helpDisplayW * 0.5f, helpCy = helpTop + helpDisplayH * 0.5f;
         bool helpOver = IsMouseOverButtonPixel((float)mx, (float)my, helpCx, helpCy, helpDisplayW, helpDisplayH, helpIconAlpha, helpIconTexWidth, helpIconTexHeight);
 
         static bool wasCl = false;
@@ -778,12 +810,12 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             if (over[0])      { pendingChoice = Result::Play;      isFadingOut = true; }
             else if (over[1]) { choice = Result::Shop; click = false; }
             else if (over[2]) { choice = Result::Settings; click = false; }
-            else if (over[3]) { pendingChoice = Result::Quit;      isFadingOut = true; }
+            else if (over[3]) { choice = Result::Credits; click = false; }
+            else if (over[4]) { pendingChoice = Result::Quit;      isFadingOut = true; }
             else if (helpOver) { choice = Result::HowToPlay; click = false; }
         }
         wasCl = click;
 
-        // RENDER
         glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
@@ -794,66 +826,48 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             if (pauseBackgroundTexture != 0) RenderQuad(0, 0, (float)fbW, (float)fbH, pauseBackgroundTexture);
             RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, 0.75f);
             if (pauseDecorTexture != 0) RenderQuad(0, 0, (float)fbW, (float)fbH, pauseDecorTexture);
-        }
-        else {
+        } else {
             RenderBackgroundImage((float)fbW, (float)fbH, (float)currentT);
             RenderClouds((float)fbW, (float)fbH, (float)currentT);
         }
 
-        for (int i = 0; i < 4; i++)
-        {
+        for (int i = 0; i < 5; i++) {
             float s = 1.0f, yOff = 0.0f;
             if (over[i]) { if (click) { s = 0.92f; yOff = 4.0f; } else { s = 1.08f; } }
             RenderButtonImageFixed(cx, cy[i] + yOff, dw[i] * s, dh[i] * s, texID[i]);
         }
 
-        if (helpIconTexture)
-        {
+        if (helpIconTexture) {
             float hs = 1.0f;
             if (helpOver) hs = click ? 0.92f : 1.08f;
-            RenderQuad(helpCx - helpDisplayW * 0.5f * hs, helpCy - helpDisplayH * 0.5f * hs,
-                    helpDisplayW * hs, helpDisplayH * hs, helpIconTexture);
+            RenderQuad(helpCx - helpDisplayW * 0.5f * hs, helpCy - helpDisplayH * 0.5f * hs, helpDisplayW * hs, helpDisplayH * hs, helpIconTexture);
         }
 
         float overlayAlpha = isFadingOut ? fadeOutAlpha : fadeAlpha;
         if (overlayAlpha > 0.0f) RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0, 0, 0, overlayAlpha);
 
-        if (choice == Result::Shop || choice == Result::HowToPlay || choice == Result::Settings) {
-            // Capture the back buffer and create a BLURRED version for the fade effect
+        if (choice == Result::Shop || choice == Result::HowToPlay || choice == Result::Settings || choice == Result::Credits) {
             unsigned char* pixels = new unsigned char[fbW * fbH * 3];
             glReadBuffer(GL_BACK);
             glReadPixels(0, 0, fbW, fbH, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-            
-            // Downsample to 1/6th resolution with averaging for blur effect
-            int smallW = fbW / 6;
-            int smallH = fbH / 6;
-            if (smallW < 1) smallW = 1;
-            if (smallH < 1) smallH = 1;
+            int smallW = fbW / 6, smallH = fbH / 6;
+            if (smallW < 1) smallW = 1; if (smallH < 1) smallH = 1;
             unsigned char* blurred = new unsigned char[smallW * smallH * 3];
-            for (int y = 0; y < smallH; y++) {
-                for (int x = 0; x < smallW; x++) {
-                    int r = 0, g = 0, b = 0, count = 0;
-                    for (int dy = 0; dy < 6; dy++) {
-                        for (int dx = 0; dx < 6; dx++) {
-                            int srcX = x * 6 + dx;
-                            int srcY = y * 6 + dy;
-                            if (srcX < fbW && srcY < fbH) {
-                                int idx = (srcY * fbW + srcX) * 3;
-                                r += pixels[idx];
-                                g += pixels[idx + 1];
-                                b += pixels[idx + 2];
-                                count++;
-                            }
-                        }
+            for (int y = 0; y < smallH; y++) for (int x = 0; x < smallW; x++) {
+                int r = 0, g = 0, b = 0, count = 0;
+                for (int dy = 0; dy < 6; dy++) for (int dx = 0; dx < 6; dx++) {
+                    int srcX = x * 6 + dx, srcY = y * 6 + dy;
+                    if (srcX < fbW && srcY < fbH) {
+                        int idx = (srcY * fbW + srcX) * 3;
+                        r += pixels[idx]; g += pixels[idx + 1]; b += pixels[idx + 2]; count++;
                     }
-                    int dstIdx = (y * smallW + x) * 3;
-                    blurred[dstIdx]     = (unsigned char)(r / count);
-                    blurred[dstIdx + 1] = (unsigned char)(g / count);
-                    blurred[dstIdx + 2] = (unsigned char)(b / count);
                 }
+                int dstIdx = (y * smallW + x) * 3;
+                blurred[dstIdx] = (unsigned char)(r / count);
+                blurred[dstIdx + 1] = (unsigned char)(g / count);
+                blurred[dstIdx + 2] = (unsigned char)(b / count);
             }
             delete[] pixels;
-            
             glGenTextures(1, &capturedBg);
             glBindTexture(GL_TEXTURE_2D, capturedBg);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, smallW, smallH, 0, GL_RGB, GL_UNSIGNED_BYTE, blurred);
@@ -862,26 +876,10 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             delete[] blurred;
-            
-            std::cout << "[CAPTURE] Blurred texture " << smallW << "x" << smallH << " texID=" << capturedBg << std::endl;
-            
-            if (choice == Result::HowToPlay) {
-                ShowHowToPlay(capturedBg);
-                glDeleteTextures(1, &capturedBg);
-                capturedBg = 0;
-                choice = Result::None; // continue main menu loop
-            }
-            if (choice == Result::Settings) {
-                Result res = ShowSettings(capturedBg, settings);
-                if (res == Result::SettingsChanged) {
-                    glDeleteTextures(1, &capturedBg);
-                    capturedBg = 0;
-                    return Result::SettingsChanged;
-                }
-                glDeleteTextures(1, &capturedBg);
-                capturedBg = 0;
-                choice = Result::None; // continue main menu loop
-            }
+
+            if (choice == Result::HowToPlay) { ShowHowToPlay(capturedBg); glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
+            if (choice == Result::Settings) { Result res = ShowSettings(capturedBg, settings); if (res == Result::SettingsChanged) { glDeleteTextures(1, &capturedBg); capturedBg = 0; return Result::SettingsChanged; } glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
+            if (choice == Result::Credits) { ShowCredits(capturedBg); glDeleteTextures(1, &capturedBg); capturedBg = 0; choice = Result::None; }
         }
 
         glfwSwapBuffers(window);
@@ -889,6 +887,9 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings)
     return choice;
 }
 
+// ======================================================================
+// LOADING SCREEN
+// ======================================================================
 void MainMenu::RenderLoading(float progress, const char* message)
 {
     static float displayedProgress = 0.0f;
