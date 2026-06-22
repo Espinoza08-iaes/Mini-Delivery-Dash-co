@@ -909,6 +909,11 @@ int Game::Run()
 
             int hours = static_cast<int>(timeOfDay);
             int minutes = static_cast<int>((timeOfDay - hours) * 60.0f);
+            
+            // NOTE: Do not dynamically update the window title here. 
+            // Updating the window title every frame causes Windows Game Bar and other screen recorders
+            // to lose track of the window and stop recording automatically.
+            /*
             char title[256];
             std::snprintf(title, sizeof(title),
                           "Mini Delivery Dash | FPS: %.0f | Time: %02d:%02d | Speed: %.1f km/h | Pos: (%.2f, %.2f, %.2f)",
@@ -916,6 +921,7 @@ int Game::Run()
                           std::abs(car.speed) * 3.6f,
                           car.position.x, car.position.y, car.position.z);
             glfwSetWindowTitle(window, title);
+            */
 
             glfwSwapBuffers(window);
             glfwPollEvents();
