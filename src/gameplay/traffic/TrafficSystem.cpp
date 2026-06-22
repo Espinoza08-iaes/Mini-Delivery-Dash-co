@@ -285,6 +285,58 @@ void TrafficSystem::Update(float dt, CarState& playerCar, const City& city)
             }
         }
     }
+
+    // --- Hard Collision Resolution ---
+    // 1. NPC vs Player
+    for (auto& npc : mActiveNPCs) {
+        glm::vec2 pPos(playerCar.position.x, playerCar.position.z);
+        glm::vec2 nPos(npc.position.x, npc.position.z);
+        float dist = glm::distance(pPos, nPos);
+        float hitRadius = 2.8f; // Car collision boundary
+        if (dist < hitRadius && dist > 0.01f) {
+            glm::vec2 pushDir = glm::normalize(pPos - nPos);
+            float overlap = hitRadius - dist;
+            
+            // Push player and NPC away from each other
+            pPos += pushDir * (overlap * 0.5f);
+            nPos -= pushDir * (overlap * 0.5f);
+            
+            // Keep Y coordinates
+            playerCar.position.x = pPos.x;
+            playerCar.position.z = pPos.y;
+            npc.position.x = nPos.x;
+            npc.position.z = nPos.y;
+            
+            // Crash speed penalty
+            playerCar.speed *= 0.8f;
+            npc.speed *= 0.5f;
+        }
+    }
+
+    // 2. NPC vs NPC
+    for (size_t i = 0; i < mActiveNPCs.size(); ++i) {
+        for (size_t j = i + 1; j < mActiveNPCs.size(); ++j) {
+            glm::vec2 n1(mActiveNPCs[i].position.x, mActiveNPCs[i].position.z);
+            glm::vec2 n2(mActiveNPCs[j].position.x, mActiveNPCs[j].position.z);
+            float dist = glm::distance(n1, n2);
+            float hitRadius = 2.5f;
+            if (dist < hitRadius && dist > 0.01f) {
+                glm::vec2 pushDir = glm::normalize(n1 - n2);
+                float overlap = hitRadius - dist;
+                
+                n1 += pushDir * (overlap * 0.5f);
+                n2 -= pushDir * (overlap * 0.5f);
+                
+                mActiveNPCs[i].position.x = n1.x;
+                mActiveNPCs[i].position.z = n1.y;
+                mActiveNPCs[j].position.x = n2.x;
+                mActiveNPCs[j].position.z = n2.y;
+                
+                mActiveNPCs[i].speed *= 0.8f;
+                mActiveNPCs[j].speed *= 0.8f;
+            }
+        }
+    }
 }
 
 // ─── NPC Physics (mirrors CarController::UpdateCar exactly) ──────────────────
@@ -464,39 +516,75 @@ void TrafficSystem::SteerCivilian(NPCCar& npc, float dt, const CarState& playerC
         }
         
         if (!npc.currentPath.empty() && npc.currentPathIndex < (int)npc.currentPath.size()) {
-            // === NavMesh path-following mode ===
-            glm::vec3 target = npc.currentPath[npc.currentPathIndex];
-            float distToTarget = glm::distance(glm::vec2(npc.position.x, npc.position.z), glm::vec2(target.x, target.z));
+            // === NavMesh Pure Pursuit & Lane Keeping ===
             
-            if (distToTarget < 5.0f) {
-                npc.currentPathIndex++;
-                if (npc.currentPathIndex < (int)npc.currentPath.size()) {
-                    target = npc.currentPath[npc.currentPathIndex];
+            // 1. Advance waypoint if close
+            while (npc.currentPathIndex < (int)npc.currentPath.size()) {
+                float d = glm::distance(glm::vec2(npc.position.x, npc.position.z), 
+                                        glm::vec2(npc.currentPath[npc.currentPathIndex].x, npc.currentPath[npc.currentPathIndex].z));
+                if (d < 4.0f) {
+                    npc.currentPathIndex++;
+                } else {
+                    break;
                 }
             }
             
             if (npc.currentPathIndex < (int)npc.currentPath.size()) {
+                // 2. Pure Pursuit: Find a lookahead point
+                float lookahead = std::max(6.0f, npc.speed * 1.2f);
+                glm::vec3 target = npc.currentPath[npc.currentPathIndex];
+                
+                for (int i = npc.currentPathIndex; i < (int)npc.currentPath.size(); ++i) {
+                    float d = glm::distance(glm::vec2(npc.position.x, npc.position.z), 
+                                            glm::vec2(npc.currentPath[i].x, npc.currentPath[i].z));
+                    if (d >= lookahead) {
+                        target = npc.currentPath[i];
+                        break;
+                    }
+                }
+                
+                // 3. Lane Keeping: Offset the target to the right side of the path segment
+                glm::vec3 pathDir;
+                if (npc.currentPathIndex < (int)npc.currentPath.size() - 1) {
+                    pathDir = glm::normalize(npc.currentPath[npc.currentPathIndex + 1] - npc.currentPath[npc.currentPathIndex]);
+                } else if (npc.currentPathIndex > 0) {
+                    pathDir = glm::normalize(npc.currentPath[npc.currentPathIndex] - npc.currentPath[npc.currentPathIndex - 1]);
+                } else {
+                    pathDir = forward;
+                }
+                pathDir.y = 0.0f;
+                glm::vec3 pathRight = glm::vec3(pathDir.z, 0.0f, -pathDir.x);
+                
+                // Offset 2.5 meters to the right, but snap back to NavMesh to avoid hitting walls
+                glm::vec3 idealLaneTarget = target - pathRight * 2.5f;
+                target = mPathfinder.FindNearestPointOnNavMesh(idealLaneTarget);
+                
                 glm::vec3 toTarget = target - npc.position;
                 toTarget.y = 0.0f;
                 if (glm::length(toTarget) > 0.01f) {
                     glm::vec3 dirToTarget = glm::normalize(toTarget);
+                    
+                    // 4. Steer smoothly towards the offset target
                     float cross = forward.x * dirToTarget.z - forward.z * dirToTarget.x;
-                    npc.steerInput = glm::clamp(-cross * 3.5f, -1.0f, 1.0f);
+                    npc.steerInput = glm::clamp(-cross * 3.0f, -1.0f, 1.0f);
                     
-                    // Corner Slowdown Logic
+                    // 5. Look-ahead Corner Braking
                     float targetSpeed = npc.cruiseSpeed;
-                    float dotForward = glm::dot(forward, dirToTarget);
-                    
-                    if (distToTarget < 12.0f && npc.currentPathIndex + 1 < (int)npc.currentPath.size()) {
-                        glm::vec3 nextTarget = npc.currentPath[npc.currentPathIndex + 1];
-                        glm::vec3 dirToNext = glm::normalize(nextTarget - target);
-                        if (glm::dot(dirToTarget, dirToNext) < 0.8f) {
-                            targetSpeed = npc.cruiseSpeed * 0.35f;
+                    int checkIdx = std::min(npc.currentPathIndex + 2, (int)npc.currentPath.size() - 1);
+                    if (checkIdx > npc.currentPathIndex) {
+                        glm::vec3 futureDir = glm::normalize(npc.currentPath[checkIdx] - npc.currentPath[npc.currentPathIndex]);
+                        futureDir.y = 0.0f;
+                        float turnDot = glm::dot(forward, futureDir);
+                        if (turnDot < 0.6f) {
+                            targetSpeed = npc.cruiseSpeed * 0.3f; // Sharp turn, brake hard
+                        } else if (turnDot < 0.85f) {
+                            targetSpeed = npc.cruiseSpeed * 0.6f; // Mild turn, slow down
                         }
                     }
                     
-                    if (dotForward < 0.9f) {
-                        targetSpeed = std::min(targetSpeed, npc.cruiseSpeed * 0.4f);
+                    // Also slow down if we are severely misaligned right now
+                    if (glm::dot(forward, dirToTarget) < 0.7f) {
+                        targetSpeed = std::min(targetSpeed, npc.cruiseSpeed * 0.5f);
                     }
                     
                     npc.desiredSpeed = targetSpeed;
