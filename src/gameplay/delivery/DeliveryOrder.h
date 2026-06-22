@@ -40,8 +40,13 @@ struct DeliveryOrder
     glm::vec3 destinationPosition;
     
     float reward;
+    float baseDisplayReward;
     float timeLimit;
     float fragileHealth;
+    float timeGold;
+    float timeSilver;
+    float timeBronze;
+    int starsEarned;
 
     // Tracking variables per order
     float elapsedTime;
@@ -56,8 +61,13 @@ struct DeliveryOrder
         , originPosition(glm::vec3(999999.0f))
         , destinationPosition(glm::vec3(999999.0f))
         , reward(0.0f)
+        , baseDisplayReward(0.0f)
         , timeLimit(0.0f)
         , fragileHealth(100.0f)
+        , timeGold(0.0f)
+        , timeSilver(0.0f)
+        , timeBronze(0.0f)
+        , starsEarned(0)
         , elapsedTime(0.0f)
         , collisionCount(0)
         , waterCount(0)

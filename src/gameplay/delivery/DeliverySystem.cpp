@@ -84,7 +84,6 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             waitingOrder.waterCount = 0;
             
             activeOrders.push_back(waitingOrder);
-            GenerateNewOrder();
         }
     }
 
@@ -142,35 +141,57 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             float base, bonus, penCol, penWat, penTime;
             CalculateDetailedRewards(order, base, bonus, penCol, penWat, penTime);
             
+            ShopManager* shop = ShopManager::GetInstance();
+            float payMultiplier = shop->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
+            
+            base *= payMultiplier;
+            bonus *= payMultiplier;
+            penCol *= payMultiplier;
+            penWat *= payMultiplier;
+            penTime *= payMultiplier;
+            
+            float finalReward = base + bonus - penCol - penWat - penTime;
+            if (finalReward < 0.0f) finalReward = 0.0f;
+            
+            int starsEarned = 0;
+            if (order.elapsedTime <= order.timeGold) starsEarned = 3;
+            else if (order.elapsedTime <= order.timeSilver) starsEarned = 2;
+            else if (order.elapsedTime <= order.timeBronze) starsEarned = 1;
+            
+            order.starsEarned = starsEarned;
+            currentStars = starsEarned;
+            
+            AddToWallet(finalReward);
+            shop->AddMoney(static_cast<int>(finalReward));
+            shop->SaveShopData();
+            
+            order.reward = base;
+            order.state = OrderState::DELIVERED;
+            
+            lastDeliveredOrder = order;
+            lastDeliveredOrder.elapsedTime = 0.0f;
+            lastDeliveredOrder.starsEarned = starsEarned;
+            
             finalBonusAmount = bonus;
             finalLossCollision = penCol;
             finalLossWater = penWat;
             finalLossTime = penTime;
+            totalLoss = penCol + penWat + penTime;
             finalElapsedTime = order.elapsedTime;
             
-            ShopManager* shop = ShopManager::GetInstance();
-            float payMultiplier = shop->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
-            
-            float finalReward = (base + bonus - penCol - penWat - penTime) * payMultiplier;
-            totalLoss = base - finalReward; 
-            AddToWallet(finalReward);
-            
-            shop->AddMoney(static_cast<int>(finalReward));
-            shop->SaveShopData();
-            
-            order.reward = finalReward;
-            order.state = OrderState::DELIVERED;
-            
-            lastDeliveredOrder = order;
-            lastDeliveredOrder.elapsedTime = 0.0f; // For screen
-            
-            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward << std::endl;
+            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward 
+                      << " | Stars: " << starsEarned << std::endl;
             
             it = activeOrders.erase(it);
             continue;
         }
         
         ++it;
+    }
+    
+    if (activeOrders.empty() && waitingOrder.state != OrderState::WAITING)
+    {
+        GenerateNewOrder();
     }
 }
 
@@ -547,10 +568,14 @@ void DeliverySystem::GenerateNewOrder()
     timeStar0 = timeStar1 * 1.5f; // Maximum limit to fail
     
     waitingOrder.timeLimit = timeStar0;
+    waitingOrder.timeGold = timeStar3;
+    waitingOrder.timeSilver = timeStar2;
+    waitingOrder.timeBronze = timeStar1;
     
     // Base reward (reduced for balance)
     initialReward = 35.0f + (distance * 0.35f);
     if (waitingOrder.difficulty == OrderDifficulty::HARD) initialReward *= 1.8f;
+    waitingOrder.baseDisplayReward = initialReward;
     
     // Set reward and type based on difficulty
     switch (waitingOrder.difficulty)
@@ -615,19 +640,11 @@ void DeliverySystem::OnWaterRespawn()
 
 void DeliverySystem::CalculateDetailedRewards(const DeliveryOrder& order, float& base, float& bonus, float& penCol, float& penWat, float& penTime) const
 {
-    base = initialReward; // Might be incorrect if multiple orders have different bases, but sticking to existing logic
-    // Wait, initialReward was global. We should use order.reward base or recalculate it.
-    // For now we use the order.reward as the base if it hasn't been modified, but the system modifies it...
-    // Actually, order.reward IS the initialReward calculated in GenerateNewOrder.
     base = order.reward;
     bonus = 0.0f;
     penCol = 0.0f;
     penWat = 0.0f;
     penTime = 0.0f;
-    
-    if (order.elapsedTime <= timeStar3) bonus = base * 0.50f;
-    else if (order.elapsedTime <= timeStar2) bonus = base * 0.25f;
-    else if (order.elapsedTime <= timeStar1) bonus = 0.0f;
     
     penCol = order.collisionCount * (base * 0.15f);
     penWat = order.waterCount * (base * 0.30f);
@@ -643,9 +660,20 @@ void DeliverySystem::CalculateDetailedRewards(const DeliveryOrder& order, float&
         }
     }
     
-    float limiteDoble = timeStar1 * 2.0f;
+    if (order.elapsedTime <= order.timeGold) {
+        bonus = base * 0.40f;
+    } else if (order.elapsedTime <= order.timeSilver) {
+        bonus = base * 0.20f;
+    } else if (order.elapsedTime <= order.timeBronze) {
+        bonus = base * 0.10f;
+    } else {
+        float overtime = order.elapsedTime - order.timeBronze;
+        penTime = overtime * 1.5f;
+    }
+
+    float limiteDoble = order.timeBronze * 2.0f;
     if (order.elapsedTime > limiteDoble) {
-        penTime = base * 0.50f;
+        penTime += base * 0.50f;
     }
 
     float gananciaTotal = base + bonus;
@@ -735,4 +763,12 @@ void DeliverySystem::RenderZoneText(Shader& shader, Camera& camera, const glm::v
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glBindVertexArray(0);
+}
+
+int DeliverySystem::GetStarsEarned(const DeliveryOrder& order) const
+{
+    if (order.elapsedTime <= order.timeGold) return 3;
+    if (order.elapsedTime <= order.timeSilver) return 2;
+    if (order.elapsedTime <= order.timeBronze) return 1;
+    return 0;
 }

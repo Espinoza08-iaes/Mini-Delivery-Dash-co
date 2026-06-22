@@ -31,7 +31,9 @@ public:
 private:
     void SetupGraphics();
     void SetupTextRendering();
+    void SetupStarGraphics();
     void LoadTextures();
+    void DrawStar(float cx, float cy, float radius, glm::vec3 color, unsigned int program, unsigned int vao, unsigned int vbo);
     void RenderCompassBar(float centerX, float centerY, float carYaw, const glm::vec3& objective, const glm::vec3& carPos, bool isPickup, const std::vector<CompassMarker>* additionalMarkers = nullptr);
     void RenderMissionPanel(const DeliverySystem& deliverySystem);
     void RenderDeliveryHUD(const DeliverySystem& deliverySystem, const CarState& car);
@@ -59,6 +61,15 @@ private:
     unsigned int textVAO;
     unsigned int textVBO;
     unsigned int textProgram;
+    unsigned int starVAO;
+    unsigned int starVBO;
+    unsigned int starProgram;
+    unsigned int uiTexProgram;
+    unsigned int missionPanelTex;
+    unsigned int successPanelTex;
+
+    void RenderTexturedQuad(unsigned int texID, float x, float y, float w, float h);
+    unsigned int LoadUITexture(const char* path);
 };
 
 #endif
