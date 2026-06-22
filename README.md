@@ -1,6 +1,6 @@
 # Mini Delivery Dash
 
-[![Watch the DEMO on YouTube](https://img.shields.io/badge/YouTube-Watch_Video-red?style=for-the-badge&logo=youtube)](YOUR_YOUTUBE_OR_VIMEO_LINK_HERE)
+[![Watch the DEMO on YouTube](https://img.shields.io/badge/YouTube-Watch_Video-red?style=for-the-badge&logo=youtube)](https://youtu.be/Qu6uDCl_sVg)
 
 **Mini Delivery Dash** is a 3D graphics and gameplay project built from scratch using C++ and OpenGL. The game focuses on an arcade-style driving experience where players navigate through a beautifully rendered 3D city to complete delivery missions. Players can earn money, visit the shop to upgrade their vehicle, and enjoy dynamic lighting, audio, and physics.
 
