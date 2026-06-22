@@ -461,6 +461,9 @@ namespace game
                                             : true;
             bool nonBlockingSurface = hasMaterialGroundHints && IsKnownCityNonBlockingGroundDetail(surfaceName);
 
+            std::string lowerName = ToLower(surfaceName);
+            bool isStrictlyStreet = ContainsExactOrTaggedMaterial(lowerName, "my_city_0facadetexture_60");
+
             for (size_t t = 0; t < indices.size(); t += 3)
             {
                 glm::vec3 a = glm::vec3(meshWorldMatrix * glm::vec4(vertices[indices[t]].position, 1.0f));
@@ -483,6 +486,7 @@ namespace game
                 tri.maxBounds = maxBounds;
                 tri.isRoad = materialAllowsGround && IsRoadTriangle(normal, minBounds, maxBounds, materialAllowsGround);
                 tri.nonBlockingSurface = nonBlockingSurface;
+                tri.isStrictlyStreet = isStrictlyStreet && tri.isRoad;
 
                 // Clasificación simple: carretera u obstáculo (sin agua)
             if (tri.isRoad)
@@ -556,6 +560,7 @@ namespace game
         glm::vec3 bestPoint = preferred;
         for (const auto &tri : mRoadTriangles)
         {
+            if (!tri.isStrictlyStreet) continue; // Only spawn on the actual street!
             glm::vec3 center = TriangleCenter(tri);
             float distSq = glm::dot(center - preferred, center - preferred);
             if (distSq < bestDistanceSq)

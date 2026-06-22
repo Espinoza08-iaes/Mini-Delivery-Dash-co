@@ -479,6 +479,7 @@ int Game::Run()
         
         // --- Traffic System ---
         TrafficSystem trafficSystem(&carModel);
+        trafficSystem.InitializePathfinder(city);
         
         // Set car state reference AFTER car is initialized
         // Will be set in game loop

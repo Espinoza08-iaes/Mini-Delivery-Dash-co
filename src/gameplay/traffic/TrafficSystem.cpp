@@ -5,10 +5,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 // ─── Tuning constants ───────────────────────────────────────────────────────
-constexpr float MAX_SPAWN_DIST   = 120.0f;
-constexpr float MIN_SPAWN_DIST   = 40.0f;
-constexpr float DESPAWN_DIST     = 160.0f;
-constexpr size_t MAX_NPCS        = 12;
+constexpr float MAX_SPAWN_DIST   = 90.0f;
+constexpr float MIN_SPAWN_DIST   = 25.0f;
+constexpr float DESPAWN_DIST     = 130.0f;
+constexpr size_t MAX_NPCS        = 35;
 
 // NPC driving params (same physics model as player car)
 constexpr float NPC_MAX_SPEED        = 5.5f;   // m/s  (relaxed cruise)
@@ -33,6 +33,10 @@ constexpr float POLICE_SPEED_MULT = 1.6f;
 TrafficSystem::TrafficSystem(Model* sharedCarModel)
     : mCarModel(sharedCarModel), wantedLevel(0), spawnTimer(0.0f)
 {
+}
+
+void TrafficSystem::InitializePathfinder(const City& city) {
+    mPathfinder.Initialize(city.GetPhysics().GetRoadTriangles(), city.GetWorldMinBounds(), city.GetWorldMaxBounds());
 }
 
 void TrafficSystem::AddWantedLevel(int amount)
@@ -74,96 +78,117 @@ void TrafficSystem::SpawnNPCNearPlayer(const glm::vec3& playerPos, const City& c
 {
     if (mActiveNPCs.size() >= MAX_NPCS) return;
 
-    // Try random directions around player to find a road spot
-    int failGround = 0, failCollision = 0, failRoad = 0;
-    for (int attempt = 0; attempt < 40; ++attempt)
-    {
-        float angle = (float)(rand() % 360) * 3.14159f / 180.0f;
-        float dist  = MIN_SPAWN_DIST + (float)(rand() % (int)(MAX_SPAWN_DIST - MIN_SPAWN_DIST));
+    // Strategy: Use the NavMesh to find a valid spawn point directly on the street.
+    // This guarantees the NPC starts on the actual road, not on a sidewalk.
+    glm::vec3 candidate;
+    bool foundSpawn = false;
+    
+    for (int attempt = 0; attempt < 30; ++attempt) {
+        glm::vec3 navPoint;
+        if (mPathfinder.IsInitialized()) {
+            navPoint = mPathfinder.GetRandomNavPoint();
+        } else {
+            // Fallback if no NavMesh
+            float angle = (float)(rand() % 360) * 3.14159f / 180.0f;
+            float dist  = MIN_SPAWN_DIST + (float)(rand() % (int)(MAX_SPAWN_DIST - MIN_SPAWN_DIST));
+            navPoint = playerPos + glm::vec3(cos(angle) * dist, 0.0f, sin(angle) * dist);
+        }
         
-        glm::vec3 candidate = playerPos + glm::vec3(cos(angle) * dist, 0.0f, sin(angle) * dist);
+        // Check distance to player (not too close, not too far)
+        float distToPlayer = glm::distance(glm::vec2(navPoint.x, navPoint.z), glm::vec2(playerPos.x, playerPos.z));
+        if (distToPlayer < MIN_SPAWN_DIST || distToPlayer > MAX_SPAWN_DIST) continue;
         
-        // Check there's actual ground here (very generous search)
+        // Get proper ground height
         game::GroundSample sample;
-        bool onRoad = city.GetGroundSample(candidate, playerPos.y + 10.0f, sample, 20.0f, 5.0f);
-        if (!onRoad || !sample.found) { failGround++; continue; }
+        bool onRoad = city.GetGroundSample(navPoint, navPoint.y + 10.0f, sample, 20.0f, 5.0f);
+        if (!onRoad || !sample.found) continue;
         
-        candidate.y = sample.height + kGroundClearance;
+        navPoint.y = sample.height + kGroundClearance;
         
         // Make sure it's not inside a building
-        if (city.CheckCollision(candidate, NPC_COLLISION_RADIUS)) { failCollision++; continue; }
+        if (city.CheckCollision(navPoint, NPC_COLLISION_RADIUS)) continue;
         
-        // Find best direction to face (pick direction with most open road)
-        float bestYaw = 0.0f;
-        float bestRoad = 0.0f;
-        for (int a = 0; a < 8; ++a)
+        candidate = navPoint;
+        foundSpawn = true;
+        break;
+    }
+    
+    if (!foundSpawn) return;
+    
+    // Find best direction to face (pick direction with most open road)
+    float bestYaw = 0.0f;
+    float bestRoad = 0.0f;
+    for (int a = 0; a < 8; ++a)
+    {
+        float testYaw = a * 3.14159f * 0.25f;
+        glm::vec3 testDir = glm::vec3(sin(testYaw), 0.0f, cos(testYaw));
+        float road = SenseRoad(city, candidate, testDir, 6.0f);
+        if (road > bestRoad)
         {
-            float testYaw = a * 3.14159f * 0.25f;
-            glm::vec3 testDir = glm::vec3(sin(testYaw), 0.0f, cos(testYaw));
-            float road = SenseRoad(city, candidate, testDir, 6.0f);
-            if (road > bestRoad)
-            {
-                bestRoad = road;
-                bestYaw = testYaw;
-            }
+            bestRoad = road;
+            bestYaw = testYaw;
         }
-        if (bestRoad < 1.5f) { failRoad++; continue; } // relaxed from 3.0 to 1.5
-        
-        // Good spawn point!
-        NPCCar npc;
-        
-        bool spawnPolice = (wantedLevel > 0) && ((rand() % 100) < (wantedLevel * 10));
-        if (spawnPolice) {
-            npc.type = NPCType::POLICE;
-            npc.color = glm::vec3(0.1f, 0.1f, 0.3f);
-            npc.policeState = PoliceState::CHASE;
-            npc.stateTimer = 0.0f;
-            npc.desiredSpeed = NPC_MAX_SPEED * POLICE_SPEED_MULT;
-        } else {
-            npc.type = NPCType::CIVILIAN;
-            // Nice car colors (not random soup)
-            const glm::vec3 palette[] = {
-                {0.85f, 0.12f, 0.12f}, // red
-                {0.10f, 0.10f, 0.80f}, // blue
-                {0.10f, 0.70f, 0.20f}, // green
-                {0.90f, 0.85f, 0.10f}, // yellow
-                {0.95f, 0.95f, 0.95f}, // white
-                {0.15f, 0.15f, 0.15f}, // black
-                {0.90f, 0.45f, 0.05f}, // orange
-                {0.50f, 0.05f, 0.60f}, // purple
-                {0.00f, 0.75f, 0.75f}, // teal
-                {0.55f, 0.27f, 0.07f}, // brown
-            };
-            npc.color = palette[rand() % 10];
-            npc.policeState = PoliceState::PATROL;
-            npc.stateTimer = 0.0f;
-            npc.desiredSpeed = NPC_MAX_SPEED * (0.7f + (rand() % 30) / 100.0f);
-        }
-        
-        npc.position = candidate;
-        npc.yaw = bestYaw;
-        npc.pitch = 0.0f;
-        npc.roll = 0.0f;
-        npc.speed = npc.desiredSpeed * 0.5f; // start moving
-        npc.verticalSpeed = 0.0f;
-        npc.steering = 0.0f;
-        npc.wheelSpin = 0.0f;
-        npc.steerInput = 0.0f;
-        npc.roadCheckTimer = 0.0f;
-        npc.stuckTimer = 0.0f;
-        npc.recovering = false;
-        npc.recoverTimer = 0.0f;
-        npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
-        
-        mActiveNPCs.push_back(npc);
-        std::cout << "[TRAFFIC] Spawned NPC at (" << candidate.x << ", " << candidate.y << ", " << candidate.z << ") road=" << bestRoad << "m" << std::endl;
-        return; // one per call
     }
-    // If we get here, all attempts failed
-    static int spawnFailCount = 0;
-    if (++spawnFailCount % 10 == 1) {
-        std::cout << "[TRAFFIC] Spawn failed (x" << spawnFailCount << ") ground=" << failGround << " collision=" << failCollision << " road=" << failRoad << " playerY=" << playerPos.y << std::endl;
+    if (bestRoad < 1.0f) return; // No good direction
+    
+    // Good spawn point!
+    NPCCar npc;
+    
+    bool spawnPolice = (wantedLevel > 0) && ((rand() % 100) < (wantedLevel * 10));
+    if (spawnPolice) {
+        npc.type = NPCType::POLICE;
+        npc.color = glm::vec3(0.1f, 0.1f, 0.3f);
+        npc.policeState = PoliceState::CHASE;
+        npc.stateTimer = 0.0f;
+        npc.desiredSpeed = NPC_MAX_SPEED * POLICE_SPEED_MULT;
+    } else {
+        npc.type = NPCType::CIVILIAN;
+        // Nice car colors (not random soup)
+        const glm::vec3 palette[] = {
+            {0.85f, 0.12f, 0.12f}, // red
+            {0.10f, 0.10f, 0.80f}, // blue
+            {0.10f, 0.70f, 0.20f}, // green
+            {0.90f, 0.85f, 0.10f}, // yellow
+            {0.95f, 0.95f, 0.95f}, // white
+            {0.15f, 0.15f, 0.15f}, // black
+            {0.90f, 0.45f, 0.05f}, // orange
+            {0.50f, 0.05f, 0.60f}, // purple
+            {0.00f, 0.75f, 0.75f}, // teal
+            {0.55f, 0.27f, 0.07f}, // brown
+        };
+        npc.color = palette[rand() % 10];
+        npc.policeState = PoliceState::PATROL;
+        npc.stateTimer = 0.0f;
     }
+    
+    npc.position = candidate;
+    npc.yaw = bestYaw;
+    npc.pitch = 0.0f;
+    npc.roll = 0.0f;
+    npc.cruiseSpeed = NPC_MAX_SPEED * (0.6f + (rand() % 30) / 100.0f);
+    npc.desiredSpeed = npc.cruiseSpeed;
+    npc.speed = npc.cruiseSpeed * 0.5f; // start moving
+    npc.verticalSpeed = 0.0f;
+    npc.steering = 0.0f;
+    npc.wheelSpin = 0.0f;
+    npc.steerInput = 0.0f;
+    npc.roadCheckTimer = 0.0f;
+    npc.stuckTimer = 0.0f;
+    npc.stuckCount = 0;
+    npc.recovering = false;
+    npc.recoverTimer = 0.0f;
+    npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
+    
+    npc.currentPathIndex = 0;
+    npc.failedPathCount = 0;
+    if (mPathfinder.IsInitialized()) {
+        glm::vec3 dest = mPathfinder.GetRandomNavPoint();
+        npc.currentPath = mPathfinder.FindPath(candidate, dest);
+    }
+    
+    mActiveNPCs.push_back(npc);
+    std::cout << "[TRAFFIC] Spawned NPC at (" << candidate.x << ", " << candidate.y << ", " << candidate.z << ") road=" << bestRoad << "m" << std::endl;
+    return; // one per call
 }
 
 void TrafficSystem::DespawnDistantNPCs(const glm::vec3& playerPos)
@@ -233,6 +258,32 @@ void TrafficSystem::Update(float dt, CarState& playerCar, const City& city)
         
         // 2. Apply the exact same physics as the player car
         UpdateNPCPhysics(npc, dt, city);
+        
+        // 3. Off-road correction: if NPC drifted off the NavMesh, snap it back
+        if (mPathfinder.IsInitialized() && !npc.recovering) {
+            if (!mPathfinder.IsOnNavMesh(npc.position, 4.0f)) {
+                // NPC has wandered off the road - snap back to nearest NavMesh point
+                glm::vec3 corrected = mPathfinder.FindNearestPointOnNavMesh(npc.position);
+                float snapDist = glm::distance(glm::vec2(npc.position.x, npc.position.z), glm::vec2(corrected.x, corrected.z));
+                if (snapDist < 15.0f && snapDist > 0.1f) {
+                    // Smoothly pull back toward the road
+                    npc.position.x = glm::mix(npc.position.x, corrected.x, 0.15f);
+                    npc.position.z = glm::mix(npc.position.z, corrected.z, 0.15f);
+                    // Also slow down to avoid overshooting again
+                    npc.desiredSpeed = std::min(npc.desiredSpeed, npc.cruiseSpeed * 0.3f);
+                } else if (snapDist >= 15.0f) {
+                    // Way too far off - mark for despawn by moving far away
+                    npc.position.y = 10000.0f;
+                }
+                
+                // Force repath after correction
+                if (npc.currentPath.empty() || npc.currentPathIndex >= (int)npc.currentPath.size()) {
+                    glm::vec3 dest = mPathfinder.GetRandomNavPoint();
+                    npc.currentPath = mPathfinder.FindPath(npc.position, dest);
+                    npc.currentPathIndex = 0;
+                }
+            }
+        }
     }
 }
 
@@ -378,47 +429,147 @@ void TrafficSystem::SteerCivilian(NPCCar& npc, float dt, const CarState& playerC
     glm::vec3 forward = glm::vec3(sin(npc.yaw), 0.0f, cos(npc.yaw));
     glm::vec3 right   = glm::vec3(cos(npc.yaw), 0.0f, -sin(npc.yaw));
 
-    // Periodically sense the road ahead
+    // Recovery mode overrides standard AI completely
+    if (npc.recovering) {
+        npc.recoverTimer -= dt;
+        npc.desiredSpeed = -NPC_MAX_SPEED * 0.4f; // Reverse slowly
+        npc.steerInput = npc.recoverTurnDir;      // Turn wheel hard while reversing
+        if (npc.recoverTimer <= 0.0f) {
+            npc.recovering = false;
+            npc.stuckTimer = 0.0f;
+            // Force repath so they don't drive right back into the wall
+            if (mPathfinder.IsInitialized()) {
+                glm::vec3 dest = mPathfinder.GetRandomNavPoint();
+                npc.currentPath = mPathfinder.FindPath(npc.position, dest);
+                npc.currentPathIndex = 0;
+            }
+        }
+        return; // Skip normal steering
+    }
+
+    // Follow path
+    if (mPathfinder.IsInitialized()) {
+        if (npc.currentPath.empty() || npc.currentPathIndex >= (int)npc.currentPath.size()) {
+            glm::vec3 dest = mPathfinder.GetRandomNavPoint();
+            npc.currentPath = mPathfinder.FindPath(npc.position, dest);
+            npc.currentPathIndex = 0;
+            npc.cruiseSpeed = NPC_MAX_SPEED * (0.6f + (rand() % 30) / 100.0f);
+            npc.desiredSpeed = npc.cruiseSpeed;
+            
+            if (npc.currentPath.empty()) {
+                npc.failedPathCount++;
+            } else {
+                npc.failedPathCount = 0;
+            }
+        }
+        
+        if (!npc.currentPath.empty() && npc.currentPathIndex < (int)npc.currentPath.size()) {
+            // === NavMesh path-following mode ===
+            glm::vec3 target = npc.currentPath[npc.currentPathIndex];
+            float distToTarget = glm::distance(glm::vec2(npc.position.x, npc.position.z), glm::vec2(target.x, target.z));
+            
+            if (distToTarget < 5.0f) {
+                npc.currentPathIndex++;
+                if (npc.currentPathIndex < (int)npc.currentPath.size()) {
+                    target = npc.currentPath[npc.currentPathIndex];
+                }
+            }
+            
+            if (npc.currentPathIndex < (int)npc.currentPath.size()) {
+                glm::vec3 toTarget = target - npc.position;
+                toTarget.y = 0.0f;
+                if (glm::length(toTarget) > 0.01f) {
+                    glm::vec3 dirToTarget = glm::normalize(toTarget);
+                    float cross = forward.x * dirToTarget.z - forward.z * dirToTarget.x;
+                    npc.steerInput = glm::clamp(-cross * 3.5f, -1.0f, 1.0f);
+                    
+                    // Corner Slowdown Logic
+                    float targetSpeed = npc.cruiseSpeed;
+                    float dotForward = glm::dot(forward, dirToTarget);
+                    
+                    if (distToTarget < 12.0f && npc.currentPathIndex + 1 < (int)npc.currentPath.size()) {
+                        glm::vec3 nextTarget = npc.currentPath[npc.currentPathIndex + 1];
+                        glm::vec3 dirToNext = glm::normalize(nextTarget - target);
+                        if (glm::dot(dirToTarget, dirToNext) < 0.8f) {
+                            targetSpeed = npc.cruiseSpeed * 0.35f;
+                        }
+                    }
+                    
+                    if (dotForward < 0.9f) {
+                        targetSpeed = std::min(targetSpeed, npc.cruiseSpeed * 0.4f);
+                    }
+                    
+                    npc.desiredSpeed = targetSpeed;
+                }
+            }
+        } else {
+            // === Sensor fallback mode (FindPath failed) ===
+            // Keep driving using road sensors instead of stopping dead.
+            npc.desiredSpeed = npc.cruiseSpeed * 0.5f;
+            // Steer toward the most open road direction
+            float roadLeft  = SenseRoad(city, npc.position, glm::normalize(forward - right * 0.5f), SENSE_DIST);
+            float roadRight = SenseRoad(city, npc.position, glm::normalize(forward + right * 0.5f), SENSE_DIST);
+            float bias = (roadLeft - roadRight) / SENSE_DIST;
+            npc.steerInput = glm::clamp(bias * 2.0f, -1.0f, 1.0f);
+            
+            // If we've failed to find a path too many times, mark for despawn
+            if (npc.failedPathCount > 5) {
+                std::cout << "[TRAFFIC] NPC despawned due to failed paths. Marking obstacle at " << npc.position.x << "," << npc.position.z << std::endl;
+                const_cast<Pathfinder&>(mPathfinder).MarkAreaAsObstacle(npc.position, 6.0f);
+                npc.position.y = 10000.0f; // Will be despawned by distance check
+            }
+        }
+    }
+
+    // Collision avoidance overlay
     npc.roadCheckTimer += dt;
     if (npc.roadCheckTimer >= SENSE_INTERVAL)
     {
         npc.roadCheckTimer = 0.0f;
         
-        // Sense forward, forward-left, forward-right
         float roadAhead = SenseRoad(city, npc.position, forward, SENSE_DIST);
+        float roadLeft  = SenseRoad(city, npc.position, glm::normalize(forward - right * 0.5f), SENSE_DIST);
+        float roadRight = SenseRoad(city, npc.position, glm::normalize(forward + right * 0.5f), SENSE_DIST);
         
-        glm::vec3 leftDir  = glm::normalize(forward - right * 0.5f);
-        glm::vec3 rightDir = glm::normalize(forward + right * 0.5f);
-        
-        float roadLeft  = SenseRoad(city, npc.position, leftDir,  SENSE_DIST);
-        float roadRight = SenseRoad(city, npc.position, rightDir, SENSE_DIST);
-        
-        // Decide steering
-        if (roadAhead < 3.5f) {
-            // Road ending / wall ahead – hard turn toward the better side
+        if (roadAhead < 3.0f) {
             if (roadLeft < 1.0f && roadRight < 1.0f) {
-                // Completely blocked
-                npc.steerInput = npc.recoverTurnDir; 
-                npc.desiredSpeed = 0.0f;
+                // Completely blocked - initiate recovery (reverse)
+                npc.recovering = true;
+                npc.recoverTimer = 1.5f + ((rand() % 10) / 10.0f); 
+                npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
             } else if (roadLeft > roadRight) {
-                npc.steerInput = 1.0f;   // turn left
+                npc.steerInput = 1.0f;
             } else {
-                npc.steerInput = -1.0f;  // turn right
+                npc.steerInput = -1.0f;
             }
-            npc.desiredSpeed = NPC_MAX_SPEED * 0.2f; // slow down for turn
-        }
-        else if (roadAhead < SENSE_DIST * 0.6f) {
-            // Road narrowing – gentle steer toward better side
+            npc.desiredSpeed = std::min(npc.desiredSpeed, NPC_MAX_SPEED * 0.2f);
+        } else if (roadAhead < SENSE_DIST * 0.6f) {
             float bias = (roadLeft - roadRight) / SENSE_DIST;
-            npc.steerInput = glm::clamp(bias * 2.0f, -1.0f, 1.0f);
-            npc.desiredSpeed = NPC_MAX_SPEED * 0.6f;
+            npc.steerInput = glm::clamp(npc.steerInput + bias * 2.0f, -1.0f, 1.0f);
+            npc.desiredSpeed = std::min(npc.desiredSpeed, NPC_MAX_SPEED * 0.4f);
         }
-        else {
-            // Road is clear – straighten out with slight bias
-            float bias = (roadLeft - roadRight) / SENSE_DIST;
-            npc.steerInput = glm::clamp(bias * 0.5f, -0.3f, 0.3f);
-            npc.desiredSpeed = NPC_MAX_SPEED * (0.7f + (rand() % 30) / 100.0f);
+    }
+
+    // General Stuck Detection (speed near 0 for too long)
+    if (std::abs(npc.speed) < 0.5f && npc.desiredSpeed > 0.3f) {
+        npc.stuckTimer += dt;
+        if (npc.stuckTimer > 2.0f) {
+            npc.stuckCount++;
+            if (npc.stuckCount > 3) {
+                // Hopelessly stuck for multiple recovery attempts
+                std::cout << "[TRAFFIC] Civilian hopelessly stuck. Marking obstacle at " << npc.position.x << "," << npc.position.z << std::endl;
+                const_cast<Pathfinder&>(mPathfinder).MarkAreaAsObstacle(npc.position, 8.0f);
+                npc.position.y = 10000.0f; // despawn
+            } else {
+                npc.recovering = true;
+                npc.recoverTimer = 1.5f;
+                npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
+                npc.stuckTimer = 0.0f;
+            }
         }
+    } else {
+        npc.stuckTimer = 0.0f;
+        if (npc.speed > 2.0f) npc.stuckCount = 0; // Reset if driving fine
     }
     
     // Brake for player car if ahead
@@ -426,18 +577,35 @@ void TrafficSystem::SteerCivilian(NPCCar& npc, float dt, const CarState& playerC
     if (distToPlayer < 12.0f) {
         glm::vec3 dirToPlayer = glm::normalize(playerCar.position - npc.position);
         if (glm::dot(forward, dirToPlayer) > 0.7f) {
-            npc.desiredSpeed = 0.0f;
+            // Don't go below 0.4 so the stuck detector can still trigger and they reverse
+            npc.desiredSpeed = std::max(0.4f, npc.desiredSpeed * 0.1f); 
         }
     }
     
-    // Brake for other NPCs ahead
+    // Brake for other NPCs ahead & Avoid Traffic Jams
     for (const auto& other : mActiveNPCs) {
         if (&other == &npc) continue;
         float d = glm::distance(npc.position, other.position);
-        if (d < 8.0f && d > 0.5f) {
+        if (d < 12.0f && d > 0.5f) {
             glm::vec3 dirToOther = glm::normalize(other.position - npc.position);
             if (glm::dot(forward, dirToOther) > 0.7f) {
-                npc.desiredSpeed = std::min(npc.desiredSpeed, other.speed * 0.8f);
+                glm::vec3 otherForward = glm::vec3(sin(other.yaw), 0.0f, cos(other.yaw));
+                
+                // If facing head-on, don't brake, just swerve!
+                if (glm::dot(forward, otherForward) < -0.5f) {
+                    float cross = forward.x * dirToOther.z - forward.z * dirToOther.x;
+                    if (cross > 0.0f) npc.steerInput = glm::clamp(npc.steerInput + 1.0f, -1.0f, 1.0f);
+                    else npc.steerInput = glm::clamp(npc.steerInput - 1.0f, -1.0f, 1.0f);
+                } else {
+                    // Traffic jam (same direction) - brake, but keep a minimum desiredSpeed 
+                    // so the stuck detector will eventually trigger and make them reverse/repath
+                    npc.desiredSpeed = std::max(0.4f, std::min(npc.desiredSpeed, other.speed * 0.8f));
+                    
+                    // Nudge slightly to the side to try to go around
+                    float cross = forward.x * dirToOther.z - forward.z * dirToOther.x;
+                    npc.steerInput += (cross > 0.0f) ? 0.3f : -0.3f;
+                    npc.steerInput = glm::clamp(npc.steerInput, -1.0f, 1.0f);
+                }
             }
         }
     }
@@ -457,6 +625,28 @@ void TrafficSystem::SteerPolice(NPCCar& npc, float dt, const CarState& playerCar
         npc.color = glm::vec3(0.1f, 0.1f, 0.3f);
     }
     else if (npc.policeState == PoliceState::CHASE) {
+        // Recovery logic for police cars
+        if (npc.recovering) {
+            npc.recoverTimer -= dt;
+            npc.desiredSpeed = -NPC_MAX_SPEED * 0.5f; // Police reverses slightly faster
+            npc.steerInput = npc.recoverTurnDir;
+            
+            // Siren still flashes while reversing
+            npc.stateTimer += dt;
+            npc.color = (fmod(npc.stateTimer, 0.4f) < 0.2f) ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+            
+            if (npc.recoverTimer <= 0.0f) {
+                npc.recovering = false;
+                npc.stuckTimer = 0.0f;
+                // Force path re-calc immediately
+                if (mPathfinder.IsInitialized()) {
+                    npc.currentPath = mPathfinder.FindPath(npc.position, playerCar.position);
+                    npc.currentPathIndex = 0;
+                }
+            }
+            return; // Skip normal steering
+        }
+
         // Siren flash
         npc.stateTimer += dt;
         npc.color = (fmod(npc.stateTimer, 0.4f) < 0.2f)
@@ -468,9 +658,43 @@ void TrafficSystem::SteerPolice(NPCCar& npc, float dt, const CarState& playerCar
         toPlayer.y = 0.0f;
         float dist = glm::length(toPlayer);
 
-        if (dist > 2.0f) {
+        if (dist > 15.0f && mPathfinder.IsInitialized()) {
+            // Pathfind to player if far
+            if (npc.currentPath.empty() || npc.roadCheckTimer > 1.0f) {
+                npc.currentPath = mPathfinder.FindPath(npc.position, playerCar.position);
+                npc.currentPathIndex = 0;
+                npc.roadCheckTimer = 0.0f; // Reuse timer for repath interval
+            }
+            npc.roadCheckTimer += dt;
+
+            if (!npc.currentPath.empty() && npc.currentPathIndex < (int)npc.currentPath.size()) {
+                glm::vec3 target = npc.currentPath[npc.currentPathIndex];
+                float distToTarget = glm::distance(glm::vec2(npc.position.x, npc.position.z), glm::vec2(target.x, target.z));
+                if (distToTarget < 5.0f) npc.currentPathIndex++;
+                
+                if (npc.currentPathIndex < (int)npc.currentPath.size()) {
+                    target = npc.currentPath[npc.currentPathIndex];
+                    glm::vec3 toTarget = target - npc.position;
+                    toTarget.y = 0.0f;
+                    if (glm::length(toTarget) > 0.01f) {
+                        glm::vec3 dirToTarget = glm::normalize(toTarget);
+                        float cross = forward.x * dirToTarget.z - forward.z * dirToTarget.x;
+                        npc.steerInput = glm::clamp(-cross * 4.0f, -1.0f, 1.0f);
+                        npc.desiredSpeed = NPC_MAX_SPEED * POLICE_SPEED_MULT + wantedLevel * 1.0f;
+                    }
+                }
+            } else {
+                // Path failed - drive toward player directly using sensors
+                if (dist > 0.1f) {
+                    glm::vec3 dirToPlayer = glm::normalize(toPlayer);
+                    float cross = forward.x * dirToPlayer.z - forward.z * dirToPlayer.x;
+                    npc.steerInput = glm::clamp(-cross * 3.0f, -1.0f, 1.0f);
+                    npc.desiredSpeed = NPC_MAX_SPEED * POLICE_SPEED_MULT * 0.5f;
+                }
+            }
+        } else if (dist > 2.0f) {
+            // Direct steering if close
             glm::vec3 dirToPlayer = glm::normalize(toPlayer);
-            // Cross product gives which side the player is on
             float cross = forward.x * dirToPlayer.z - forward.z * dirToPlayer.x;
             npc.steerInput = glm::clamp(-cross * 3.0f, -1.0f, 1.0f);
             npc.desiredSpeed = NPC_MAX_SPEED * POLICE_SPEED_MULT + wantedLevel * 1.0f;
@@ -481,12 +705,40 @@ void TrafficSystem::SteerPolice(NPCCar& npc, float dt, const CarState& playerCar
         
         // Still respect walls — sense ahead and override if wall
         float roadAhead = SenseRoad(city, npc.position, forward, 3.0f);
+        glm::vec3 right = glm::vec3(cos(npc.yaw), 0.0f, -sin(npc.yaw));
+        float roadLeft  = SenseRoad(city, npc.position, glm::normalize(forward - right * 0.5f), 3.0f);
+        float roadRight = SenseRoad(city, npc.position, glm::normalize(forward + right * 0.5f), 3.0f);
+        
         if (roadAhead < 1.5f) {
-            glm::vec3 right = glm::vec3(cos(npc.yaw), 0.0f, -sin(npc.yaw));
-            float roadLeft  = SenseRoad(city, npc.position, glm::normalize(forward - right * 0.5f), 3.0f);
-            float roadRight = SenseRoad(city, npc.position, glm::normalize(forward + right * 0.5f), 3.0f);
-            npc.steerInput = (roadLeft > roadRight) ? 1.0f : -1.0f;
-            npc.desiredSpeed = NPC_MAX_SPEED * 0.4f;
+            if (roadLeft < 1.0f && roadRight < 1.0f) {
+                npc.recovering = true;
+                npc.recoverTimer = 1.0f;
+                npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
+            } else {
+                npc.steerInput = (roadLeft > roadRight) ? 1.0f : -1.0f;
+                npc.desiredSpeed = std::min(npc.desiredSpeed, NPC_MAX_SPEED * 0.4f);
+            }
+        }
+        
+        // General Stuck Detection for police
+        if (std::abs(npc.speed) < 0.5f && npc.desiredSpeed > 0.3f) {
+            npc.stuckTimer += dt;
+            if (npc.stuckTimer > 1.0f) { // Police is less patient than civilians
+                npc.stuckCount++;
+                if (npc.stuckCount > 4) {
+                    std::cout << "[TRAFFIC] Police hopelessly stuck. Marking obstacle at " << npc.position.x << "," << npc.position.z << std::endl;
+                    const_cast<Pathfinder&>(mPathfinder).MarkAreaAsObstacle(npc.position, 8.0f);
+                    npc.position.y = 10000.0f; // despawn
+                } else {
+                    npc.recovering = true;
+                    npc.recoverTimer = 1.2f;
+                    npc.recoverTurnDir = (rand() % 2 == 0) ? 1.0f : -1.0f;
+                    npc.stuckTimer = 0.0f;
+                }
+            }
+        } else {
+            npc.stuckTimer = 0.0f;
+            if (npc.speed > 2.0f) npc.stuckCount = 0;
         }
     }
 }

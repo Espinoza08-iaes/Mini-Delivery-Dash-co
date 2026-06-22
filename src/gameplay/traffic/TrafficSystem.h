@@ -9,6 +9,7 @@
 #include "../../engine/graphics/Camera.h"
 #include "../vehicle/CarController.h"
 #include "../city/City.h"
+#include "Pathfinder.h"
 
 enum class NPCType {
     CIVILIAN,
@@ -35,6 +36,7 @@ struct NPCCar {
     float wheelSpin;
     
     // AI steering
+    float cruiseSpeed;
     float desiredSpeed;
     float steerInput;  // -1..+1 AI steering input
     
@@ -49,15 +51,25 @@ struct NPCCar {
     
     // Stuck recovery
     float stuckTimer;      // how long speed has been ~0
+    int stuckCount;        // how many times we've entered recovery consecutively
     bool recovering;       // currently doing a reverse+turn maneuver
     float recoverTimer;    // time left in recovery
     float recoverTurnDir;  // -1 or +1
+
+
+    // Pathfinding
+    std::vector<glm::vec3> currentPath;
+    int currentPathIndex;
+    int failedPathCount;   // how many times FindPath failed consecutively
+    glm::vec3 pathDestination;
 };
 
 class TrafficSystem {
 public:
     TrafficSystem(Model* sharedCarModel);
     
+    void InitializePathfinder(const City& city);
+
     void Update(float dt, CarState& playerCar, const City& city);
     void Render(Shader& shader, Camera& camera);
     
@@ -79,6 +91,7 @@ private:
     Model* mCarModel;
     std::vector<NPCCar> mActiveNPCs;
     
+    Pathfinder mPathfinder;
     int wantedLevel;
     float spawnTimer;
 };

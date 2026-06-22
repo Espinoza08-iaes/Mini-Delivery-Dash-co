@@ -17,6 +17,7 @@ namespace game
         glm::vec3 maxBounds;
         bool isRoad;
         bool nonBlockingSurface;
+        bool isStrictlyStreet;
     };
 
     struct GroundSample
