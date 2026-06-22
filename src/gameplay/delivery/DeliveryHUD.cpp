@@ -355,7 +355,7 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
             yOffset += 55.0f;
         }
         
-        yOffset += 40.0f;
+        yOffset += 25.0f;
         float total = order.reward + deliverySystem.finalBonusAmount - deliverySystem.finalLossCollision - deliverySystem.finalLossWater - deliverySystem.finalLossTime;
         snprintf(buf, sizeof(buf), "TOTAL EARNINGS: $%.0f", total);
         RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.4f, 0.0f, 3.0f);
