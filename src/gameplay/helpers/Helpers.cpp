@@ -50,8 +50,11 @@ bool InitializeWindow(GLFWwindow *&window, int &framebufferWidth, int &framebuff
         glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
         glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
         glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+        glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         
-        window = glfwCreateWindow(mode->width, mode->height, "Mini Delivery Dash", primaryMonitor, nullptr);
+        // IMPORTANT: Pass nullptr for monitor instead of primaryMonitor. 
+        // Exclusive fullscreen breaks Windows Game Bar recording.
+        window = glfwCreateWindow(mode->width, mode->height - 40, "Mini Delivery Dash", nullptr, nullptr);
     }
     else
     {
