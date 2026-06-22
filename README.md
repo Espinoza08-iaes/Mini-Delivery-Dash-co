@@ -91,14 +91,30 @@ Follow these step-by-step instructions to compile and play the game on your loca
 
 ## Standalone Executable (Play Without Compiling)
 
-If you just want to play the game without building it from source, you can use the pre-packaged executable:
+If you just want to play the game without building it from source, you can download the pre-packaged executable from the **Releases** tab on GitHub.
 
-1. **Extract the Game:** Unzip the provided `MiniDeliveryDash_Release.zip` into your preferred location (e.g., your Documents folder).
+1. **Extract the Game:** Unzip the downloaded `MiniDeliveryDash_Release.zip` into your preferred location (e.g., your Documents folder).
 2. **Important Rule:** Do **NOT** separate the `MiniDeliveryDash.exe` file from the `res/` folder. The executable requires the resources folder to be in the exact same directory to load models, textures, and audio correctly.
 3. **Play from Desktop:** To have the game accessible from your Desktop like a standard Windows application:
    - Right-click on the `MiniDeliveryDash.exe` file.
    - Select **Show more options** (on Windows 11) -> **Send to** -> **Desktop (create shortcut)**.
    - You will now have a neat shortcut on your Desktop with the game's icon. Double-click it to start playing!
+
+### How to Create the Windows Release Build (.zip)
+
+If you are a developer and want to generate this standalone `.zip` package yourself, use the following PowerShell commands from the project root:
+
+1. **Configure and Compile the Project:**
+   ```powershell
+   cmake -G "MinGW Makefiles" -B build
+   cmake --build build
+   ```
+
+2. **Package the Executable and Resources:**
+   Once the executable is generated in the `build/` folder, compress it alongside the `res/` folder into a `.zip` file:
+   ```powershell
+   Compress-Archive -Path "build\MiniDeliveryDash.exe", "res" -DestinationPath "MiniDeliveryDash_Release.zip" -Force
+   ```
 
 ## Screenshots
 
