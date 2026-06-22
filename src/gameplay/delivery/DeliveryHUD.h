@@ -40,6 +40,7 @@ private:
     void RenderHealthBar(float x, float y, float w, float h, float health);
     void RenderText(const char* text, float x, float y, float r, float g, float b, float scale = 1.0f);
     void RenderTextCentered(const char* text, float cx, float y, float r, float g, float b, float scale = 1.0f);
+    void RenderTextRight(const char* text, float rx, float y, float r, float g, float b, float scale = 1.0f);
     void RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a = 1.0f);
     void RenderBezelPanel(float x, float y, float w, float h, float borderPx = 3.0f);
     void RenderArc(float centerX, float centerY, float radius, float startAngle, float endAngle, float r, float g, float b, float a = 1.0f, int segments = 30);
@@ -67,9 +68,13 @@ private:
     unsigned int uiTexProgram;
     unsigned int missionPanelTex;
     unsigned int successPanelTex;
+    
+    unsigned int capturedBlurBg = 0;
+    bool wasShowingPanel = false;
 
     void RenderTexturedQuad(unsigned int texID, float x, float y, float w, float h);
     unsigned int LoadUITexture(const char* path);
+    void CaptureAndBlurBackground();
 };
 
 #endif

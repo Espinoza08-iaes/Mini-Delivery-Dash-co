@@ -94,6 +94,7 @@ DeliveryHUD::DeliveryHUD(GLFWwindow* w, int sw, int sh)
             vec2 fixedCoords = vec2(TexCoords.x, 1.0 - TexCoords.y);
             vec4 texColor = texture(image, fixedCoords);
             if(texColor.a < 0.1) discard;
+            if(texColor.r < 0.03 && texColor.g < 0.03 && texColor.b < 0.03) discard;
             FragColor = texColor;
         }
     )";
@@ -224,6 +225,26 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     int fbW, fbH;
     glfwGetFramebufferSize(window, &fbW, &fbH);
     
+    bool showSuccess = (deliverySystem.GetCurrentOrder().state == OrderState::DELIVERED);
+    bool showMission = (deliverySystem.HasWaitingOrder() && ShouldShowMissionPanel(deliverySystem, car));
+    bool isShowingPanel = showSuccess || showMission;
+    
+    if (isShowingPanel && !wasShowingPanel) {
+        CaptureAndBlurBackground();
+    }
+    if (!isShowingPanel && wasShowingPanel) {
+        if (capturedBlurBg) {
+            glDeleteTextures(1, &capturedBlurBg);
+            capturedBlurBg = 0;
+        }
+    }
+    wasShowingPanel = isShowingPanel;
+    
+    if (isShowingPanel && capturedBlurBg) {
+        RenderQuad(0, 0, (float)fbW, (float)fbH, capturedBlurBg);
+        RenderColoredQuad(0, 0, (float)fbW, (float)fbH, 0.0f, 0.0f, 0.0f, 0.5f);
+    }
+    
     // ============================================================
     // BOTTOM CENTER: Speedometer inside DashBoard_STB.png
     // ============================================================
@@ -285,7 +306,7 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     // Distance text below compass
     float distance = deliverySystem.GetDistanceToObjective(car);
     char distanceText[64];
-    snprintf(distanceText, sizeof(distanceText), "%.1f m", distance);
+    snprintf(distanceText, sizeof(distanceText), "%.1f M", distance);
     RenderTextCentered(distanceText, fbW / 2.0f, 110.0f, 1.0f, 1.0f, 1.0f, 2.0f);
     
     // Success screen
@@ -293,18 +314,27 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     {
         const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
         
-        float panelW = 1200.0f;
-        float panelH = 950.0f;
+        float panelW = 960.0f;
+        float panelH = 640.0f;
         float panelX = fbW / 2.0f - panelW / 2.0f;
         float panelY = fbH / 2.0f - panelH / 2.0f;
         
         RenderTexturedQuad(successPanelTex, panelX, panelY, panelW, panelH);
         
+        float boxX = panelX + panelW * 0.28f;
+        float boxW = panelW * 0.68f;
+        float boxY = panelY + panelH * 0.22f;
+        
+        float leftX = boxX + 40.0f;
+        float rightX = boxX + boxW - 40.0f;
+        float centerX = boxX + boxW * 0.5f;
+        
+        float yOffset = boxY + 20.0f;
+        
         int stars = order.starsEarned;
-        float starY = panelY + 350.0f;
-        float starRadius = 50.0f;
-        float starSpacing = 115.0f;
-        float starStartX = fbW / 2.0f - 150.0f;
+        float starRadius = 25.0f;
+        float starSpacing = 70.0f;
+        float starStartX = centerX - starSpacing;
         
         for (int i = 0; i < 3; ++i)
         {
@@ -320,47 +350,58 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
             {
                 starColor = glm::vec3(0.25f, 0.25f, 0.25f);
             }
-            DrawStar(starStartX + i * starSpacing, starY, starRadius, starColor, starProgram, starVAO, starVBO);
+            DrawStar(starStartX + i * starSpacing, yOffset, starRadius, starColor, starProgram, starVAO, starVBO);
         }
         
-        float yOffset = panelY + 460.0f;
+        yOffset += 60.0f;
         char buf[128];
         
-        snprintf(buf, sizeof(buf), "Delivery Time: %.1f sec", deliverySystem.finalElapsedTime);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.1f, 0.1f, 0.1f, 2.0f);
-        yOffset += 50.0f;
+        RenderColoredQuad(boxX + 20.0f, yOffset - 15.0f, boxW - 40.0f, 1.0f, 0.2f, 0.2f, 0.2f); // Separator
         
-        snprintf(buf, sizeof(buf), "Base Pay: $%.0f", order.reward);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.1f, 0.1f, 0.1f, 2.0f);
-        yOffset += 55.0f;
+        RenderText("DELIVERY TIME", leftX, yOffset, 0.7f, 0.7f, 0.7f, 1.6f);
+        snprintf(buf, sizeof(buf), "%.1f SEC", deliverySystem.finalElapsedTime);
+        RenderTextRight(buf, rightX, yOffset, 0.9f, 0.9f, 0.9f, 1.6f);
+        yOffset += 35.0f;
+        
+        RenderText("BASE PAY", leftX, yOffset, 0.7f, 0.7f, 0.7f, 1.6f);
+        snprintf(buf, sizeof(buf), "$%.0f", order.reward);
+        RenderTextRight(buf, rightX, yOffset, 0.9f, 0.9f, 0.9f, 1.6f);
+        yOffset += 30.0f;
         
         if (deliverySystem.finalBonusAmount > 0.0f) {
-            snprintf(buf, sizeof(buf), "+ Star Bonus: $%.0f", deliverySystem.finalBonusAmount);
-            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.4f, 0.0f, 2.0f);
-            yOffset += 55.0f;
+            RenderText("TIME BONUS", leftX, yOffset, 0.4f, 0.9f, 0.4f, 1.6f);
+            snprintf(buf, sizeof(buf), "+$%.0f", deliverySystem.finalBonusAmount);
+            RenderTextRight(buf, rightX, yOffset, 0.4f, 0.9f, 0.4f, 1.6f);
+            yOffset += 30.0f;
         }
         if (deliverySystem.finalLossCollision > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Collisions: $%.0f", deliverySystem.finalLossCollision);
-            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.6f, 0.0f, 0.0f, 2.0f);
-            yOffset += 55.0f;
+            RenderText("COLLISION PENALTY", leftX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            snprintf(buf, sizeof(buf), "-$%.0f", deliverySystem.finalLossCollision);
+            RenderTextRight(buf, rightX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            yOffset += 30.0f;
         }
         if (deliverySystem.finalLossWater > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Water Falls: $%.0f", deliverySystem.finalLossWater);
-            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.0f, 0.6f, 2.0f);
-            yOffset += 55.0f;
+            RenderText("WATER PENALTY", leftX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            snprintf(buf, sizeof(buf), "-$%.0f", deliverySystem.finalLossWater);
+            RenderTextRight(buf, rightX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            yOffset += 30.0f;
         }
         if (deliverySystem.finalLossTime > 0.0f) {
-            snprintf(buf, sizeof(buf), "- Late Penalty: $%.0f", deliverySystem.finalLossTime);
-            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.6f, 0.3f, 0.0f, 2.0f);
-            yOffset += 55.0f;
+            RenderText("LATE PENALTY", leftX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            snprintf(buf, sizeof(buf), "-$%.0f", deliverySystem.finalLossTime);
+            RenderTextRight(buf, rightX, yOffset, 0.9f, 0.4f, 0.4f, 1.6f);
+            yOffset += 30.0f;
         }
         
+        RenderColoredQuad(boxX + 20.0f, yOffset, boxW - 40.0f, 1.0f, 0.2f, 0.2f, 0.2f); // Separator
         yOffset += 25.0f;
-        float total = order.reward + deliverySystem.finalBonusAmount - deliverySystem.finalLossCollision - deliverySystem.finalLossWater - deliverySystem.finalLossTime;
-        snprintf(buf, sizeof(buf), "TOTAL EARNINGS: $%.0f", total);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.4f, 0.0f, 3.0f);
         
-        RenderTextCentered("Press [ENTER] to continue", fbW / 2.0f, panelY + panelH - 80.0f, 0.3f, 0.3f, 0.3f, 1.5f);
+        float total = order.reward + deliverySystem.finalBonusAmount - deliverySystem.finalLossCollision - deliverySystem.finalLossWater - deliverySystem.finalLossTime;
+        RenderText("TOTAL EARNINGS", leftX, yOffset, 0.9f, 0.6f, 0.1f, 2.0f);
+        snprintf(buf, sizeof(buf), "$%.0f", total);
+        RenderTextRight(buf, rightX, yOffset, 0.9f, 0.6f, 0.1f, 2.0f);
+        
+        RenderTextCentered("[E] CONTINUE", centerX, panelY + panelH - 85.0f, 0.5f, 0.5f, 0.5f, 1.3f);
     }
     else if (deliverySystem.HasWaitingOrder() && ShouldShowMissionPanel(deliverySystem, car))
     {
@@ -553,58 +594,83 @@ void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
     
     const DeliveryOrder& order = deliverySystem.GetWaitingOrder();
     
-    float panelW = 900.0f;
-    float panelH = 1000.0f;
+    float panelW = 960.0f;
+    float panelH = 640.0f;
     float panelX = fbW / 2.0f - panelW / 2.0f;
     float panelY = fbH / 2.0f - panelH / 2.0f;
     
     RenderTexturedQuad(missionPanelTex, panelX, panelY, panelW, panelH);
+    
+    float textScale = 1.6f;
+    
+    float boxX = panelX + panelW * 0.28f;
+    float boxW = panelW * 0.68f;
+    float boxY = panelY + panelH * 0.22f;
+    float centerX = boxX + boxW * 0.5f;
 
     char buf[256];
-    float yOffset = panelY + 300.0f;
-    float textX   = panelX + 300.0f;
-    float textScale = 1.8f;
-
-    snprintf(buf, sizeof(buf), "Destination: %s", order.destinationPosition.x != 999999.0f ? "Zone" : "None");
-    RenderText(buf, textX, yOffset, 0.8f, 0.8f, 1.0f, textScale);
-    yOffset += 50.0f;
-
-    float dist = glm::length(order.destinationPosition - order.originPosition);
-    snprintf(buf, sizeof(buf), "Distance: %.0f m", dist);
-    RenderText(buf, textX, yOffset, 0.9f, 0.9f, 0.9f, textScale);
-    yOffset += 50.0f;
-
-    if (order.type == OrderType::FRAGILE) {
-        RenderText("Type: FRAGILE!", textX, yOffset, 1.0f, 0.3f, 0.3f, textScale);
-    } else {
-        RenderText("Type: Normal", textX, yOffset, 0.7f, 1.0f, 0.7f, textScale);
-    }
-    yOffset += 60.0f;
-
-    RenderText("Target Times:", textX, yOffset, 1.0f, 0.8f, 0.0f, textScale);
+    float leftX = boxX + 40.0f;
+    float rightX = boxX + boxW - 40.0f;
+    
+    float yOffset = boxY + 40.0f;
+    
+    RenderText("DESTINATION", leftX, yOffset, 0.7f, 0.7f, 0.7f, textScale);
+    snprintf(buf, sizeof(buf), "%s", order.destinationPosition.x != 999999.0f ? "ZONE" : "NONE");
+    RenderTextRight(buf, rightX, yOffset, 0.9f, 0.9f, 0.9f, textScale);
     yOffset += 40.0f;
 
-    snprintf(buf, sizeof(buf), "*** %.0fs (Gold)", order.timeGold);
-    RenderText(buf, textX + 20.0f, yOffset, 1.0f, 0.84f, 0.0f, textScale);
-    yOffset += 38.0f;
+    float dist = glm::length(order.destinationPosition - order.originPosition);
+    RenderText("DISTANCE", leftX, yOffset, 0.7f, 0.7f, 0.7f, textScale);
+    snprintf(buf, sizeof(buf), "%.0f M", dist);
+    RenderTextRight(buf, rightX, yOffset, 0.9f, 0.9f, 0.9f, textScale);
+    yOffset += 40.0f;
 
-    snprintf(buf, sizeof(buf), "** %.0fs (Silver)", order.timeSilver);
-    RenderText(buf, textX + 20.0f, yOffset, 0.75f, 0.75f, 0.75f, textScale);
-    yOffset += 38.0f;
+    RenderText("CARGO TYPE", leftX, yOffset, 0.7f, 0.7f, 0.7f, textScale);
+    if (order.type == OrderType::FRAGILE) {
+        RenderTextRight("FRAGILE", rightX, yOffset, 0.9f, 0.4f, 0.4f, textScale);
+    } else {
+        RenderTextRight("STANDARD", rightX, yOffset, 0.9f, 0.9f, 0.9f, textScale);
+    }
+    yOffset += 30.0f;
 
-    snprintf(buf, sizeof(buf), "* %.0fs (Bronze)", order.timeBronze);
-    RenderText(buf, textX + 20.0f, yOffset, 0.8f, 0.5f, 0.2f, textScale);
-    yOffset += 55.0f;
+    RenderColoredQuad(boxX + 20.0f, yOffset, boxW - 40.0f, 1.0f, 0.2f, 0.2f, 0.2f); // Separator
+    yOffset += 30.0f;
+
+    RenderTextCentered("TARGET TIMES", centerX, yOffset, 0.9f, 0.6f, 0.1f, textScale);
+    yOffset += 40.0f;
+
+    snprintf(buf, sizeof(buf), "***");
+    RenderText(buf, leftX + 100.0f, yOffset, 1.0f, 0.84f, 0.0f, textScale);
+    snprintf(buf, sizeof(buf), "%.0fs", order.timeGold);
+    RenderTextRight(buf, rightX - 100.0f, yOffset, 1.0f, 0.84f, 0.0f, textScale);
+    yOffset += 35.0f;
+
+    snprintf(buf, sizeof(buf), "**");
+    RenderText(buf, leftX + 100.0f, yOffset, 0.8f, 0.8f, 0.8f, textScale);
+    snprintf(buf, sizeof(buf), "%.0fs", order.timeSilver);
+    RenderTextRight(buf, rightX - 100.0f, yOffset, 0.8f, 0.8f, 0.8f, textScale);
+    yOffset += 35.0f;
+
+    snprintf(buf, sizeof(buf), "*");
+    RenderText(buf, leftX + 100.0f, yOffset, 0.8f, 0.5f, 0.2f, textScale);
+    snprintf(buf, sizeof(buf), "%.0fs", order.timeBronze);
+    RenderTextRight(buf, rightX - 100.0f, yOffset, 0.8f, 0.5f, 0.2f, textScale);
+    yOffset += 30.0f;
+
+    RenderColoredQuad(boxX + 20.0f, yOffset, boxW - 40.0f, 1.0f, 0.2f, 0.2f, 0.2f); // Separator
+    yOffset += 30.0f;
 
     float payMult = ShopManager::GetInstance()->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
-    snprintf(buf, sizeof(buf), "Base Pay: $%.0f", order.baseDisplayReward * payMult);
-    RenderText(buf, textX, yOffset, 0.4f, 1.0f, 0.4f, 2.5f);
-    yOffset += 60.0f;
+    RenderText("BASE PAY", leftX, yOffset, 0.7f, 0.7f, 0.7f, 1.8f);
+    snprintf(buf, sizeof(buf), "$%.0f", order.baseDisplayReward * payMult);
+    RenderTextRight(buf, rightX, yOffset, 0.9f, 0.9f, 0.9f, 1.8f);
+    yOffset += 35.0f;
 
-    snprintf(buf, sizeof(buf), "Max Reward: $%.0f", (order.baseDisplayReward * payMult) * 1.4f);
-    RenderText(buf, textX, yOffset, 1.0f, 0.84f, 0.0f, 2.5f);
+    RenderText("MAX REWARD", leftX, yOffset, 0.4f, 0.9f, 0.4f, 1.8f);
+    snprintf(buf, sizeof(buf), "$%.0f", (order.baseDisplayReward * payMult) * 1.4f);
+    RenderTextRight(buf, rightX, yOffset, 0.4f, 0.9f, 0.4f, 1.8f);
 
-    RenderTextCentered("[E] Accept  [Q] Reject", fbW / 2.0f, panelY + panelH - 65.0f, 0.8f, 0.8f, 0.8f, 2.0f);
+    RenderTextCentered("[E] ACCEPT    [Q] REJECT", centerX, panelY + panelH - 85.0f, 0.5f, 0.5f, 0.5f, 1.3f);
 }
 
 // ======================================================================
@@ -810,6 +876,12 @@ void DeliveryHUD::RenderTextCentered(const char* text, float cx, float y, float 
     RenderText(text, cx - w * 0.5f, y, r, g, b, s);
 }
 
+void DeliveryHUD::RenderTextRight(const char* text, float rx, float y, float r, float g, float b, float s)
+{
+    float w = GetTextWidth(text, s);
+    RenderText(text, rx - w, y, r, g, b, s);
+}
+
 void DeliveryHUD::RenderColoredQuad(float x, float y, float w, float h, float r, float g, float b, float a)
 {
     glUseProgram(hudProgram);
@@ -947,4 +1019,79 @@ void DeliveryHUD::RenderTexturedQuad(unsigned int texID, float x, float y, float
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+}
+
+void DeliveryHUD::CaptureAndBlurBackground()
+{
+    if (capturedBlurBg != 0) {
+        glDeleteTextures(1, &capturedBlurBg);
+        capturedBlurBg = 0;
+    }
+    
+    int fbW, fbH;
+    glfwGetFramebufferSize(window, &fbW, &fbH);
+    
+    unsigned char* pixels = new unsigned char[fbW * fbH * 3];
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, fbW, fbH, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    
+    int downscale = 8;
+    int smallW = fbW / downscale;
+    int smallH = fbH / downscale;
+    if (smallW < 1) smallW = 1;
+    if (smallH < 1) smallH = 1;
+    
+    unsigned char* downsampled = new unsigned char[smallW * smallH * 3];
+    for (int y = 0; y < smallH; y++) {
+        for (int x = 0; x < smallW; x++) {
+            int srcX = x * downscale;
+            int srcY = y * downscale;
+            if (srcX >= fbW) srcX = fbW - 1;
+            if (srcY >= fbH) srcY = fbH - 1;
+            int idx = (srcY * fbW + srcX) * 3;
+            int didx = (y * smallW + x) * 3;
+            downsampled[didx] = pixels[idx];
+            downsampled[didx+1] = pixels[idx+1];
+            downsampled[didx+2] = pixels[idx+2];
+        }
+    }
+    delete[] pixels;
+    
+    unsigned char* blurred = new unsigned char[smallW * smallH * 3];
+    for (int y = 0; y < smallH; y++) {
+        for (int x = 0; x < smallW; x++) {
+            int r = 0, g = 0, b = 0, count = 0;
+            for (int dy = -2; dy <= 2; dy++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx >= 0 && nx < smallW && ny >= 0 && ny < smallH) {
+                        int didx = (ny * smallW + nx) * 3;
+                        r += downsampled[didx];
+                        g += downsampled[didx+1];
+                        b += downsampled[didx+2];
+                        count++;
+                    }
+                }
+            }
+            int dstIdx = (y * smallW + x) * 3;
+            blurred[dstIdx] = (unsigned char)(r / count);
+            blurred[dstIdx + 1] = (unsigned char)(g / count);
+            blurred[dstIdx + 2] = (unsigned char)(b / count);
+        }
+    }
+    delete[] downsampled;
+    
+    glGenTextures(1, &capturedBlurBg);
+    glBindTexture(GL_TEXTURE_2D, capturedBlurBg);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, smallW, smallH, 0, GL_RGB, GL_UNSIGNED_BYTE, blurred);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    delete[] blurred;
 }

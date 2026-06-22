@@ -135,11 +135,12 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             continue;
         }
         
-        bool nearDelivery = IsCarNearPoint(car.position, order.destinationPosition, deliveryDistanceThreshold);
-        if (nearDelivery && IsCarSpeedLow(car.speed, maxPickupSpeedKmh) && eKeyPressed)
+        if (order.state == OrderState::DROPPING_OFF)
         {
-            float base, bonus, penCol, penWat, penTime;
-            CalculateDetailedRewards(order, base, bonus, penCol, penWat, penTime);
+            if (!isAnimatingPackage)
+            {
+                float base, bonus, penCol, penWat, penTime;
+                CalculateDetailedRewards(order, base, bonus, penCol, penWat, penTime);
             
             ShopManager* shop = ShopManager::GetInstance();
             float payMultiplier = shop->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
@@ -179,10 +180,25 @@ void DeliverySystem::Update(float deltaTime, const CarState& car, bool eKeyPress
             totalLoss = penCol + penWat + penTime;
             finalElapsedTime = order.elapsedTime;
             
-            std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward 
-                      << " | Stars: " << starsEarned << std::endl;
-            
-            it = activeOrders.erase(it);
+                std::cout << "[DELIVERY] Order completed! Reward: $" << finalReward 
+                          << " | Stars: " << starsEarned << std::endl;
+                
+                it = activeOrders.erase(it);
+                continue;
+            }
+            ++it;
+            continue;
+        }
+        
+        bool nearDelivery = IsCarNearPoint(car.position, order.destinationPosition, deliveryDistanceThreshold);
+        if (nearDelivery && IsCarSpeedLow(car.speed, maxPickupSpeedKmh) && eKeyPressed)
+        {
+            packageAnimationStart = car.position + glm::vec3(0.0f, 1.0f, 0.0f);
+            packageAnimationEnd = order.destinationPosition;
+            packageAnimationTime = 0.0f;
+            isAnimatingPackage = true;
+            order.state = OrderState::DROPPING_OFF;
+            ++it;
             continue;
         }
         

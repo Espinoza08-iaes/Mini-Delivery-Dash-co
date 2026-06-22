@@ -25,6 +25,7 @@ enum class OrderState
 {
     WAITING,
     PICKED_UP,
+    DROPPING_OFF,
     DELIVERED,
     FAILED
 };

@@ -880,7 +880,9 @@ MainMenu::Result MainMenu::Show(bool pause, GameSettings* settings, AudioEngine*
             delete[] pixels;
             glGenTextures(1, &capturedBg);
             glBindTexture(GL_TEXTURE_2D, capturedBg);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, smallW, smallH, 0, GL_RGB, GL_UNSIGNED_BYTE, blurred);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
