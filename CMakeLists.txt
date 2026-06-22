@@ -14,10 +14,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_definitions(__STDC_LIMIT_MACROS)
 
 file(GLOB_RECURSE SOURCES
     "src/*.cpp"
 )
+
 
 add_executable(MiniDeliveryDash
     ${SOURCES}

@@ -37,7 +37,7 @@ public:
     const std::vector<DeliveryOrder>& GetActiveOrders() const { return activeOrders; }
     
     bool HasActiveOrder() const { return !activeOrders.empty(); }
-    bool HasWaitingOrder() const { return waitingOrder.state == OrderState::WAITING; }
+    bool HasWaitingOrder() const { return waitingOrder.state == OrderState::WAITING && activeOrders.empty(); }
     
     const DeliveryOrder* GetClosestActiveOrder(const glm::vec3& carPos) const;
     
@@ -82,6 +82,10 @@ public:
     
     // Getters for HUD access
     float GetInitialReward() const { return initialReward; }
+    int GetStarsEarned(const DeliveryOrder& order) const;
+    float GetTimeGold(const DeliveryOrder& order) const { return order.timeGold; }
+    float GetTimeSilver(const DeliveryOrder& order) const { return order.timeSilver; }
+    float GetTimeBronze(const DeliveryOrder& order) const { return order.timeBronze; }
     float GetTimeStar3() const { return timeStar3; }
     float GetTimeStar2() const { return timeStar2; }
     float GetTimeStar1() const { return timeStar1; }

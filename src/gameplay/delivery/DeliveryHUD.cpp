@@ -65,20 +65,55 @@ DeliveryHUD::DeliveryHUD(GLFWwindow* w, int sw, int sh)
     : window(w), width(sw), height(sh),
       quadVAO(0), quadVBO(0), hudProgram(0),
       textVAO(0), textVBO(0), textProgram(0),
+      starVAO(0), starVBO(0), starProgram(0),
+      uiTexProgram(0), missionPanelTex(0), successPanelTex(0),
       dashboardTexture(0), dashboardTexW(0), dashboardTexH(0),
       panelsTexture(0), panelsTexW(0), panelsTexH(0)
 {
     SetupGraphics();
     SetupTextRendering();
+    SetupStarGraphics();
     LoadTextures();
+    
+    const char* texVs = R"(#version 330 core
+        layout (location = 0) in vec2 aPos;
+        layout (location = 1) in vec2 aTex;
+        uniform mat4 proj;
+        uniform mat4 model;
+        out vec2 TexCoords;
+        void main() {
+            gl_Position = proj * model * vec4(aPos, 0.0, 1.0);
+            TexCoords = aTex;
+        }
+    )";
+    const char* texFs = R"(#version 330 core
+        in vec2 TexCoords;
+        out vec4 FragColor;
+        uniform sampler2D image;
+        void main() {
+            vec2 fixedCoords = vec2(TexCoords.x, 1.0 - TexCoords.y);
+            vec4 texColor = texture(image, fixedCoords);
+            if(texColor.a < 0.1) discard;
+            FragColor = texColor;
+        }
+    )";
+    uiTexProgram = compileShader(texVs, texFs);
+    
+    missionPanelTex = LoadUITexture("res/textures/MissionPanel.png");
+    successPanelTex = LoadUITexture("res/textures/SuccessfullPanel.png");
 }
 
 DeliveryHUD::~DeliveryHUD()
 {
     glDeleteVertexArrays(1, &quadVAO); glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &textVAO); glDeleteBuffers(1, &textVBO);
+    glDeleteVertexArrays(1, &starVAO); glDeleteBuffers(1, &starVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
     if (textProgram) glDeleteProgram(textProgram);
+    if (starProgram) glDeleteProgram(starProgram);
+    if (uiTexProgram) glDeleteProgram(uiTexProgram);
+    if (missionPanelTex) glDeleteTextures(1, &missionPanelTex);
+    if (successPanelTex) glDeleteTextures(1, &successPanelTex);
     if (dashboardTexture) glDeleteTextures(1, &dashboardTexture);
     if (panelsTexture) glDeleteTextures(1, &panelsTexture);
 }
@@ -155,6 +190,26 @@ void DeliveryHUD::SetupTextRendering()
         out vec4 frag; uniform vec4 uColor; void main(){ frag = uColor; })";
     textProgram = compileShader(vs, fs);
     glGenVertexArrays(1, &textVAO); glGenBuffers(1, &textVBO);
+}
+
+void DeliveryHUD::SetupStarGraphics()
+{
+    const char* vs = R"(#version 330 core
+        layout(location=0) in vec2 aPos;
+        uniform mat4 proj;
+        void main(){ gl_Position = proj * vec4(aPos, 0.0f, 1.0f); })";
+    const char* fs = R"(#version 330 core
+        out vec4 frag; uniform vec4 uColor;
+        void main(){ frag = uColor; })";
+    starProgram = compileShader(vs, fs);
+    glGenVertexArrays(1, &starVAO);
+    glGenBuffers(1, &starVBO);
+    glBindVertexArray(starVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, starVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 200, nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glBindVertexArray(0);
 }
 
 // ======================================================================
@@ -238,54 +293,74 @@ void DeliveryHUD::Render(const DeliverySystem& deliverySystem, const CarState& c
     {
         const DeliveryOrder& order = deliverySystem.GetCurrentOrder();
         
-        RenderColoredQuad(fbW / 2.0f - 350.0f, fbH / 2.0f - 250.0f, 700.0f, 500.0f, 0.1f, 0.4f, 0.1f, 0.95f);
-        RenderTextCentered("DELIVERY SUCCESSFUL!", fbW / 2.0f, fbH / 2.0f - 200.0f, 0.2f, 1.0f, 0.2f, 2.5f);
+        float panelW = 1200.0f;
+        float panelH = 950.0f;
+        float panelX = fbW / 2.0f - panelW / 2.0f;
+        float panelY = fbH / 2.0f - panelH / 2.0f;
         
-        float yOffset = fbH / 2.0f - 130.0f;
+        RenderTexturedQuad(successPanelTex, panelX, panelY, panelW, panelH);
+        
+        int stars = order.starsEarned;
+        float starY = panelY + 350.0f;
+        float starRadius = 50.0f;
+        float starSpacing = 115.0f;
+        float starStartX = fbW / 2.0f - 150.0f;
+        
+        for (int i = 0; i < 3; ++i)
+        {
+            glm::vec3 starColor;
+            if (i < stars)
+            {
+                if (stars == 3) starColor = glm::vec3(1.0f, 0.84f, 0.0f);
+                else if (stars == 2) starColor = glm::vec3(0.9f, 0.9f, 0.9f);
+                else if (stars == 1) starColor = glm::vec3(0.8f, 0.5f, 0.2f);
+                else starColor = glm::vec3(1.0f, 0.1f, 0.1f);
+            }
+            else
+            {
+                starColor = glm::vec3(0.25f, 0.25f, 0.25f);
+            }
+            DrawStar(starStartX + i * starSpacing, starY, starRadius, starColor, starProgram, starVAO, starVBO);
+        }
+        
+        float yOffset = panelY + 460.0f;
         char buf[128];
         
-        const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "Easy" : 
-                              (order.difficulty == OrderDifficulty::MEDIUM) ? "Medium" : "Hard";
-        const char* typeStr = (order.type == OrderType::STANDARD) ? "Standard" : 
-                              (order.type == OrderType::FRAGILE) ? "Fragile" : "Special";
-        
-        snprintf(buf, sizeof(buf), "Difficulty: %s  |  Type: %s", diffStr, typeStr);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
-        yOffset += 30.0f;
-        
         snprintf(buf, sizeof(buf), "Delivery Time: %.1f sec", deliverySystem.finalElapsedTime);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
+        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.1f, 0.1f, 0.1f, 2.0f);
         yOffset += 50.0f;
         
-        snprintf(buf, sizeof(buf), "Base Pay: $%.0f", deliverySystem.GetInitialReward());
-        RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 1.0f, 1.0f, 1.5f);
-        yOffset += 35.0f;
+        snprintf(buf, sizeof(buf), "Base Pay: $%.0f", order.reward);
+        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.1f, 0.1f, 0.1f, 2.0f);
+        yOffset += 55.0f;
         
         if (deliverySystem.finalBonusAmount > 0.0f) {
             snprintf(buf, sizeof(buf), "+ Star Bonus: $%.0f", deliverySystem.finalBonusAmount);
-            RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.8f, 0.0f, 1.5f);
-            yOffset += 35.0f;
+            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.4f, 0.0f, 2.0f);
+            yOffset += 55.0f;
         }
         if (deliverySystem.finalLossCollision > 0.0f) {
             snprintf(buf, sizeof(buf), "- Collisions: $%.0f", deliverySystem.finalLossCollision);
-            RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.3f, 0.3f, 1.5f);
-            yOffset += 35.0f;
+            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.6f, 0.0f, 0.0f, 2.0f);
+            yOffset += 55.0f;
         }
         if (deliverySystem.finalLossWater > 0.0f) {
             snprintf(buf, sizeof(buf), "- Water Falls: $%.0f", deliverySystem.finalLossWater);
-            RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 0.3f, 0.7f, 1.0f, 1.5f);
-            yOffset += 35.0f;
+            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.0f, 0.6f, 2.0f);
+            yOffset += 55.0f;
         }
         if (deliverySystem.finalLossTime > 0.0f) {
             snprintf(buf, sizeof(buf), "- Late Penalty: $%.0f", deliverySystem.finalLossTime);
-            RenderText(buf, fbW / 2.0f - 250.0f, yOffset, 1.0f, 0.5f, 0.2f, 1.5f);
-            yOffset += 35.0f;
+            RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.6f, 0.3f, 0.0f, 2.0f);
+            yOffset += 55.0f;
         }
         
-        yOffset += 20.0f;
-        snprintf(buf, sizeof(buf), "TOTAL EARNINGS: $%.0f", order.reward);
-        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.2f, 1.0f, 0.2f, 2.2f);
-        RenderTextCentered("[E] Accept", fbW / 2.0f, fbH / 2.0f + 200.0f, 0.8f, 0.8f, 0.8f, 1.6f);
+        yOffset += 40.0f;
+        float total = order.reward + deliverySystem.finalBonusAmount - deliverySystem.finalLossCollision - deliverySystem.finalLossWater - deliverySystem.finalLossTime;
+        snprintf(buf, sizeof(buf), "TOTAL EARNINGS: $%.0f", total);
+        RenderTextCentered(buf, fbW / 2.0f, yOffset, 0.0f, 0.4f, 0.0f, 3.0f);
+        
+        RenderTextCentered("Press [ENTER] to continue", fbW / 2.0f, panelY + panelH - 80.0f, 0.3f, 0.3f, 0.3f, 1.5f);
     }
     else if (deliverySystem.HasWaitingOrder() && ShouldShowMissionPanel(deliverySystem, car))
     {
@@ -478,45 +553,58 @@ void DeliveryHUD::RenderMissionPanel(const DeliverySystem& deliverySystem)
     
     const DeliveryOrder& order = deliverySystem.GetWaitingOrder();
     
-    float panelW = 450.0f, panelH = 380.0f;
+    float panelW = 900.0f;
+    float panelH = 1000.0f;
     float panelX = fbW / 2.0f - panelW / 2.0f;
     float panelY = fbH / 2.0f - panelH / 2.0f;
     
-    RenderColoredQuad(panelX, panelY, panelW, panelH, 0.05f, 0.05f, 0.1f, 0.98f);
-    RenderColoredQuad(panelX, panelY, panelW, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX, panelY + panelH - 3.0f, panelW, 3.0f, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX, panelY, 3.0f, panelH, 1.0f, 0.6f, 0.0f, 1.0f);
-    RenderColoredQuad(panelX + panelW - 3.0f, panelY, 3.0f, panelH, 1.0f, 0.6f, 0.0f, 1.0f);
-    
-    RenderColoredQuad(panelX + 5.0f, panelY + 5.0f, panelW - 10.0f, 40.0f, 0.15f, 0.15f, 0.2f, 0.9f);
-    RenderTextCentered("INSPECT MISSION", fbW / 2.0f, panelY + 35.0f, 1.0f, 0.8f, 0.0f, 2.2f);
-    
-    const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGILE" : "STANDARD";
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Type: %s", typeStr);
-    RenderText(buf, panelX + 20.0f, panelY + 70.0f, 1.0f, 1.0f, 1.0f, 1.8f);
-    
-    const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "EASY" : 
-                          (order.difficulty == OrderDifficulty::MEDIUM) ? "MEDIUM" : "HARD";
-    snprintf(buf, sizeof(buf), "Difficulty: %s", diffStr);
-    RenderText(buf, panelX + 20.0f, panelY + 105.0f, 1.0f, 1.0f, 1.0f, 1.8f);
-    
-    snprintf(buf, sizeof(buf), "Time: %.0f sec", order.timeLimit);
-    RenderText(buf, panelX + 20.0f, panelY + 140.0f, 1.0f, 1.0f, 1.0f, 1.8f);
-    
-    float yOffset = panelY + 180.0f;
-    char star3[64], star2[64], star1[64];
-    snprintf(star3, sizeof(star3), "*** Gold:   < %.1f sec", deliverySystem.GetTimeStar3());
-    snprintf(star2, sizeof(star2), "**  Silver:  < %.1f sec", deliverySystem.GetTimeStar2());
-    snprintf(star1, sizeof(star1), "*   Bronze: < %.1f sec", deliverySystem.GetTimeStar1());
-    RenderText(star3, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 1.2f); yOffset += 25.0f;
-    RenderText(star2, panelX + 20.0f, yOffset, 0.8f, 0.8f, 0.8f, 1.2f); yOffset += 25.0f;
-    RenderText(star1, panelX + 20.0f, yOffset, 0.8f, 0.5f, 0.2f, 1.2f); yOffset += 30.0f;
-    
-    snprintf(buf, sizeof(buf), "Max Reward: $%.0f", order.reward);
-    RenderText(buf, panelX + 20.0f, yOffset, 1.0f, 0.8f, 0.0f, 2.0f);
-    
-    RenderTextCentered("[E] Accept  [Q] Reject", fbW / 2.0f, panelY + panelH + 20.0f, 0.8f, 0.8f, 0.8f, 1.4f);
+    RenderTexturedQuad(missionPanelTex, panelX, panelY, panelW, panelH);
+
+    char buf[256];
+    float yOffset = panelY + 300.0f;
+    float textX   = panelX + 300.0f;
+    float textScale = 1.8f;
+
+    snprintf(buf, sizeof(buf), "Destination: %s", order.destinationPosition.x != 999999.0f ? "Zone" : "None");
+    RenderText(buf, textX, yOffset, 0.8f, 0.8f, 1.0f, textScale);
+    yOffset += 50.0f;
+
+    float dist = glm::length(order.destinationPosition - order.originPosition);
+    snprintf(buf, sizeof(buf), "Distance: %.0f m", dist);
+    RenderText(buf, textX, yOffset, 0.9f, 0.9f, 0.9f, textScale);
+    yOffset += 50.0f;
+
+    if (order.type == OrderType::FRAGILE) {
+        RenderText("Type: FRAGILE!", textX, yOffset, 1.0f, 0.3f, 0.3f, textScale);
+    } else {
+        RenderText("Type: Normal", textX, yOffset, 0.7f, 1.0f, 0.7f, textScale);
+    }
+    yOffset += 60.0f;
+
+    RenderText("Target Times:", textX, yOffset, 1.0f, 0.8f, 0.0f, textScale);
+    yOffset += 40.0f;
+
+    snprintf(buf, sizeof(buf), "*** %.0fs (Gold)", order.timeGold);
+    RenderText(buf, textX + 20.0f, yOffset, 1.0f, 0.84f, 0.0f, textScale);
+    yOffset += 38.0f;
+
+    snprintf(buf, sizeof(buf), "** %.0fs (Silver)", order.timeSilver);
+    RenderText(buf, textX + 20.0f, yOffset, 0.75f, 0.75f, 0.75f, textScale);
+    yOffset += 38.0f;
+
+    snprintf(buf, sizeof(buf), "* %.0fs (Bronze)", order.timeBronze);
+    RenderText(buf, textX + 20.0f, yOffset, 0.8f, 0.5f, 0.2f, textScale);
+    yOffset += 55.0f;
+
+    float payMult = ShopManager::GetInstance()->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
+    snprintf(buf, sizeof(buf), "Base Pay: $%.0f", order.baseDisplayReward * payMult);
+    RenderText(buf, textX, yOffset, 0.4f, 1.0f, 0.4f, 2.5f);
+    yOffset += 60.0f;
+
+    snprintf(buf, sizeof(buf), "Max Reward: $%.0f", (order.baseDisplayReward * payMult) * 1.4f);
+    RenderText(buf, textX, yOffset, 1.0f, 0.84f, 0.0f, 2.5f);
+
+    RenderTextCentered("[E] Accept  [Q] Reject", fbW / 2.0f, panelY + panelH - 65.0f, 0.8f, 0.8f, 0.8f, 2.0f);
 }
 
 // ======================================================================
@@ -534,9 +622,47 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem, const 
     float hudX = 20.0f;
     float hudY = 80.0f;
     
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Time: %.1f / %.1f sec", order.elapsedTime, order.timeLimit);
-    RenderText(buf, hudX, hudY, 1.0f, 1.0f, 1.0f, 1.8f);
+    // Stars display
+    int stars = deliverySystem.GetStarsEarned(order);
+    float starY = 20.0f;
+    float starRadius = 14.0f;
+    float starSpacing = 36.0f;
+    float starStartX = 20.0f;
+    
+    for (int i = 0; i < 3; ++i)
+    {
+        glm::vec3 starColor;
+        if (i < stars)
+        {
+            if (stars == 3) starColor = glm::vec3(1.0f, 0.84f, 0.0f);
+            else if (stars == 2) starColor = glm::vec3(0.9f, 0.9f, 0.9f);
+            else if (stars == 1) starColor = glm::vec3(0.8f, 0.5f, 0.2f);
+            else starColor = glm::vec3(1.0f, 0.1f, 0.1f);
+        }
+        else
+        {
+            starColor = glm::vec3(0.25f, 0.25f, 0.25f);
+        }
+        DrawStar(starStartX + i * starSpacing, starY, starRadius, starColor, starProgram, starVAO, starVBO);
+    }
+    
+    // Tier text
+    const char* tierName = "PENALIZACION";
+    float nextTarget = order.timeLimit;
+    if (order.elapsedTime <= order.timeGold) { tierName = "TIEMPO ORO"; nextTarget = order.timeGold; }
+    else if (order.elapsedTime <= order.timeSilver) { tierName = "TIEMPO PLATA"; nextTarget = order.timeSilver; }
+    else if (order.elapsedTime <= order.timeBronze) { tierName = "TIEMPO BRONCE"; nextTarget = order.timeBronze; }
+    
+    float timeLeft = nextTarget - order.elapsedTime;
+    if (timeLeft < 0.0f) timeLeft = 0.0f;
+    
+    char buf[256];
+    snprintf(buf, sizeof(buf), "%s: %.1f s", tierName, timeLeft);
+    RenderText(buf, starStartX, starY + starRadius + 8.0f, 1.0f, 1.0f, 1.0f, 1.4f);
+    
+    char buf2[128];
+    snprintf(buf2, sizeof(buf2), "Time: %.1f / %.1f sec", order.elapsedTime, order.timeLimit);
+    RenderText(buf2, hudX, hudY, 1.0f, 1.0f, 1.0f, 1.8f);
     
     const char* typeStr = (order.type == OrderType::FRAGILE) ? "FRAGILE" : "STANDARD";
     const char* diffStr = (order.difficulty == OrderDifficulty::EASY) ? "EASY" : 
@@ -563,16 +689,20 @@ void DeliveryHUD::RenderDeliveryHUD(const DeliverySystem& deliverySystem, const 
     
     float b, bon, pC, pW, pT;
     deliverySystem.CalculateDetailedRewards(order, b, bon, pC, pW, pT);
-    float estimatedGain = b + bon - pC - pW - pT;
+    float payMult = ShopManager::GetInstance()->GetUpgradeMultiplier(UpgradeType::PayPerDelivery);
+    
+    b *= payMult;
+    pC *= payMult;
+    pW *= payMult;
+    pT *= payMult;
+    
+    float estimatedGain = b - pC - pW - pT;
     if (estimatedGain < 0.0f) estimatedGain = 0.0f;
     
     snprintf(buf, sizeof(buf), "Earnings: $%.0f", estimatedGain);
     RenderText(buf, hudX, hudY + 110.0f, 0.0f, 0.9f, 0.0f, 2.0f);
     
     float collisionLoss = pC + pW + pT;
-    float maxLoss = b + bon;
-    collisionLoss = std::min(collisionLoss, maxLoss);
-    
     if (collisionLoss > 0.0f)
     {
         snprintf(buf, sizeof(buf), "Loss: -$%.0f", collisionLoss);
@@ -608,6 +738,38 @@ bool DeliveryHUD::TryRejectMission(DeliverySystem& deliverySystem, bool qKeyPres
         return true;
     }
     return false;
+}
+
+void DeliveryHUD::DrawStar(float cx, float cy, float radius, glm::vec3 color, unsigned int program, unsigned int vao, unsigned int vbo)
+{
+    std::vector<float> vertices;
+    vertices.reserve(24);
+    vertices.push_back(cx);
+    vertices.push_back(cy);
+    
+    const float PI = 3.14159265359f;
+    float innerRadius = radius * 0.382f;
+    
+    for (int i = 0; i <= 10; ++i)
+    {
+        float angle = (PI / 2.0f) - (i * PI / 5.0f);
+        float r = (i % 2 == 0) ? radius : innerRadius;
+        vertices.push_back(cx + std::cos(angle) * r);
+        vertices.push_back(cy - std::sin(angle) * r);
+    }
+    
+    glUseProgram(program);
+    int fbW, fbH;
+    glfwGetFramebufferSize(window, &fbW, &fbH);
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f);
+    glUniformMatrix4fv(glGetUniformLocation(program, "proj"), 1, GL_FALSE, &proj[0][0]);
+    glUniform4f(glGetUniformLocation(program, "uColor"), color.r, color.g, color.b, 1.0f);
+    
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(vertices.size() / 2));
+    glBindVertexArray(0);
 }
 
 void DeliveryHUD::RenderHealthBar(float x, float y, float w, float h, float health)
@@ -724,4 +886,65 @@ void DeliveryHUD::RenderArc(float centerX, float centerY, float radius, float st
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, (void*)0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
+}
+
+unsigned int DeliveryHUD::LoadUITexture(const char* path)
+{
+    unsigned int tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    int w, h, nrChannels;
+    unsigned char *data = stbi_load(path, &w, &h, &nrChannels, 0);
+    if (data) {
+        GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cout << "[ERROR] Falló al cargar textura UI: " << path << std::endl;
+    }
+    stbi_image_free(data);
+    return tex;
+}
+
+void DeliveryHUD::RenderTexturedQuad(unsigned int texID, float x, float y, float w, float h)
+{
+    glUseProgram(uiTexProgram);
+    int fbW, fbH; glfwGetFramebufferSize(window, &fbW, &fbH);
+    glm::mat4 proj = glm::ortho(0.f, (float)fbW, (float)fbH, 0.f, -1.f, 1.f);
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+    model = glm::scale(model, glm::vec3(w, h, 1.0f));
+
+    glUniformMatrix4fv(glGetUniformLocation(uiTexProgram, "proj"), 1, GL_FALSE, &proj[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(uiTexProgram, "model"), 1, GL_FALSE, &model[0][0]);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texID);
+    glUniform1i(glGetUniformLocation(uiTexProgram, "image"), 0);
+
+    static unsigned int vao = 0, vbo = 0;
+    if (vao == 0) {
+        float verts[] = {
+            0.f, 1.f,   0.f, 1.f,
+            1.f, 0.f,   1.f, 0.f,
+            0.f, 0.f,   0.f, 0.f,
+            0.f, 1.f,   0.f, 1.f,
+            1.f, 1.f,   1.f, 1.f,
+            1.f, 0.f,   1.f, 0.f
+        };
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0); glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1); glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    }
+    glBindVertexArray(vao);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
